@@ -14,9 +14,9 @@ look at some of these issues:
 - [Issues labeled "good first issue"][good-first-issue]
 - [Issues labeled "help wanted"][help-wanted]
 
-[contributing]: blob/master/.github/CONTRIBUTING.md
-[good-first-issue]: labels/good%20first%20issue
-[help-wanted]: labels/help%20wanted
+[contributing]: .github/CONTRIBUTING.md
+[good-first-issue]: /labels/good%20first%20issue
+[help-wanted]: /labels/help%20wanted
 
 ## License
 
