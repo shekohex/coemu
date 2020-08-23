@@ -1,0 +1,16 @@
+[package]
+name = "tq-serde"
+version = "0.1.0"
+authors = ["Shady Khalifa <shekohex@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+thiserror = "1.0.20"
+bytes = "0.5.6"
+serde = { version = "1.0.115" }
+encoding = "0.2.33"
+crypto = { path = "../crypto" }
+
+[dev-dependencies]
+serde = { version = "1.0.115", features = ["derive"] }
+
