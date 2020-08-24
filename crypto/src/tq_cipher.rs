@@ -1,3 +1,15 @@
+//! This cipher algorithm is implemented in the Account Server for all patches
+//! above 4232, and in the game server for patches 4232 - 5017. The cipher was
+//! replaced in the game server in patch 5018 by Blowfish. Keys in this
+//! implementation are targeted at the Conquer Online game client. This
+//! implementation was programmed by [CptSky][1] in his [COPS v6][2] project.
+//!
+//! For More info see ConquerWiki page about [TQ Digital Server Asymmetric
+//! Cipher][3].
+//!
+//! [1]: https://www.elitepvpers.com/forum/members/568265-cptsky.html
+//! [2]: https://www.elitepvpers.com/forum/co2-pserver-guides-releases/2402439-cops-v6-source-tools-custom-emulator.html
+//! [3]: https://www.forum.darkfoxdeveloper.com/conquerwiki/doku.php?id=conqueronlineserverasymmetriccipher
 use crate::Cipher;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::fmt;

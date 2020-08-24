@@ -1,3 +1,24 @@
+//! RC5 is implemented in the Account Server for password verification. It was
+//! removed around patch 5528, but can be reimplemented using hooks. Keys found
+//! in this implementation are targeted for the Conquer Online game client. This
+//! implementation was programmed by [CptSky][1] in his [COPS v6][2]
+//! project.
+//!
+//! [1]: https://www.elitepvpers.com/forum/members/568265-cptsky.html
+//! [2]: https://www.elitepvpers.com/forum/co2-pserver-guides-releases/2402439-cops-v6-source-tools-custom-emulator.html
+//!
+//! RC5 is a symmetric-key block cipher notable for its simplicity. Designed by
+//! Ronald Rivest in 1994.
+//!
+//! Unlike many schemes, RC5 has a variable block size (32, 64 or 128 bits), key
+//! size (0 to 2040 bits) and number of rounds (0 to 255). The original
+//! suggested choice of parameters were a block size of 64 bits, a 128-bit key
+//! and 12 rounds.
+//!
+//! A key feature of RC5 is the use of data-dependent rotations. RC5 also
+//! consists of a number of modular additions and eXclusive OR (XOR)s. The
+//! general structure of the algorithm is a Feistel-like network.
+
 use bytes::{Buf, BufMut};
 
 const SUB_KEY_SEED: [u32; 26] = [

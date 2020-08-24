@@ -1,3 +1,8 @@
+//! This crate contains cipher algorithms used between the Conquer
+//! Online game client and server, it Defines generalized methods for ciphers
+//! used by `TcpServerActor` and `TcpServerListener` for encrypting and
+//! decrypting data to and from the game client.
+
 mod rc5;
 pub use rc5::TQRC5;
 

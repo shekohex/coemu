@@ -1,3 +1,5 @@
+//! Deserializer for Binary Packets.
+
 use crate::TQSerdeError;
 use bytes::Buf;
 use encoding::{all::ASCII, DecoderTrap, Encoding};
@@ -15,7 +17,7 @@ impl<'de> Deserializer<'de> {
         }
     }
 }
-
+/// Deserialize the given Bytes into `T`.
 pub fn from_bytes<'a, T>(s: &'a [u8]) -> Result<T, TQSerdeError>
 where
     T: Deserialize<'a>,

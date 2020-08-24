@@ -1,16 +1,22 @@
+//! A Fixed Length String, used in Binary Packets
 use core::fmt;
 use crypto::{Cipher, TQRC5};
 use encoding::{all::ASCII, DecoderTrap, EncoderTrap, Encoding};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{marker::PhantomData, ops::Deref};
+
+/// A Marker Trait for a Fixed Length String.
 pub trait FixedLen {}
 
+/// Fixed Length 16 Bytes.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct L16;
 
+/// Fixed Length 10 Bytes.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct L10;
 
+/// Fixed Length 16 Encrypted Bytes.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct EncryptedPassword;
 
@@ -18,6 +24,7 @@ impl FixedLen for L16 {}
 impl FixedLen for L10 {}
 impl FixedLen for EncryptedPassword {}
 
+/// Fixed Length String.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FixedString<L: FixedLen> {
     inner: String,
@@ -123,7 +130,9 @@ impl<'de> Deserialize<'de> for FixedString<EncryptedPassword> {
         Ok(result.into())
     }
 }
-
+/// Type Alias for a Fixed Length 16 Bytes String.
 pub type String16 = FixedString<L16>;
+/// Type Alias for a Fixed Length 10 Bytes String.
 pub type String10 = FixedString<L10>;
+/// Type Alias for a Fixed Length 16 Bytes Encrypted Password.
 pub type TQPassword = FixedString<EncryptedPassword>;

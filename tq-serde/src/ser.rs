@@ -1,3 +1,4 @@
+//! Serializer for Binary Packets.
 use crate::TQSerdeError;
 use bytes::{BufMut, BytesMut};
 use encoding::{all::ASCII, EncoderTrap, Encoding};
@@ -241,6 +242,7 @@ impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
     fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
 }
 
+/// Serialize `T` into `BytesMut`.
 pub fn to_bytes<T: Serialize>(value: &T) -> Result<BytesMut, TQSerdeError> {
     let mut serializer = Serializer {
         output: BytesMut::with_capacity(4096),

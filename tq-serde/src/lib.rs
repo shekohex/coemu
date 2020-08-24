@@ -1,3 +1,6 @@
+//! This Crate is used to create a Binary Serialization and Deserialization on
+//! top of [serde](https://serde.rs).
+//! It will be use to Serialize and Deserialize Conquer Online Binary Packets.
 mod errors;
 pub use errors::TQSerdeError;
 

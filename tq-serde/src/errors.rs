@@ -1,7 +1,10 @@
+//! Handle Errors.
 use serde::{de, ser};
 use std::fmt::Display;
 use thiserror::Error;
 
+/// Represents Any Errors that could happens while Serializing/Deserializing
+/// Binary Packets.
 #[derive(Clone, Debug, Error)]
 pub enum TQSerdeError {
     #[error("{}", _0)]
@@ -10,16 +13,6 @@ pub enum TQSerdeError {
     Eof,
     #[error("Deserializing Any Not Supported")]
     DeserializeAnyNotSupported,
-    #[error("Syntax Error")]
-    Syntax,
-    #[error("Expected Integer")]
-    ExpectedInteger,
-    #[error("Expected String")]
-    ExpectedString,
-    #[error("Sequence Must Have Length")]
-    SequenceMustHaveLength,
-    #[error("Bad Trailing Characters")]
-    TrailingCharacters,
     #[error("Unspported Type")]
     Unspported,
 }
