@@ -1,0 +1,277 @@
+//! crate that contians a [`TQCodec`] that wraps any [`AsyncRead`] +
+//! [`AsyncWrite`] and Outputs a [`Stream`] of `(u16, Bytes)` where the `u16` is
+//! the PacketID and Bytes is the Body of the Packet.
+//! It also implements [`Sink`] where you could write `(u16, Bytes)` to it.
+//!
+//! Basiclly, Client Packets are length-prefixed bytes, where the First 2
+//! bytes are the length of the packet, next 2 bytes are the ID of the packet,
+//! and after that are the body of that packets.
+//! Here a simple ASCII Art to imagine how that looks like in memory.
+//!
+//! ```text
+//! +----+----+----+----+----+----+----+----+----
+//! | 00 | 12 | 00 | 15 | 01 | 12 | 14 | 11 | 02 ...
+//! +----+----+----+----+----+----+----+----+----
+//! ^^^^^^^^^^  ^^^^^^^^
+//! |           |
+//! the first 2 | bytes are the length
+//!             the next 2 bytes are the packet id.
+//! ```
+
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use crypto::{Cipher, TQCipher};
+use futures::{
+    AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, FutureExt, Sink, Stream,
+};
+use std::{
+    io,
+    pin::Pin,
+    task::{Context, Poll},
+};
+
+/// A simple State Machine for Decoding the Stream.
+#[derive(Debug, Clone, Copy)]
+enum DecodeState {
+    /// Decoding the Head of the Packet (4 Bytes for the Size + PacketID)
+    Head,
+    /// Decoding the Packet Bytes (usize => Packet Size, u16 => PacketID)
+    Data((usize, u16)),
+}
+
+#[derive(Debug, Clone)]
+pub struct TQCodec<S: AsyncRead + AsyncWrite> {
+    /// Current Decode State
+    state: DecodeState,
+    /// Cipher Used to Decrypt/Encrypt Packets
+    cipher: TQCipher,
+    /// The Underlaying Stream (like a TcpStream).
+    stream: S,
+    /// Buffer used when reading from the stream. Data is not returned from
+    /// this buffer until an entire packet has been read.
+    rd: BytesMut,
+    /// Buffer used to stage data before writing it to the socket.
+    wr: BytesMut,
+}
+
+impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
+    pub fn new(stream: S) -> Self {
+        Self {
+            state: DecodeState::Head,
+            cipher: TQCipher::default(),
+            stream,
+            rd: BytesMut::new(),
+            wr: BytesMut::new(),
+        }
+    }
+
+    /// Read data from the socket.
+    ///
+    /// This only returns `Ready` when the socket has closed.
+    fn fill_read_buf(&mut self) -> Result<Poll<()>, io::Error> {
+        loop {
+            // Ensure the read buffer has capacity.
+            //
+            // This might result in an internal allocation.
+            self.rd.reserve(1024);
+            // Read data into the buffer.
+            let n =
+                self.stream.read(&mut self.rd).now_or_never().transpose()?;
+            if let Some(n) = n {
+                if n == 0 {
+                    return Ok(Poll::Ready(()));
+                }
+            } else {
+                return Ok(Poll::Pending);
+            }
+        }
+    }
+
+    /// Flush the write buffer to the socket
+    fn flush(&mut self) -> Result<Poll<()>, io::Error> {
+        // As long as there is buffered data to write, try to write it.
+        while !self.wr.is_empty() {
+            // Try to write some bytes to the socket
+            let n =
+                self.stream.read(&mut self.wr).now_or_never().transpose()?;
+            if let Some(n) = n {
+                // As long as the wr is not empty, a successful write should
+                // never write 0 bytes.
+                if n == 0 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "Connection Closed!",
+                    ));
+                }
+                // This discards the first `n` bytes of the buffer.
+                let _ = self.wr.split_to(n);
+            }
+        }
+        Ok(Poll::Ready(()))
+    }
+
+    /// Buffer a packet.
+    ///
+    /// This writes the packet to an internal buffer. Calls to `poll_flush` will
+    /// attempt to flush this buffer to the socket.
+    fn buffer(&mut self, buf: &[u8]) {
+        // Ensure the buffer has capacity. Ideally this would not be unbounded,
+        // but to keep the example simple, we will not limit this.
+        self.wr.reserve(1024);
+
+        // Push the packet onto the end of the write buffer.
+        //
+        // The `put` function is from the `BufMut` trait.
+        self.wr.put(buf);
+    }
+
+    fn decode_head(&mut self) -> io::Result<Option<(usize, u16)>> {
+        if self.rd.len() < 4 {
+            // Not enough data
+            return Ok(None);
+        }
+        let (n, packet_type) = {
+            let mut head = [0u8; 4];
+            // Get the decrypted head.
+            self.cipher.decrypt(&self.rd[0..4], &mut head);
+            // get length
+            let n = head.as_ref().get_u16_le();
+            // get type
+            let packet_id = head.as_ref().get_u16_le();
+
+            if n > 8_000 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Frame Too Big",
+                ));
+            }
+            (n as usize, packet_id)
+        };
+        // Ensure that the buffer has enough space to read the incoming
+        // payload
+        self.rd.reserve(n - 4);
+        // Drop the header
+        let _ = self.rd.split_to(4);
+
+        Ok(Some((n - 4, packet_type)))
+    }
+
+    fn decode_data(&mut self, n: usize) -> io::Result<Option<BytesMut>> {
+        // At this point, the buffer has already had the required capacity
+        // reserved. All there is to do is read.
+
+        if self.rd.len() < n {
+            return Ok(None);
+        }
+        let buf = &mut self.rd.split_to(n);
+        let mut data = BytesMut::with_capacity(n);
+        data.resize(n, 0);
+        // Decrypt the data
+        self.cipher.decrypt(&buf, &mut data);
+        Ok(Some(data))
+    }
+
+    fn encode_data(
+        &mut self,
+        packet_id: u16,
+        body: Bytes,
+    ) -> io::Result<Bytes> {
+        let n = body.len() + 4;
+        let mut result = BytesMut::with_capacity(n);
+        result.put_u16_le(n as u16); // packet length (0) -> (2)
+        result.put_u16_le(packet_id); // packet type (2) -> (4)
+        result.extend_from_slice(&body); // packet_body (4) -> (packet_length)
+        let full_packet = result.freeze();
+        let mut encrypted_data = BytesMut::with_capacity(n);
+        encrypted_data.resize(n, 0);
+        // encrypt data
+        self.cipher.encrypt(&full_packet, &mut encrypted_data);
+        Ok(encrypted_data.freeze())
+    }
+}
+
+impl<S> Stream for TQCodec<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    type Item = io::Result<(u16, Bytes)>;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        // First, read any new data that might have been received off the socket
+        let sock_closed = self.fill_read_buf()?.is_ready();
+
+        let (n, packet_id) = match self.state {
+            DecodeState::Head => match self.decode_head()? {
+                Some((n, packet_id)) => {
+                    self.state = DecodeState::Data((n, packet_id));
+                    (n, packet_id)
+                },
+                None => {
+                    if sock_closed {
+                        // we know we will get here when we read zero from the
+                        // socket so we need to stop
+                        // looping and just free all resources
+                        return Poll::Ready(None);
+                    } else {
+                        return Poll::Pending;
+                    }
+                },
+            },
+            DecodeState::Data((n, packet_id)) => (n, packet_id),
+        };
+
+        if let Some(data) = self.decode_data(n)? {
+            // Update the decode state
+            self.state = DecodeState::Head;
+            let data = Ok((packet_id, data.freeze()));
+            return Poll::Ready(Some(data));
+        }
+
+        if sock_closed {
+            Poll::Ready(None)
+        } else {
+            Poll::Pending
+        }
+    }
+}
+
+impl<S> Sink<(u16, Bytes)> for TQCodec<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    type Error = io::Error;
+
+    fn poll_ready(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        // Flush anything we have before sending new one.
+        self.poll_flush(cx)
+    }
+
+    fn start_send(
+        mut self: Pin<&mut Self>,
+        item: (u16, Bytes),
+    ) -> Result<(), Self::Error> {
+        let buf = self.encode_data(item.0, item.1)?;
+        self.buffer(&buf);
+        Ok(())
+    }
+
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        let _ = self.flush()?;
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_close(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.stream.close().poll_unpin(cx)
+    }
+}

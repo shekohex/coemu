@@ -1,5 +1,6 @@
 [workspace]
 members = [
-  "tq-serde",
   "crypto",
+  "tq-serde",
+  "tq-codec",
   ]

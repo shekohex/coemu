@@ -1,8 +1,10 @@
 [package]
-name = "crypto"
+name = "tq-codec"
 version = "0.1.0"
 authors = ["Shady Khalifa <shekohex@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+futures = "0.3"
+crypto = { path = "../crypto" }
 bytes = "0.5.6"
