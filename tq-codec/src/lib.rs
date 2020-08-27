@@ -21,15 +21,15 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::future::Future;
 use crypto::{Cipher, TQCipher};
-use futures_core::Stream;
-use futures_io::{AsyncRead, AsyncWrite};
-use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use pretty_hex::PrettyHex;
 use std::{
     io,
-    mem::MaybeUninit,
     pin::Pin,
     task::{Context, Poll},
+};
+use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    stream::Stream,
 };
 use tracing::{debug, warn};
 
@@ -80,7 +80,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     }
 
     pub async fn close(&mut self) -> Result<(), io::Error> {
-        self.stream.close().await?;
+        self.stream.shutdown().await?;
         Ok(())
     }
 
@@ -88,9 +88,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     ///
     /// This only returns `Ready` when the socket has closed.
     async fn fill_read_buf(&mut self) -> Result<(), io::Error> {
-        self.rd.reserve(128);
+        self.rd.reserve(64);
         // Read data into the buffer.
-        let n = read_buf(&mut self.stream, &mut self.rd).await?;
+        let n = self.stream.read_buf(&mut self.rd).await?;
         if n == 0 {
             Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Read Zero"))
         } else {
@@ -104,7 +104,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         self.stream.write_all(&self.wr).await?;
         // This discards the first `n` bytes of the buffer.
         let _ = self.wr.split_to(self.wr.len());
-        self.stream.flush().await?;
         Ok(())
     }
 
@@ -115,7 +114,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     fn buffer(&mut self, buf: &[u8]) {
         // Ensure the buffer has capacity. Ideally this would not be unbounded,
         // but to keep the example simple, we will not limit this.
-        self.wr.reserve(1024);
+        self.wr.reserve(64);
 
         // Push the packet onto the end of the write buffer.
         //
@@ -208,8 +207,11 @@ where
         // First, read any new data that might have been received off the socket
         let sock_closed = {
             let r = self.fill_read_buf();
-            pin_utils::pin_mut!(r);
-            futures_core::ready!(r.poll(cx)).is_err()
+            tokio::pin!(r);
+            match r.poll(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(res) => res.is_err(),
+            }
         };
         let (n, packet_id) = match self.state {
             DecodeState::Head => match self.decode_head()? {
@@ -248,37 +250,5 @@ where
         } else {
             Poll::Pending
         }
-    }
-}
-
-unsafe fn prepare_uninitialized_buffer(buf: &mut [MaybeUninit<u8>]) -> bool {
-    for x in buf {
-        *x = MaybeUninit::new(0);
-    }
-    true
-}
-
-async fn read_buf<S: AsyncRead + Unpin, B: BufMut>(
-    stream: &mut S,
-    buf: &mut B,
-) -> io::Result<usize> {
-    if !buf.has_remaining_mut() {
-        return Ok(0);
-    }
-    unsafe {
-        let n = {
-            let b = buf.bytes_mut();
-
-            prepare_uninitialized_buffer(b);
-
-            // Convert to `&mut [u8]`
-            let b = &mut *(b as *mut [MaybeUninit<u8>] as *mut [u8]);
-
-            let n = stream.read(b).await?;
-            assert!(n <= b.len(), "Bad AsyncRead implementation, more bytes were reported as read than the buffer can hold");
-            io::Result::Ok(n)
-        }?;
-        buf.advance_mut(n);
-        Ok(n)
     }
 }
