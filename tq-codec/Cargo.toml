@@ -5,6 +5,9 @@ authors = ["Shady Khalifa <shekohex@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-futures = "0.3"
+futures-core = { version = "0.3", default-features = false }
+futures-io = { version = "0.3", default-features = false }
+futures-util = { version = "0.3", default-features = false, features = ["io"] }
+pin-utils = "0.1"
+bytes = "0.5"
 crypto = { path = "../crypto" }
-bytes = "0.5.6"

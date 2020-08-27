@@ -19,10 +19,11 @@
 //! ```
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use core::future::Future;
 use crypto::{Cipher, TQCipher};
-use futures::{
-    AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, FutureExt, Sink, Stream,
-};
+use futures_core::Stream;
+use futures_io::{AsyncRead, AsyncWrite};
+use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use std::{
     io,
     pin::Pin,
@@ -55,58 +56,58 @@ pub struct TQCodec<S: AsyncRead + AsyncWrite> {
 
 impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     pub fn new(stream: S) -> Self {
+        let mut rd = BytesMut::new();
+        rd.resize(100, 0);
         Self {
             state: DecodeState::Head,
             cipher: TQCipher::default(),
             stream,
-            rd: BytesMut::new(),
+            rd,
             wr: BytesMut::new(),
         }
+    }
+
+    pub fn generate_keys(&mut self, key1: u32, key2: u32) {
+        self.cipher.generate_keys(key1, key2);
+    }
+
+    pub async fn send(&mut self, item: (u16, Bytes)) -> Result<(), io::Error> {
+        let buf = self.encode_data(item.0, item.1)?;
+        self.buffer(&buf);
+        self.flush().await?;
+        Ok(())
+    }
+
+    pub async fn close(&mut self) -> Result<(), io::Error> {
+        self.stream.close().await?;
+        Ok(())
     }
 
     /// Read data from the socket.
     ///
     /// This only returns `Ready` when the socket has closed.
-    fn fill_read_buf(&mut self) -> Result<Poll<()>, io::Error> {
-        loop {
-            // Ensure the read buffer has capacity.
-            //
-            // This might result in an internal allocation.
-            self.rd.reserve(1024);
-            // Read data into the buffer.
-            let n =
-                self.stream.read(&mut self.rd).now_or_never().transpose()?;
-            if let Some(n) = n {
-                if n == 0 {
-                    return Ok(Poll::Ready(()));
-                }
-            } else {
-                return Ok(Poll::Pending);
-            }
+    async fn fill_read_buf(&mut self) -> Result<(), io::Error> {
+        // Ensure the read buffer has capacity.
+        //
+        // This might result in an internal allocation.
+        self.rd.reserve(1024);
+        // Read data into the buffer.
+        let n = self.stream.read(&mut self.rd).await?;
+        if n == 0 {
+            Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Read Zero"))
+        } else {
+            Ok(())
         }
     }
 
     /// Flush the write buffer to the socket
-    fn flush(&mut self) -> Result<Poll<()>, io::Error> {
+    async fn flush(&mut self) -> Result<(), io::Error> {
         // As long as there is buffered data to write, try to write it.
-        while !self.wr.is_empty() {
-            // Try to write some bytes to the socket
-            let n =
-                self.stream.read(&mut self.wr).now_or_never().transpose()?;
-            if let Some(n) = n {
-                // As long as the wr is not empty, a successful write should
-                // never write 0 bytes.
-                if n == 0 {
-                    return Err(io::Error::new(
-                        io::ErrorKind::WriteZero,
-                        "Connection Closed!",
-                    ));
-                }
-                // This discards the first `n` bytes of the buffer.
-                let _ = self.wr.split_to(n);
-            }
-        }
-        Ok(Poll::Ready(()))
+        self.stream.write_all(&self.wr).await?;
+        // This discards the first `n` bytes of the buffer.
+        let _ = self.wr.split_to(self.wr.len());
+        self.stream.flush().await?;
+        Ok(())
     }
 
     /// Buffer a packet.
@@ -130,14 +131,16 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
             return Ok(None);
         }
         let (n, packet_type) = {
-            let mut head = [0u8; 4];
-            // Get the decrypted head.
-            self.cipher.decrypt(&self.rd[0..4], &mut head);
+            let mut len = [0u8; 2];
+            let mut ty = [0u8; 2];
+            // Get the decrypted head len.
+            self.cipher.decrypt(&self.rd[0..2], &mut len);
+            // Get the decrypted head packet type.
+            self.cipher.decrypt(&self.rd[2..4], &mut ty);
             // get length
-            let n = head.as_ref().get_u16_le();
+            let n = len.as_ref().get_u16_le();
             // get type
-            let packet_id = head.as_ref().get_u16_le();
-
+            let packet_id = ty.as_ref().get_u16_le();
             if n > 8_000 {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -197,10 +200,14 @@ where
 
     fn poll_next(
         mut self: Pin<&mut Self>,
-        _: &mut Context<'_>,
+        cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         // First, read any new data that might have been received off the socket
-        let sock_closed = self.fill_read_buf()?.is_ready();
+        let sock_closed = {
+            let r = self.fill_read_buf();
+            pin_utils::pin_mut!(r);
+            futures_core::ready!(r.poll(cx)).is_err()
+        };
 
         let (n, packet_id) = match self.state {
             DecodeState::Head => match self.decode_head()? {
@@ -234,44 +241,5 @@ where
         } else {
             Poll::Pending
         }
-    }
-}
-
-impl<S> Sink<(u16, Bytes)> for TQCodec<S>
-where
-    S: AsyncRead + AsyncWrite + Unpin,
-{
-    type Error = io::Error;
-
-    fn poll_ready(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
-        // Flush anything we have before sending new one.
-        self.poll_flush(cx)
-    }
-
-    fn start_send(
-        mut self: Pin<&mut Self>,
-        item: (u16, Bytes),
-    ) -> Result<(), Self::Error> {
-        let buf = self.encode_data(item.0, item.1)?;
-        self.buffer(&buf);
-        Ok(())
-    }
-
-    fn poll_flush(
-        mut self: Pin<&mut Self>,
-        _: &mut Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
-        let _ = self.flush()?;
-        Poll::Ready(Ok(()))
-    }
-
-    fn poll_close(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
-        self.stream.close().poll_unpin(cx)
     }
 }

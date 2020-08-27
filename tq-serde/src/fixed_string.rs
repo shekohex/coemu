@@ -25,7 +25,7 @@ impl FixedLen for L10 {}
 impl FixedLen for EncryptedPassword {}
 
 /// Fixed Length String.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct FixedString<L: FixedLen> {
     inner: String,
     __len: PhantomData<L>,
@@ -56,6 +56,13 @@ impl<L: FixedLen> fmt::Display for FixedString<L> {
     }
 }
 
+impl<L: FixedLen> fmt::Debug for FixedString<L> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FixedString")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
 impl Serialize for FixedString<L16> {
     fn serialize<S: Serializer>(
         &self,
