@@ -1,0 +1,18 @@
+[package]
+name = "network"
+version = "0.1.0"
+authors = ["Shady Khalifa <shekohex@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+futures-util = { version = "0.3" }
+thiserror = "1.0"
+serde = "1.0"
+bytes = "0.5"
+tq-serde = { path = "../tq-serde" }
+tq-codec = { path = "../tq-codec" }
+async-trait = "0.1"
+tracing = "0.1"
+tracing-futures = "0.2"
+# Runtime
+smol = "0.4"
