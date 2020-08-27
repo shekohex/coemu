@@ -35,7 +35,7 @@ pub trait Server {
 /// Represents what happened "next" that we should handle.
 #[derive(Debug)]
 enum SelectResult {
-    Packet(u16, Bytes),
+    Packet((u16, Bytes)),
     Command(Message),
 }
 
@@ -51,15 +51,12 @@ async fn handle_stream(
         let msg_fut = codec.next();
         let cmd_fut = rx.next();
         let sel_res = tokio::select! {
-            msg = msg_fut => {
-                let (id, bytes) = msg??;
-                SelectResult::Packet(id, bytes)
-            },
-            cmd = cmd_fut => SelectResult::Command(cmd?)
+            cmd = cmd_fut => SelectResult::Command(cmd?),
+            msg = msg_fut => SelectResult::Packet(msg??),
         };
         use SelectResult::*;
         match sel_res {
-            Packet(id, bytes) => {
+            Packet((id, bytes)) => {
                 if let Err(e) = handler.handle((id, bytes), &actor).await {
                     error!("Error While Handling Packet {} {}", id, e);
                     break;
