@@ -31,7 +31,7 @@ use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     stream::Stream,
 };
-use tracing::{debug, warn};
+use tracing::{instrument, trace, warn};
 
 /// A simple State Machine for Decoding the Stream.
 #[derive(Debug, Clone, Copy)]
@@ -68,6 +68,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         }
     }
 
+    #[instrument(skip(self))]
     pub fn generate_keys(&mut self, key1: u32, key2: u32) {
         self.cipher.generate_keys(key1, key2);
     }
@@ -88,9 +89,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     ///
     /// This only returns `Ready` when the socket has closed.
     async fn fill_read_buf(&mut self) -> Result<(), io::Error> {
+        trace!("try to fill the read buffer");
         self.rd.reserve(64);
         // Read data into the buffer.
         let n = self.stream.read_buf(&mut self.rd).await?;
+        trace!("got {} bytes into rd", n);
         if n == 0 {
             Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Read Zero"))
         } else {
@@ -100,10 +103,13 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
 
     /// Flush the write buffer to the socket
     async fn flush(&mut self) -> Result<(), io::Error> {
+        trace!("flushing data into stream");
         // As long as there is buffered data to write, try to write it.
-        self.stream.write_all(&self.wr).await?;
-        // This discards the first `n` bytes of the buffer.
-        let _ = self.wr.split_to(self.wr.len());
+        while self.wr.has_remaining() {
+            let n = self.stream.write_buf(&mut self.wr).await?;
+            trace!("written {} bytes", n);
+        }
+        self.stream.flush().await?;
         Ok(())
     }
 
@@ -122,7 +128,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         self.wr.put(buf);
     }
 
+    #[instrument(skip(self))]
     fn decode_head(&mut self) -> io::Result<Option<(usize, u16)>> {
+        trace!("rd len {} bytes", self.rd.len());
         if self.rd.len() < 4 {
             // Not enough data
             return Ok(None);
@@ -138,7 +146,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
             let n = len.as_ref().get_u16_le();
             // get type
             let packet_id = ty.as_ref().get_u16_le();
+            trace!("len {}, id {}", n, packet_id);
             if n > 8_000 {
+                trace!("Frame too big!");
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "Frame Too Big",
@@ -155,7 +165,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         Ok(Some((n - 4, packet_type)))
     }
 
+    #[instrument(skip(self))]
     fn decode_data(&mut self, n: usize) -> io::Result<Option<BytesMut>> {
+        trace!("len {}", n);
+        trace!("rd len {}", self.rd.len());
         // At this point, the buffer has already had the required capacity
         // reserved. All there is to do is read.
 
@@ -170,6 +183,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         Ok(Some(data))
     }
 
+    #[instrument(skip(self, body))]
     fn encode_data(
         &mut self,
         packet_id: u16,
@@ -181,7 +195,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         result.put_u16_le(packet_id); // packet type (2) -> (4)
         result.extend_from_slice(&body); // packet_body (4) -> (packet_length)
         let full_packet = result.freeze();
-        debug!(
+        trace!(
             "\nServer -> Client ID({}) {:?}",
             packet_id,
             full_packet.as_ref().hex_dump()
@@ -213,6 +227,7 @@ where
                 Poll::Ready(res) => res.is_err(),
             }
         };
+        trace!("Socket Close? {}", sock_closed);
         let (n, packet_id) = match self.state {
             DecodeState::Head => match self.decode_head()? {
                 Some((n, packet_id)) => {
@@ -233,7 +248,7 @@ where
             DecodeState::Data((n, packet_id)) => (n, packet_id),
         };
         if let Some(data) = self.decode_data(n)? {
-            debug!(
+            trace!(
                 "\nClient -> Server ID({}) {:?}",
                 packet_id,
                 data.as_ref().hex_dump()
