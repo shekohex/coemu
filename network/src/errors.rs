@@ -1,6 +1,6 @@
-use smol::channel::SendError;
 use std::{backtrace::Backtrace, option::NoneError};
 use thiserror::Error;
+use tokio::sync::mpsc::error::SendError;
 
 #[derive(Debug, Error)]
 pub enum Error {

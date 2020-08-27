@@ -58,6 +58,7 @@ impl PacketProcess for MsgAction {
     type Error = crate::Error;
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+        dbg!(&self);
         let ty = self.action_type.into();
         match ty {
             ActionType::SetLocation => {

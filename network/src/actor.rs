@@ -1,6 +1,6 @@
 use crate::{Error, PacketEncode};
 use bytes::Bytes;
-use smol::channel::Sender;
+use tokio::sync::mpsc::Sender;
 use tracing::instrument;
 
 #[derive(Clone, Debug)]
@@ -29,7 +29,8 @@ impl Actor {
     /// Enqueue the packet and send it to the client connected to this actor
     pub async fn send(&self, packet: impl PacketEncode) -> Result<(), Error> {
         let msg = packet.encode()?;
-        self.tx.send(msg.into()).await?;
+        let mut tx = self.tx.clone();
+        tx.send(msg.into()).await?;
         Ok(())
     }
 
@@ -40,12 +41,14 @@ impl Actor {
         key2: u32,
     ) -> Result<(), Error> {
         let msg = (key1, key2).into();
-        self.tx.send(msg).await?;
+        let mut tx = self.tx.clone();
+        tx.send(msg).await?;
         Ok(())
     }
 
     pub async fn shutdown(&self) -> Result<(), Error> {
-        self.tx.send(Message::Shutdown).await?;
+        let mut tx = self.tx.clone();
+        tx.send(Message::Shutdown).await?;
         Ok(())
     }
 }

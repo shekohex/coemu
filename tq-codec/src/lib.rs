@@ -21,17 +21,17 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::future::Future;
 use crypto::{Cipher, TQCipher};
-use futures_core::Stream;
-use futures_io::{AsyncRead, AsyncWrite};
-use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use pretty_hex::PrettyHex;
 use std::{
     io,
-    mem::MaybeUninit,
     pin::Pin,
     task::{Context, Poll},
 };
-use tracing::{debug, warn};
+use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    stream::Stream,
+};
+use tracing::{instrument, trace, warn};
 
 /// A simple State Machine for Decoding the Stream.
 #[derive(Debug, Clone, Copy)]
@@ -68,6 +68,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         }
     }
 
+    #[instrument(skip(self))]
     pub fn generate_keys(&mut self, key1: u32, key2: u32) {
         self.cipher.generate_keys(key1, key2);
     }
@@ -80,7 +81,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     }
 
     pub async fn close(&mut self) -> Result<(), io::Error> {
-        self.stream.close().await?;
+        self.stream.shutdown().await?;
         Ok(())
     }
 
@@ -88,9 +89,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     ///
     /// This only returns `Ready` when the socket has closed.
     async fn fill_read_buf(&mut self) -> Result<(), io::Error> {
-        self.rd.reserve(128);
+        trace!("try to fill the read buffer");
+        self.rd.reserve(64);
         // Read data into the buffer.
-        let n = read_buf(&mut self.stream, &mut self.rd).await?;
+        let n = self.stream.read_buf(&mut self.rd).await?;
+        trace!("got {} bytes into rd", n);
         if n == 0 {
             Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Read Zero"))
         } else {
@@ -100,10 +103,12 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
 
     /// Flush the write buffer to the socket
     async fn flush(&mut self) -> Result<(), io::Error> {
+        trace!("flushing data into stream");
         // As long as there is buffered data to write, try to write it.
-        self.stream.write_all(&self.wr).await?;
-        // This discards the first `n` bytes of the buffer.
-        let _ = self.wr.split_to(self.wr.len());
+        while self.wr.has_remaining() {
+            let n = self.stream.write_buf(&mut self.wr).await?;
+            trace!("written {} bytes", n);
+        }
         self.stream.flush().await?;
         Ok(())
     }
@@ -115,7 +120,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     fn buffer(&mut self, buf: &[u8]) {
         // Ensure the buffer has capacity. Ideally this would not be unbounded,
         // but to keep the example simple, we will not limit this.
-        self.wr.reserve(1024);
+        self.wr.reserve(64);
 
         // Push the packet onto the end of the write buffer.
         //
@@ -123,7 +128,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         self.wr.put(buf);
     }
 
+    #[instrument(skip(self))]
     fn decode_head(&mut self) -> io::Result<Option<(usize, u16)>> {
+        trace!("rd len {} bytes", self.rd.len());
         if self.rd.len() < 4 {
             // Not enough data
             return Ok(None);
@@ -139,7 +146,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
             let n = len.as_ref().get_u16_le();
             // get type
             let packet_id = ty.as_ref().get_u16_le();
+            trace!("len {}, id {}", n, packet_id);
             if n > 8_000 {
+                trace!("Frame too big!");
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "Frame Too Big",
@@ -156,7 +165,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         Ok(Some((n - 4, packet_type)))
     }
 
+    #[instrument(skip(self))]
     fn decode_data(&mut self, n: usize) -> io::Result<Option<BytesMut>> {
+        trace!("len {}", n);
+        trace!("rd len {}", self.rd.len());
         // At this point, the buffer has already had the required capacity
         // reserved. All there is to do is read.
 
@@ -171,6 +183,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         Ok(Some(data))
     }
 
+    #[instrument(skip(self, body))]
     fn encode_data(
         &mut self,
         packet_id: u16,
@@ -182,7 +195,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         result.put_u16_le(packet_id); // packet type (2) -> (4)
         result.extend_from_slice(&body); // packet_body (4) -> (packet_length)
         let full_packet = result.freeze();
-        debug!(
+        trace!(
             "\nServer -> Client ID({}) {:?}",
             packet_id,
             full_packet.as_ref().hex_dump()
@@ -208,9 +221,13 @@ where
         // First, read any new data that might have been received off the socket
         let sock_closed = {
             let r = self.fill_read_buf();
-            pin_utils::pin_mut!(r);
-            futures_core::ready!(r.poll(cx)).is_err()
+            tokio::pin!(r);
+            match r.poll(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(res) => res.is_err(),
+            }
         };
+        trace!("Socket Close? {}", sock_closed);
         let (n, packet_id) = match self.state {
             DecodeState::Head => match self.decode_head()? {
                 Some((n, packet_id)) => {
@@ -231,7 +248,7 @@ where
             DecodeState::Data((n, packet_id)) => (n, packet_id),
         };
         if let Some(data) = self.decode_data(n)? {
-            debug!(
+            trace!(
                 "\nClient -> Server ID({}) {:?}",
                 packet_id,
                 data.as_ref().hex_dump()
@@ -248,37 +265,5 @@ where
         } else {
             Poll::Pending
         }
-    }
-}
-
-unsafe fn prepare_uninitialized_buffer(buf: &mut [MaybeUninit<u8>]) -> bool {
-    for x in buf {
-        *x = MaybeUninit::new(0);
-    }
-    true
-}
-
-async fn read_buf<S: AsyncRead + Unpin, B: BufMut>(
-    stream: &mut S,
-    buf: &mut B,
-) -> io::Result<usize> {
-    if !buf.has_remaining_mut() {
-        return Ok(0);
-    }
-    unsafe {
-        let n = {
-            let b = buf.bytes_mut();
-
-            prepare_uninitialized_buffer(b);
-
-            // Convert to `&mut [u8]`
-            let b = &mut *(b as *mut [MaybeUninit<u8>] as *mut [u8]);
-
-            let n = stream.read(b).await?;
-            assert!(n <= b.len(), "Bad AsyncRead implementation, more bytes were reported as read than the buffer can hold");
-            io::Result::Ok(n)
-        }?;
-        buf.advance_mut(n);
-        Ok(n)
     }
 }

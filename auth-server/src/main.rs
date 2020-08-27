@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use bytes::Bytes;
-use futures_util::FutureExt;
 use network::{Actor, PacketDecode, PacketHandler, PacketProcess, Server};
 use tracing::{debug, info, warn};
 
@@ -8,7 +7,6 @@ mod errors;
 use errors::Error;
 
 mod packets;
-use async_ctrlc::CtrlC;
 use packets::{MsgAccount, PacketType};
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -46,7 +44,8 @@ impl PacketHandler for Handler {
     }
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main(core_threads = 8)]
+async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt::init();
     println!(
         r#"
@@ -64,13 +63,16 @@ Copyright 2020 Shady Khalifa (@shekohex)
     );
     info!("Starting Auth Server");
     info!("Initializing server...");
-
-    smol::block_on(async {
-        let ctrlc = CtrlC::new()?.map(Ok);
-        let server = AuthServer::run("0.0.0.0:9958", Handler::default());
-        info!("Starting Server on 9958");
-        smol::future::race(ctrlc, server).await?;
-        Result::<(), Error>::Ok(())
-    })?;
+    let ctrlc = tokio::signal::ctrl_c();
+    let server = AuthServer::run("0.0.0.0:9958", Handler::default());
+    info!("Starting Server on 9958");
+    tokio::select! {
+        _ = ctrlc => {
+            info!("Got Ctrl+C Signal!");
+        }
+        _ = server => {
+            info!("Server Is Shutting Down..");
+        }
+    };
     Ok(())
 }

@@ -5,7 +5,6 @@ authors = ["Shady Khalifa <shekohex@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-futures-util = { version = "0.3" }
 thiserror = "1.0"
 serde = "1.0"
 bytes = "0.5"
@@ -14,5 +13,9 @@ tq-codec = { path = "../tq-codec" }
 async-trait = "0.1"
 tracing = "0.1"
 tracing-futures = "0.2"
-# Runtime
-smol = "0.4"
+
+[dependencies.tokio]
+version = "0.2"
+default-features = false
+features = ["rt-core", "io-util", "net", "stream", "sync", "macros"]
+

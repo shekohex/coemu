@@ -1,7 +1,5 @@
-use async_ctrlc::CtrlC;
 use async_trait::async_trait;
 use bytes::Bytes;
-use futures_util::FutureExt;
 use network::{Actor, PacketDecode, PacketHandler, PacketProcess, Server};
 use tracing::{debug, info, warn};
 
@@ -61,7 +59,8 @@ impl PacketHandler for Handler {
     }
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main(core_threads = 8)]
+async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt::init();
     println!(
         r#"
@@ -79,15 +78,16 @@ Copyright 2020 Shady Khalifa (@shekohex)
     );
     info!("Starting Game Server");
     info!("Initializing server...");
-
-    std::env::set_var("SMOL_THREADS", "8");
-
-    smol::block_on(async {
-        let ctrlc = CtrlC::new()?.map(Ok);
-        let server = GameServer::run("0.0.0.0:5817", Handler::default());
-        info!("Starting Server on 5817");
-        smol::future::race(ctrlc, server).await?;
-        Result::<(), Error>::Ok(())
-    })?;
+    let ctrlc = tokio::signal::ctrl_c();
+    let server = GameServer::run("0.0.0.0:5817", Handler::default());
+    info!("Starting Server on 9958");
+    tokio::select! {
+        _ = ctrlc => {
+            info!("Got Ctrl+C Signal!");
+        }
+        _ = server => {
+            info!("Server Is Shutting Down..");
+        }
+    };
     Ok(())
 }

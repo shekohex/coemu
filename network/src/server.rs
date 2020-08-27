@@ -1,9 +1,12 @@
 use crate::{actor::Message, Actor, Error, PacketHandler};
 use async_trait::async_trait;
 use bytes::Bytes;
-use futures_util::{FutureExt, StreamExt};
-use smol::net::{TcpListener, TcpStream};
 use std::net::SocketAddr;
+use tokio::{
+    net::{TcpListener, TcpStream},
+    stream::StreamExt,
+    sync::mpsc,
+};
 use tq_codec::TQCodec;
 use tracing::{debug, error, instrument};
 
@@ -12,19 +15,18 @@ pub trait Server {
     #[instrument(skip(handler))]
     async fn run(addr: &str, handler: impl PacketHandler) -> Result<(), Error> {
         let addr: SocketAddr = addr.parse()?;
-        let listener = TcpListener::bind(addr).await?;
+        let mut listener = TcpListener::bind(addr).await?;
         let mut incoming = listener.incoming();
         while let Some(stream) = incoming.next().await {
             let stream = stream?;
             debug!("Got Connection from {}", stream.peer_addr()?);
             stream.set_nodelay(true)?;
             let handler = handler.clone();
-            smol::spawn(async move {
+            tokio::spawn(async move {
                 if let Err(e) = handle_stream(stream, handler).await {
                     error!("Error For Stream: {}", e);
                 }
-            })
-            .detach();
+            });
         }
         Ok(())
     }
@@ -42,13 +44,13 @@ async fn handle_stream(
     stream: TcpStream,
     handler: impl PacketHandler,
 ) -> Result<(), Error> {
-    let (tx, mut rx) = smol::channel::bounded(5);
+    let (tx, mut rx) = mpsc::channel(5);
     let mut codec = TQCodec::new(stream);
     let actor = Actor::new(tx);
     loop {
-        let mut msg_fut = codec.next().fuse();
-        let mut cmd_fut = rx.next().fuse();
-        let sel_res = futures_util::select! {
+        let msg_fut = codec.next();
+        let cmd_fut = rx.next();
+        let sel_res = tokio::select! {
             msg = msg_fut => {
                 let (id, bytes) = msg??;
                 SelectResult::Packet(id, bytes)

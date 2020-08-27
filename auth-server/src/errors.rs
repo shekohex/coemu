@@ -6,6 +6,4 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     IO(#[from] std::io::Error),
-    #[error(transparent)]
-    CtrlC(#[from] async_ctrlc::Error),
 }
