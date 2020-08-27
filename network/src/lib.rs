@@ -45,7 +45,7 @@ pub trait PacketDecode {
     /// struct. Should be invoked to structure data from the client for
     /// processing. Decoding follows TQ Digital's byte ordering rules for an
     /// all-binary protocol.
-    fn decode(&mut self, bytes: Bytes) -> Result<(), Error>;
+    fn decode(bytes: &Bytes) -> Result<Self::Packet, Error>;
 }
 
 #[async_trait]
@@ -77,9 +77,8 @@ where
 {
     type Packet = T;
 
-    fn decode(&mut self, bytes: Bytes) -> Result<(), Error> {
-        *self = tq_serde::from_bytes(&bytes)?;
-        Ok(())
+    fn decode(bytes: &Bytes) -> Result<T, Error> {
+        tq_serde::from_bytes(bytes).map_err(Error::TQSerde)
     }
 }
 

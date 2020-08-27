@@ -1,4 +1,4 @@
-use super::{MsgConnectEx, RejectionCode};
+use super::{AccountCredentials, MsgConnectEx};
 use async_trait::async_trait;
 use network::{Actor, PacketProcess};
 use serde::Deserialize;
@@ -20,7 +20,12 @@ impl PacketProcess for MsgAccount {
     type Error = crate::Error;
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
-        let res = MsgConnectEx::from_code(RejectionCode::InvalidPassword);
+        let res = MsgConnectEx::forword_connection(AccountCredentials {
+            authentication_token: 1001,
+            authentication_code: 1002,
+            server_ip: "192.168.1.4".into(),
+            server_port: 5817,
+        });
         actor.send(res).await?;
         Ok(())
     }

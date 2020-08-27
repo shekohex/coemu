@@ -1,20 +1,22 @@
+use async_ctrlc::CtrlC;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures_util::FutureExt;
 use network::{Actor, PacketDecode, PacketHandler, PacketProcess, Server};
 use tracing::{debug, info, warn};
 
+mod constants;
 mod errors;
+mod utils;
 use errors::Error;
 
 mod packets;
-use async_ctrlc::CtrlC;
-use packets::{MsgAccount, PacketType};
+use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk, PacketType};
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-struct AuthServer;
+struct GameServer;
 
-impl Server for AuthServer {}
+impl Server for GameServer {}
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct Handler;
@@ -30,15 +32,28 @@ impl PacketHandler for Handler {
     ) -> Result<(), Self::Error> {
         let id = id.into();
         match id {
-            PacketType::MsgAccount => {
-                let msg = MsgAccount::decode(&bytes)?;
+            PacketType::MsgConnect => {
+                let msg = MsgConnect::decode(&bytes)?;
                 debug!("{:?}", msg);
                 msg.process(actor).await?;
-                actor.shutdown().await?;
+            },
+            PacketType::MsgTalk => {
+                let msg = MsgTalk::decode(&bytes)?;
+                debug!("{:?}", msg);
+                msg.process(actor).await?;
+            },
+            PacketType::MsgAction => {
+                let msg = MsgAction::decode(&bytes)?;
+                debug!("{:?}", msg);
+                msg.process(actor).await?;
+            },
+            PacketType::MsgItem => {
+                let msg = MsgItem::decode(&bytes)?;
+                debug!("{:?}", msg);
+                msg.process(actor).await?;
             },
             _ => {
                 warn!("{:?}", id);
-                actor.shutdown().await?;
                 return Ok(());
             },
         };
@@ -62,13 +77,13 @@ Copyright 2020 Shady Khalifa (@shekohex)
      All Rights Reserved.
  "#
     );
-    info!("Starting Auth Server");
+    info!("Starting Game Server");
     info!("Initializing server...");
 
     smol::block_on(async {
         let ctrlc = CtrlC::new()?.map(Ok);
-        let server = AuthServer::run("0.0.0.0:9958", Handler::default());
-        info!("Starting Server on 9958");
+        let server = GameServer::run("0.0.0.0:5817", Handler::default());
+        info!("Starting Server on 5817");
         smol::future::race(ctrlc, server).await?;
         Result::<(), Error>::Ok(())
     })?;

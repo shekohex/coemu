@@ -95,6 +95,7 @@ impl MsgConnectEx {
     /// Instantiates a new instance of `MsgConnectRejection` for rejecting a
     /// client connection using a rejection code. The rejection code spawns an
     /// error dialog in the client with a respective error message.
+    #[allow(unused)]
     pub fn from_code(code: RejectionCode) -> MsgConnectRejection {
         MsgConnectRejection {
             reserved: 0,
@@ -103,11 +104,11 @@ impl MsgConnectEx {
         }
     }
 
-    pub fn forword_connection(acc_credentials: &AccountCredentials) -> Self {
+    pub fn forword_connection(acc_credentials: AccountCredentials) -> Self {
         MsgConnectEx {
             authentication_token: acc_credentials.authentication_token,
             authentication_code: acc_credentials.authentication_code,
-            game_server_ip: acc_credentials.server_ip.clone().into(),
+            game_server_ip: acc_credentials.server_ip.into(),
             game_server_port: acc_credentials.server_port,
         }
     }

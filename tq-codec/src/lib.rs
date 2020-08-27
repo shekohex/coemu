@@ -24,11 +24,14 @@ use crypto::{Cipher, TQCipher};
 use futures_core::Stream;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::io::{AsyncReadExt, AsyncWriteExt};
+use pretty_hex::PrettyHex;
 use std::{
     io,
+    mem::MaybeUninit,
     pin::Pin,
     task::{Context, Poll},
 };
+use tracing::{debug, warn};
 
 /// A simple State Machine for Decoding the Stream.
 #[derive(Debug, Clone, Copy)]
@@ -39,7 +42,7 @@ enum DecodeState {
     Data((usize, u16)),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TQCodec<S: AsyncRead + AsyncWrite> {
     /// Current Decode State
     state: DecodeState,
@@ -56,14 +59,12 @@ pub struct TQCodec<S: AsyncRead + AsyncWrite> {
 
 impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     pub fn new(stream: S) -> Self {
-        let mut rd = BytesMut::new();
-        rd.resize(100, 0);
         Self {
             state: DecodeState::Head,
             cipher: TQCipher::default(),
             stream,
-            rd,
-            wr: BytesMut::new(),
+            wr: BytesMut::with_capacity(64),
+            rd: BytesMut::with_capacity(64),
         }
     }
 
@@ -87,12 +88,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
     ///
     /// This only returns `Ready` when the socket has closed.
     async fn fill_read_buf(&mut self) -> Result<(), io::Error> {
-        // Ensure the read buffer has capacity.
-        //
-        // This might result in an internal allocation.
-        self.rd.reserve(1024);
+        self.rd.reserve(128);
         // Read data into the buffer.
-        let n = self.stream.read(&mut self.rd).await?;
+        let n = read_buf(&mut self.stream, &mut self.rd).await?;
         if n == 0 {
             Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Read Zero"))
         } else {
@@ -184,6 +182,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> TQCodec<S> {
         result.put_u16_le(packet_id); // packet type (2) -> (4)
         result.extend_from_slice(&body); // packet_body (4) -> (packet_length)
         let full_packet = result.freeze();
+        debug!(
+            "\nServer -> Client ID({}) {:?}",
+            packet_id,
+            full_packet.as_ref().hex_dump()
+        );
         let mut encrypted_data = BytesMut::with_capacity(n);
         encrypted_data.resize(n, 0);
         // encrypt data
@@ -208,7 +211,6 @@ where
             pin_utils::pin_mut!(r);
             futures_core::ready!(r.poll(cx)).is_err()
         };
-
         let (n, packet_id) = match self.state {
             DecodeState::Head => match self.decode_head()? {
                 Some((n, packet_id)) => {
@@ -228,8 +230,12 @@ where
             },
             DecodeState::Data((n, packet_id)) => (n, packet_id),
         };
-
         if let Some(data) = self.decode_data(n)? {
+            debug!(
+                "\nClient -> Server ID({}) {:?}",
+                packet_id,
+                data.as_ref().hex_dump()
+            );
             // Update the decode state
             self.state = DecodeState::Head;
             let data = Ok((packet_id, data.freeze()));
@@ -237,9 +243,42 @@ where
         }
 
         if sock_closed {
+            warn!("Socket Closed, end of stream!");
             Poll::Ready(None)
         } else {
             Poll::Pending
         }
+    }
+}
+
+unsafe fn prepare_uninitialized_buffer(buf: &mut [MaybeUninit<u8>]) -> bool {
+    for x in buf {
+        *x = MaybeUninit::new(0);
+    }
+    true
+}
+
+async fn read_buf<S: AsyncRead + Unpin, B: BufMut>(
+    stream: &mut S,
+    buf: &mut B,
+) -> io::Result<usize> {
+    if !buf.has_remaining_mut() {
+        return Ok(0);
+    }
+    unsafe {
+        let n = {
+            let b = buf.bytes_mut();
+
+            prepare_uninitialized_buffer(b);
+
+            // Convert to `&mut [u8]`
+            let b = &mut *(b as *mut [MaybeUninit<u8>] as *mut [u8]);
+
+            let n = stream.read(b).await?;
+            assert!(n <= b.len(), "Bad AsyncRead implementation, more bytes were reported as read than the buffer can hold");
+            io::Result::Ok(n)
+        }?;
+        buf.advance_mut(n);
+        Ok(n)
     }
 }
