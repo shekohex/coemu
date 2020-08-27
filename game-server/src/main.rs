@@ -80,6 +80,8 @@ Copyright 2020 Shady Khalifa (@shekohex)
     info!("Starting Game Server");
     info!("Initializing server...");
 
+    std::env::set_var("SMOL_THREADS", "8");
+
     smol::block_on(async {
         let ctrlc = CtrlC::new()?.map(Ok);
         let server = GameServer::run("0.0.0.0:5817", Handler::default());
