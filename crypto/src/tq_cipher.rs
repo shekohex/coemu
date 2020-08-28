@@ -12,7 +12,13 @@
 //! [3]: https://www.forum.darkfoxdeveloper.com/conquerwiki/doku.php?id=conqueronlineserverasymmetriccipher
 use crate::Cipher;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use std::fmt;
+use std::{
+    fmt,
+    sync::{
+        atomic::{AtomicBool, AtomicI64, Ordering},
+        Arc, Mutex,
+    },
+};
 
 const K: usize = 256;
 
@@ -78,11 +84,11 @@ const KEY2: [u8; K] = [
 /// use, otherwise.
 #[derive(Clone)]
 pub struct TQCipher {
-    key3: BytesMut,
-    key4: BytesMut,
-    use_alt_key: bool,
-    decrypt_counter: i64,
-    encrypt_counter: i64,
+    key3: Arc<Mutex<BytesMut>>,
+    key4: Arc<Mutex<BytesMut>>,
+    use_alt_key: Arc<AtomicBool>,
+    decrypt_counter: Arc<AtomicI64>,
+    encrypt_counter: Arc<AtomicI64>,
 }
 
 impl TQCipher {
@@ -94,11 +100,11 @@ impl TQCipher {
     /// writes.
     pub fn new() -> Self {
         TQCipher {
-            key3: BytesMut::with_capacity(K),
-            key4: BytesMut::with_capacity(K),
-            use_alt_key: false,
-            decrypt_counter: 0,
-            encrypt_counter: 0,
+            key3: Arc::new(Mutex::new(BytesMut::with_capacity(K))),
+            key4: Arc::new(Mutex::new(BytesMut::with_capacity(K))),
+            use_alt_key: Arc::new(AtomicBool::new(false)),
+            decrypt_counter: Arc::new(AtomicI64::new(0)),
+            encrypt_counter: Arc::new(AtomicI64::new(0)),
         }
     }
 }
@@ -107,7 +113,7 @@ impl fmt::Debug for TQCipher {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "TQCipher {{ decrypt_counter: {}, encrypt_counter: {}, use_alt_key: {} }}",
+            "TQCipher {{ decrypt_counter: {:?}, encrypt_counter: {:?}, use_alt_key: {:?} }}",
             self.decrypt_counter, self.encrypt_counter, self.use_alt_key,
         )
     }
@@ -122,39 +128,44 @@ impl Cipher for TQCipher {
     /// token as a key derivation variable. Invoked after the first packet
     /// is received on the game server.
     #[inline(always)]
-    fn generate_keys(&mut self, a: u32, b: u32) {
+    fn generate_keys(&self, a: u32, b: u32) {
         let tmp1 = (a.wrapping_add(b) ^ 0x4321) ^ a;
         let tmp2 = tmp1.wrapping_mul(tmp1);
         const C: usize = K / 4;
         let mut key1 = Bytes::from_static(&KEY1);
         let mut key2 = Bytes::from_static(&KEY2);
+        let mut key3 = self.key3.lock().expect("Key3 Lock Error!");
+        let mut key4 = self.key4.lock().expect("Key4 Lock Error!");
         for _ in 0..C {
             let k1 = key1.get_u32_le();
             let k2 = key2.get_u32_le();
-            self.key3.put_u32_le(tmp1 ^ k1);
-            self.key4.put_u32_le(tmp2 ^ k2);
+            key3.put_u32_le(tmp1 ^ k1);
+            key4.put_u32_le(tmp2 ^ k2);
         }
-        self.encrypt_counter = 0;
-        self.use_alt_key = true;
+        self.encrypt_counter.store(0, Ordering::Relaxed);
+        self.use_alt_key.store(true, Ordering::Relaxed);
     }
 
     /// Decrypts the specified slice by XORing the source slice with the
     /// cipher's keystream. The source and destination may be the same
     /// slice, but otherwise should not overlap.
     #[inline(always)]
-    fn decrypt(&mut self, src: &[u8], dst: &mut [u8]) {
+    fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
         assert_eq!(src.len(), dst.len());
+        let key3 = self.key3.lock().expect("Key3 Lock Error!");
+        let key4 = self.key4.lock().expect("Key4 Lock Error!");
         for i in 0..src.len() {
             dst[i] = src[i] ^ 0xAB;
             dst[i] = dst[i] << 4 | dst[i] >> 4;
-            if self.use_alt_key {
-                dst[i] ^= self.key4[(self.decrypt_counter >> 8) as usize];
-                dst[i] ^= self.key3[(self.decrypt_counter & 0xFF) as usize];
+            let decrypt_counter = self.decrypt_counter.load(Ordering::Relaxed);
+            if self.use_alt_key.load(Ordering::Relaxed) {
+                dst[i] ^= key4[(decrypt_counter >> 8) as usize];
+                dst[i] ^= key3[(decrypt_counter & 0xFF) as usize];
             } else {
-                dst[i] ^= KEY2[(self.decrypt_counter >> 8) as usize];
-                dst[i] ^= KEY1[(self.decrypt_counter & 0xFF) as usize];
+                dst[i] ^= KEY2[(decrypt_counter >> 8) as usize];
+                dst[i] ^= KEY1[(decrypt_counter & 0xFF) as usize];
             }
-            self.decrypt_counter += 1;
+            self.decrypt_counter.fetch_add(1, Ordering::Relaxed);
         }
     }
 
@@ -162,14 +173,15 @@ impl Cipher for TQCipher {
     /// keystream. The source and destination may be the same slice, but
     /// otherwise should not overlap.
     #[inline(always)]
-    fn encrypt(&mut self, src: &[u8], dst: &mut [u8]) {
+    fn encrypt(&self, src: &[u8], dst: &mut [u8]) {
         assert_eq!(src.len(), dst.len());
         for i in 0..src.len() {
+            let encrypt_counter = self.encrypt_counter.load(Ordering::Relaxed);
             dst[i] = src[i] ^ 0xAB;
             dst[i] = dst[i] << 4 | dst[i] >> 4;
-            dst[i] ^= KEY2[(self.encrypt_counter >> 8) as usize];
-            dst[i] ^= KEY1[(self.encrypt_counter & 0xFF) as usize];
-            self.encrypt_counter += 1;
+            dst[i] ^= KEY2[(encrypt_counter >> 8) as usize];
+            dst[i] ^= KEY1[(encrypt_counter & 0xFF) as usize];
+            self.encrypt_counter.fetch_add(1, Ordering::Relaxed);
         }
     }
 }
@@ -180,7 +192,7 @@ mod tests {
     use crate::Cipher;
     #[test]
     fn test_tq_cipher() {
-        let mut tq_cipher = TQCipher::new();
+        let tq_cipher = TQCipher::new();
         let buffer = [
             0x22, 0x00, 0x1F, 0x04, 0x61, 0xFF, 0xC3, 0xA6, 0x3A, 0x6D, 0xD3,
             0x90, 0x31, 0x39, 0x32, 0x2E, 0x31, 0x36, 0x38, 0x2E, 0x31, 0x2E,

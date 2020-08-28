@@ -127,7 +127,7 @@ impl<'de> Deserialize<'de> for FixedString<EncryptedPassword> {
                 "input slice has wrong length",
             ));
         }
-        let mut rc5 = TQRC5::new();
+        let rc5 = TQRC5::new();
         let mut pass_decrypted_bytes = [0u8; 16];
         rc5.decrypt(&slice, &mut pass_decrypted_bytes);
         let result = ASCII

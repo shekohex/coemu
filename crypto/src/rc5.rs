@@ -77,9 +77,9 @@ impl TQRC5 {
 }
 
 impl crate::Cipher for TQRC5 {
-    fn generate_keys(&mut self, _key1: u32, _key2: u32) {}
+    fn generate_keys(&self, _key1: u32, _key2: u32) {}
 
-    fn decrypt(&mut self, src: &[u8], dst: &mut [u8]) {
+    fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
         // Pad the buffer
         let mut src_len = src.len() / 8;
         if src.len() % 8 > 0 {
@@ -118,7 +118,7 @@ impl crate::Cipher for TQRC5 {
         }
     }
 
-    fn encrypt(&mut self, _src: &[u8], _dst: &mut [u8]) {}
+    fn encrypt(&self, _src: &[u8], _dst: &mut [u8]) {}
 }
 
 #[cfg(test)]
@@ -127,7 +127,7 @@ mod tests {
     use crate::Cipher;
     #[test]
     fn test_rc5() {
-        let mut rc5 = TQRC5::new();
+        let rc5 = TQRC5::new();
         let buf = [
             0x1C, 0xFD, 0x41, 0xC9, 0xA1, 0x69, 0xAA, 0xB6, 0x0D, 0xA6, 0x08,
             0x4D, 0xF3, 0x67, 0xEB, 0x73,
