@@ -6,4 +6,6 @@ pub enum Error {
     Network(#[from] network::Error),
     #[error(transparent)]
     IO(#[from] std::io::Error),
+    #[error(transparent)]
+    Env(#[from] dotenv::Error),
 }

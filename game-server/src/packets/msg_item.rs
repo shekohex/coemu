@@ -1,7 +1,13 @@
+use super::{MsgTalk, TalkChannel};
 use async_trait::async_trait;
 use network::{Actor, PacketID, PacketProcess};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
+/// Enumeration type for defining item actions that may be requested by the
+/// user, or given to by the server. Allows for action handling as a packet
+/// subtype. Enums should be named by the action they provide to a system in the
+/// context of the player item.
 #[derive(Debug)]
 enum ItemActionType {
     Ping,
@@ -47,7 +53,22 @@ impl PacketProcess for MsgItem {
     type Error = crate::Error;
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
-        actor.send(self.clone()).await?;
+        let action = self.action_type.into();
+        match action {
+            ItemActionType::Ping => {
+                actor.send(self.clone()).await?;
+            },
+            ItemActionType::Unknown(ty) => {
+                actor.send(self.clone()).await?;
+                let p = MsgTalk::from_system(
+                    self.character_id,
+                    TalkChannel::Service,
+                    format!("Missing Item Action Type {:?}", ty),
+                );
+                warn!("Missing Item Action Type {:?}", ty);
+                actor.send(p).await?;
+            },
+        }
         Ok(())
     }
 }

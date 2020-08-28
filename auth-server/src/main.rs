@@ -7,7 +7,7 @@ mod errors;
 use errors::Error;
 
 mod packets;
-use packets::{MsgAccount, PacketType};
+use packets::{MsgAccount, MsgConnect, PacketType};
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct AuthServer;
@@ -32,6 +32,11 @@ impl PacketHandler for Handler {
                 let msg = MsgAccount::decode(&bytes)?;
                 debug!("{:?}", msg);
                 msg.process(actor).await?;
+            },
+            PacketType::MsgConnect => {
+                let msg = MsgConnect::decode(&bytes)?;
+                debug!("{:?}", msg);
+                msg.process(actor).await?;
                 actor.shutdown().await?;
             },
             _ => {
@@ -46,6 +51,7 @@ impl PacketHandler for Handler {
 
 #[tokio::main(core_threads = 8)]
 async fn main() -> Result<(), Error> {
+    dotenv::dotenv()?;
     tracing_subscriber::fmt::init();
     println!(
         r#"

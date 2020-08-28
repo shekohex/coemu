@@ -30,26 +30,27 @@ pub enum PacketType {
 impl From<u16> for PacketType {
     fn from(original: u16) -> PacketType {
         match original {
-            1001 => PacketType::MsgRegister,
-            1004 => PacketType::MsgTalk,
-            1006 => PacketType::MsgUserInfo,
-            1009 => PacketType::MsgItem,
-            1010 => PacketType::MsgAction,
-            1052 => PacketType::MsgConnect,
-            id => PacketType::MsgUnKnown(id),
+            1001 => Self::MsgRegister,
+            1004 => Self::MsgTalk,
+            1006 => Self::MsgUserInfo,
+            1009 => Self::MsgItem,
+            1010 => Self::MsgAction,
+            1052 => Self::MsgConnect,
+            id => Self::MsgUnKnown(id),
         }
     }
 }
 
 impl From<PacketType> for u16 {
     fn from(original: PacketType) -> u16 {
+        use PacketType::*;
         match original {
-            PacketType::MsgRegister => 1001,
-            PacketType::MsgTalk => 1004,
-            PacketType::MsgUserInfo => 1006,
-            PacketType::MsgItem => 1009,
-            PacketType::MsgAction => 1010,
-            PacketType::MsgConnect => 1052,
+            MsgRegister => 1001,
+            MsgTalk => 1004,
+            MsgUserInfo => 1006,
+            MsgItem => 1009,
+            MsgAction => 1010,
+            MsgConnect => 1052,
             _ => 0,
         }
     }

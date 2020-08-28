@@ -61,6 +61,7 @@ impl PacketHandler for Handler {
 
 #[tokio::main(core_threads = 8)]
 async fn main() -> Result<(), Error> {
+    dotenv::dotenv()?;
     tracing_subscriber::fmt::init();
     println!(
         r#"
@@ -79,8 +80,8 @@ Copyright 2020 Shady Khalifa (@shekohex)
     info!("Starting Game Server");
     info!("Initializing server...");
     let ctrlc = tokio::signal::ctrl_c();
-    let server = GameServer::run("0.0.0.0:5817", Handler::default());
-    info!("Starting Server on 9958");
+    let server = GameServer::run("0.0.0.0:5816", Handler::default());
+    info!("Starting Server on 5816");
     tokio::select! {
         _ = ctrlc => {
             info!("Got Ctrl+C Signal!");

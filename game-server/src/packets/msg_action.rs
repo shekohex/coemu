@@ -1,5 +1,4 @@
 use super::{MsgTalk, TalkChannel};
-use crate::utils;
 use async_trait::async_trait;
 use network::{Actor, PacketID, PacketProcess};
 use serde::{Deserialize, Serialize};
@@ -16,6 +15,7 @@ enum ActionType {
     SetDirection = 79,
     SetAction = 80,
     SetMapARGB = 104,
+    SetLoginComplete = 130,
 }
 
 impl From<u16> for ActionType {
@@ -29,6 +29,7 @@ impl From<u16> for ActionType {
             79 => ActionType::SetDirection,
             80 => ActionType::SetAction,
             104 => ActionType::SetMapARGB,
+            130 => ActionType::SetLoginComplete,
             _ => ActionType::Unknown,
         }
     }
@@ -58,12 +59,10 @@ impl PacketProcess for MsgAction {
     type Error = crate::Error;
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
-        dbg!(&self);
         let ty = self.action_type.into();
         match ty {
             ActionType::SetLocation => {
                 let mut res = self.clone();
-                res.client_timestamp = utils::current_tick_ms();
                 res.param0 = 1002;
                 res.param1 = 430;
                 res.param2 = 380;
@@ -71,7 +70,6 @@ impl PacketProcess for MsgAction {
             },
             ActionType::SetMapARGB => {
                 let mut res = self.clone();
-                res.client_timestamp = utils::current_tick_ms();
                 res.param0 = 0x00FF_FFFF;
                 res.param1 = 430;
                 res.param2 = 380;
@@ -84,8 +82,7 @@ impl PacketProcess for MsgAction {
                     format!("Missing Action Type {:?}", ty),
                 );
                 actor.send(p).await?;
-                let mut res = self.clone();
-                res.client_timestamp = utils::current_tick_ms();
+                let res = self.clone();
                 actor.send(res).await?;
                 warn!("Missing Action Type {:?}", ty);
             },
