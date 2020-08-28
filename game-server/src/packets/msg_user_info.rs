@@ -37,7 +37,7 @@ impl Default for MsgUserInfo {
         Self {
             character_id: 1,
             mesh: 1003 + 10000,
-            hair_style: 1,
+            hair_style: (3 * 100) + 11,
             silver: 100,
             cps: 0,
             experience: 0,
