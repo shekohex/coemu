@@ -9,6 +9,7 @@ bytes = "0.5"
 crypto = { path = "../crypto" }
 pretty-hex = "0.1"
 tracing = "0.1"
+tracing-futures = "0.2"
 
 [dependencies.tokio]
 version = "0.2"
