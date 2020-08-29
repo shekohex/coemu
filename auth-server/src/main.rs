@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 mod errors;
 use errors::Error;
 use handler::Handler;
@@ -13,10 +12,7 @@ mod state;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct AuthServer;
 
-#[async_trait]
-impl Server for AuthServer {
-    type Error = Error;
-}
+impl Server for AuthServer {}
 
 #[tokio::main(core_threads = 8)]
 async fn main() -> Result<(), Error> {

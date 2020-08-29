@@ -197,7 +197,9 @@ impl MsgTalk {
 }
 
 impl PacketID for MsgTalk {
-    fn id(&self) -> u16 { PacketType::MsgTalk.into() }
+    type ID = PacketType;
+
+    fn id(&self) -> Self::ID { PacketType::MsgTalk }
 }
 
 #[async_trait]

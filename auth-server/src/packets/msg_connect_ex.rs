@@ -115,9 +115,13 @@ impl MsgConnectEx {
 }
 
 impl PacketID for MsgConnectRejection {
-    fn id(&self) -> u16 { PacketType::MsgConnectEx.into() }
+    type ID = PacketType;
+
+    fn id(&self) -> Self::ID { PacketType::MsgConnectEx }
 }
 
 impl PacketID for MsgConnectEx {
-    fn id(&self) -> u16 { PacketType::MsgConnectEx.into() }
+    type ID = PacketType;
+
+    fn id(&self) -> Self::ID { PacketType::MsgConnectEx }
 }

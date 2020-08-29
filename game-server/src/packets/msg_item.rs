@@ -45,7 +45,9 @@ pub struct MsgItem {
 }
 
 impl PacketID for MsgItem {
-    fn id(&self) -> u16 { super::PacketType::MsgItem.into() }
+    type ID = super::PacketType;
+
+    fn id(&self) -> Self::ID { super::PacketType::MsgItem }
 }
 
 #[async_trait]

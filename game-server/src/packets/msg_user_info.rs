@@ -64,5 +64,7 @@ impl Default for MsgUserInfo {
 }
 
 impl PacketID for MsgUserInfo {
-    fn id(&self) -> u16 { super::PacketType::MsgUserInfo.into() }
+    type ID = super::PacketType;
+
+    fn id(&self) -> Self::ID { super::PacketType::MsgUserInfo }
 }

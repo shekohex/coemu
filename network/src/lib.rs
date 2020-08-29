@@ -2,7 +2,7 @@
 pub use async_trait::async_trait;
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error as StdError, ops::Deref};
+use std::error::Error as StdError;
 
 mod errors;
 pub use errors::Error;
@@ -14,8 +14,9 @@ mod server;
 pub use server::Server;
 
 pub trait PacketID {
+    type ID: Into<u16> + Copy;
     /// Get the ID of that packet.
-    fn id(&self) -> u16;
+    fn id(&self) -> Self::ID;
 }
 
 #[async_trait]
@@ -65,7 +66,7 @@ where
     type Packet = T;
 
     fn encode(&self) -> Result<(u16, Bytes), Error> {
-        let id = self.id();
+        let id = self.id().into();
         let bytes = tq_serde::to_bytes(&self)?;
         Ok((id, bytes.freeze()))
     }
@@ -78,13 +79,6 @@ where
     type Packet = T;
 
     fn decode(bytes: &Bytes) -> Result<T, Error> {
-        tq_serde::from_bytes(bytes).map_err(Error::TQSerde)
+        Ok(tq_serde::from_bytes(bytes)?)
     }
-}
-
-impl<T> PacketID for T
-where
-    T: Deref<Target = u16>,
-{
-    fn id(&self) -> u16 { *self.deref() }
 }

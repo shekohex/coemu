@@ -51,7 +51,9 @@ pub struct MsgAction {
 }
 
 impl PacketID for MsgAction {
-    fn id(&self) -> u16 { super::PacketType::MsgAction.into() }
+    type ID = super::PacketType;
+
+    fn id(&self) -> Self::ID { super::PacketType::MsgAction }
 }
 
 #[async_trait]

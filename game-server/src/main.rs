@@ -14,9 +14,7 @@ use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk, PacketType};
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct GameServer;
 
-impl Server for GameServer {
-    type Error = Error;
-}
+impl Server for GameServer {}
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct Handler;

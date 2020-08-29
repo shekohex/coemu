@@ -12,6 +12,8 @@ pub enum Error {
     AddrParseError(#[from] std::net::AddrParseError),
     #[error(transparent)]
     IO(#[from] std::io::Error),
+    #[error("{}", _0)]
+    Other(String),
     #[error("NullError")]
     NullError {
         e: NoneError,

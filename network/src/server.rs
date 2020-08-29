@@ -1,7 +1,7 @@
 use crate::{actor::Message, Actor, Error, PacketHandler};
 use async_trait::async_trait;
 use crypto::{Cipher, TQCipher};
-use std::{error::Error as StdError, net::SocketAddr};
+use std::net::SocketAddr;
 use tokio::{
     net::{TcpListener, TcpStream},
     stream::StreamExt,
@@ -12,8 +12,6 @@ use tracing::{debug, error, instrument};
 
 #[async_trait]
 pub trait Server {
-    type Error: StdError;
-
     #[instrument(skip(self, handler))]
     async fn run<H: PacketHandler>(
         &self,
@@ -34,7 +32,7 @@ pub trait Server {
             let handler = handler.clone();
             let task = async move {
                 if let Err(e) = handle_stream(stream, handler).await {
-                    error!("Error For Stream: {}", e);
+                    error!("{}", e);
                 }
                 debug!("Task Ended.");
             };
@@ -58,10 +56,10 @@ async fn handle_stream<H: PacketHandler>(
 
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
-        if let Err(e) = handler.handle((id, bytes), &actor).await {
-            error!("Error While Handling Packet {} {}", id, e);
-            break;
-        }
+        handler
+            .handle((id, bytes), &actor)
+            .await
+            .map_err(|e| Error::Other(e.to_string()))?;
     }
     debug!("Socket Closed, stopping task.");
     Ok(())
