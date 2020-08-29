@@ -17,7 +17,6 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
-        use network::{PacketID, PacketProcess};
         #[async_trait::async_trait]
         impl #impl_generics network::PacketHandler for #name #ty_generics #where_clause {
             type Error = crate::Error;
@@ -25,6 +24,7 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
                  (id, bytes): (u16, bytes::Bytes),
                  actor: &network::Actor
                 ) -> Result<(), Self::Error> {
+                    use network::{PacketID, PacketProcess};
                     #body
                     Ok(())
                 }
