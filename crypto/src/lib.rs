@@ -9,12 +9,15 @@ pub use rc5::TQRC5;
 mod tq_cipher;
 pub use tq_cipher::TQCipher;
 
+mod nop;
+pub use nop::NopCipher;
+
 /// Defines generalized methods for ciphers used by
 /// `TcpServerActor` and `TcpServerListener` for encrypting and decrypting
 /// data to and from the game client.
 /// Can be used to switch between ciphers easily for
 /// seperate states of the game client connection.
-pub trait Cipher {
+pub trait Cipher: Clone + Default + Send + Sync + Unpin + 'static {
     /// Generates keys using key derivation variables.
     fn generate_keys(&self, key1: u32, key2: u32);
     /// Decrypts data from the client.

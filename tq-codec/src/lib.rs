@@ -99,10 +99,8 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
         let (n, packet_type) = {
             let mut len = [0u8; 2];
             let mut ty = [0u8; 2];
-            trace!("Decrypt Length");
             // Get the decrypted head len.
             self.cipher.decrypt(&self.buf[0..2], &mut len);
-            trace!("Decrypt ID");
             // Get the decrypted head packet type.
             self.cipher.decrypt(&self.buf[2..4], &mut ty);
             // get length
@@ -110,7 +108,7 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
             // get type
             let packet_id = ty.as_ref().get_u16_le();
             trace!("len {}, id {}", n, packet_id);
-            if n > 8_000 {
+            if n > 5_000 {
                 trace!("Frame too big!");
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,

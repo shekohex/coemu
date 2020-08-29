@@ -76,6 +76,10 @@ impl TQRC5 {
     }
 }
 
+impl Default for TQRC5 {
+    fn default() -> Self { Self::new() }
+}
+
 impl crate::Cipher for TQRC5 {
     fn generate_keys(&self, _key1: u32, _key2: u32) {}
 

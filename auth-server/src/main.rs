@@ -38,10 +38,13 @@ Copyright 2020 Shady Khalifa (@shekohex)
     info!("Starting Auth Server");
     info!("Initializing server...");
     State::init();
+    let auth_port = dotenv::var("AUTH_PORT")?;
     let ctrlc = tokio::signal::ctrl_c();
-    let server = AuthServer::run::<Handler>("0.0.0.0:9958");
+    let server =
+        AuthServer::run::<Handler, String>(format!("0.0.0.0:{}", auth_port));
 
-    info!("Starting Server on 9958");
+    info!("Auth Server will be available on {}", auth_port);
+
     tokio::select! {
         _ = ctrlc => {
             info!("Got Ctrl+C Signal!");

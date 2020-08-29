@@ -1,4 +1,4 @@
-use network::{PacketHandler, Server};
+use network::{NopCipher, PacketHandler, Server};
 use tracing::info;
 
 mod constants;
@@ -7,7 +7,7 @@ mod utils;
 use errors::Error;
 
 mod packets;
-use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk};
+use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk, MsgTransfer};
 
 #[derive(Server)]
 struct GameServer;
@@ -18,6 +18,11 @@ pub enum Handler {
     MsgTalk,
     MsgAction,
     MsgItem,
+}
+
+#[derive(Copy, Clone, PacketHandler)]
+pub enum RpcHandler {
+    MsgTransfer,
 }
 
 #[tokio::main(core_threads = 8)]
@@ -40,15 +45,33 @@ Copyright 2020 Shady Khalifa (@shekohex)
     );
     info!("Starting Game Server");
     info!("Initializing server...");
+
+    let game_port = dotenv::var("GAME_PORT")?;
+    let rpc_port = dotenv::var("GAME_RPC_PORT")?;
+
     let ctrlc = tokio::signal::ctrl_c();
-    let server = GameServer::run::<Handler>("0.0.0.0:5816");
-    info!("Starting Server on 5816");
+
+    let server =
+        GameServer::run::<Handler, String>(format!("0.0.0.0:{}", game_port));
+    let server = tokio::spawn(server);
+
+    let rpc_server = GameServer::run_with_cipher::<RpcHandler, String, NopCipher>(
+        format!("0.0.0.0:{}", rpc_port),
+    );
+    let rpc_server = tokio::spawn(rpc_server);
+
+    info!("Game Server will be available on {}", game_port);
+    info!("RPC Server will be available on {}", rpc_port);
+
     tokio::select! {
         _ = ctrlc => {
             info!("Got Ctrl+C Signal!");
         }
         _ = server => {
             info!("Server Is Shutting Down..");
+        }
+        _ = rpc_server => {
+            info!("Rpc Server is Suhtting Down..");
         }
     };
     Ok(())

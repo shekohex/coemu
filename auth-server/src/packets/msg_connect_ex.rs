@@ -40,6 +40,7 @@ pub struct MsgConnectRejection {
     message: String16,
 }
 
+#[derive(Debug, Clone)]
 pub struct AccountCredentials {
     pub authentication_token: u32,
     pub authentication_code: u32,

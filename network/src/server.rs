@@ -1,9 +1,9 @@
 use crate::{actor::Message, Actor, Error, PacketHandler};
 use async_trait::async_trait;
 use crypto::{Cipher, TQCipher};
-use std::net::SocketAddr;
+use std::fmt::Debug;
 use tokio::{
-    net::{TcpListener, TcpStream},
+    net::{TcpListener, TcpStream, ToSocketAddrs},
     stream::StreamExt,
     sync::mpsc,
 };
@@ -13,37 +13,61 @@ use tracing::{debug, error, instrument};
 #[async_trait]
 pub trait Server {
     #[instrument]
-    async fn run<H: PacketHandler>(addr: &str) -> Result<(), Error> {
-        let addr: SocketAddr = addr.parse()?;
-        let mut listener = TcpListener::bind(addr).await?;
-        let mut incoming = listener.incoming();
-        while let Some(stream) = incoming.next().await {
-            let stream = stream?;
-            debug!("Got Connection from {}", stream.peer_addr()?);
-            stream.set_nodelay(true)?;
-            stream.set_linger(None)?;
-            stream.set_recv_buffer_size(64)?;
-            stream.set_send_buffer_size(64)?;
-            stream.set_ttl(5)?;
-            let task = async move {
-                if let Err(e) = handle_stream::<H>(stream).await {
-                    error!("{}", e);
-                }
-                debug!("Task Ended.");
-            };
-            tokio::spawn(task);
-        }
-        Ok(())
+    async fn run<H, A>(addr: A) -> Result<(), Error>
+    where
+        H: PacketHandler,
+        A: Debug + ToSocketAddrs + Send + Sync,
+    {
+        run::<H, A, TQCipher>(addr).await
+    }
+
+    #[instrument]
+    async fn run_with_cipher<H, A, C>(addr: A) -> Result<(), Error>
+    where
+        H: PacketHandler,
+        A: Debug + ToSocketAddrs + Send + Sync,
+        C: Cipher,
+    {
+        run::<H, A, C>(addr).await
     }
 }
 
+#[instrument()]
+async fn run<H, A, C>(addr: A) -> Result<(), Error>
+where
+    H: PacketHandler,
+    A: Debug + ToSocketAddrs + Send + Sync,
+    C: Cipher,
+{
+    let mut listener = TcpListener::bind(addr).await?;
+    let mut incoming = listener.incoming();
+    while let Some(stream) = incoming.next().await {
+        let stream = stream?;
+        debug!("Got Connection from {}", stream.peer_addr()?);
+        stream.set_nodelay(true)?;
+        stream.set_linger(None)?;
+        stream.set_recv_buffer_size(64)?;
+        stream.set_send_buffer_size(64)?;
+        stream.set_ttl(5)?;
+        let task = async move {
+            if let Err(e) = handle_stream::<H, C>(stream).await {
+                error!("{}", e);
+            }
+            debug!("Task Ended.");
+        };
+        tokio::spawn(task);
+    }
+    Ok(())
+}
 #[instrument(skip(stream))]
-async fn handle_stream<H: PacketHandler>(
-    stream: TcpStream,
-) -> Result<(), Error> {
+async fn handle_stream<H, C>(stream: TcpStream) -> Result<(), Error>
+where
+    H: PacketHandler,
+    C: Cipher,
+{
     let (tx, rx) = mpsc::channel(50);
     let actor = Actor::new(tx);
-    let cipher = TQCipher::new();
+    let cipher = C::default();
     let (encoder, mut decoder) = TQCodec::new(stream, cipher.clone()).split();
     // Start MsgHandler in a seprate task.
     tokio::spawn(handle_msg(rx, encoder, cipher));
@@ -59,10 +83,10 @@ async fn handle_stream<H: PacketHandler>(
 }
 
 #[instrument(skip(rx, encoder, cipher))]
-async fn handle_msg(
+async fn handle_msg<C: Cipher>(
     mut rx: mpsc::Receiver<Message>,
-    mut encoder: TQEncoder<TcpStream, TQCipher>,
-    cipher: impl Cipher,
+    mut encoder: TQEncoder<TcpStream, C>,
+    cipher: C,
 ) -> Result<(), Error> {
     use Message::*;
     while let Some(msg) = rx.next().await {

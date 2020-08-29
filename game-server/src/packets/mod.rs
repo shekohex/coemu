@@ -12,3 +12,6 @@ pub use msg_action::MsgAction;
 
 mod msg_item;
 pub use msg_item::MsgItem;
+
+mod msg_transfer;
+pub use msg_transfer::MsgTransfer;

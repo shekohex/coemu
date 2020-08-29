@@ -1,4 +1,4 @@
-use super::{AccountCredentials, MsgConnectEx};
+use super::{MsgConnectEx, MsgTransfer};
 use crate::{Error, State};
 use async_trait::async_trait;
 use network::{Actor, PacketID, PacketProcess};
@@ -23,12 +23,9 @@ impl PacketProcess for MsgAccount {
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
         State::global().add_actor(actor);
-        let res = MsgConnectEx::forword_connection(AccountCredentials {
-            authentication_token: 1001,
-            authentication_code: 1002,
-            server_ip: "192.168.1.4".into(),
-            server_port: 5816,
-        });
+        let account_id = actor.id() as u32;
+        let res = MsgTransfer::handle(account_id, &self.realm).await?;
+        let res = MsgConnectEx::forword_connection(res);
         actor.send(res).await?;
         Ok(())
     }
