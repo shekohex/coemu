@@ -1,52 +1,21 @@
 use async_trait::async_trait;
-use bytes::Bytes;
-use network::{Actor, PacketDecode, PacketHandler, PacketProcess, Server};
-use tracing::{debug, info, warn};
-
 mod errors;
 use errors::Error;
+use handler::Handler;
+use network::Server;
+use state::State;
+use tracing::info;
 
+mod handler;
 mod packets;
-use packets::{MsgAccount, MsgConnect, PacketType};
+mod state;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct AuthServer;
 
-impl Server for AuthServer {}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-struct Handler;
-
 #[async_trait]
-impl PacketHandler for Handler {
+impl Server for AuthServer {
     type Error = Error;
-
-    async fn handle(
-        &self,
-        (id, bytes): (u16, Bytes),
-        actor: &Actor,
-    ) -> Result<(), Self::Error> {
-        let id = id.into();
-        match id {
-            PacketType::MsgAccount => {
-                let msg = MsgAccount::decode(&bytes)?;
-                debug!("{:?}", msg);
-                msg.process(actor).await?;
-            },
-            PacketType::MsgConnect => {
-                let msg = MsgConnect::decode(&bytes)?;
-                debug!("{:?}", msg);
-                msg.process(actor).await?;
-                actor.shutdown().await?;
-            },
-            _ => {
-                warn!("{:?}", id);
-                actor.shutdown().await?;
-                return Ok(());
-            },
-        };
-        Ok(())
-    }
 }
 
 #[tokio::main(core_threads = 8)]
@@ -69,8 +38,11 @@ Copyright 2020 Shady Khalifa (@shekohex)
     );
     info!("Starting Auth Server");
     info!("Initializing server...");
+    State::init();
     let ctrlc = tokio::signal::ctrl_c();
-    let server = AuthServer::run("0.0.0.0:9958", Handler::default());
+    let server = AuthServer::default();
+    let server = server.run("0.0.0.0:9958", Handler::default());
+
     info!("Starting Server on 9958");
     tokio::select! {
         _ = ctrlc => {

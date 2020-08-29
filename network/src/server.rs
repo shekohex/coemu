@@ -1,7 +1,7 @@
 use crate::{actor::Message, Actor, Error, PacketHandler};
 use async_trait::async_trait;
 use crypto::{Cipher, TQCipher};
-use std::net::SocketAddr;
+use std::{error::Error as StdError, net::SocketAddr};
 use tokio::{
     net::{TcpListener, TcpStream},
     stream::StreamExt,
@@ -12,8 +12,14 @@ use tracing::{debug, error, instrument};
 
 #[async_trait]
 pub trait Server {
-    #[instrument(skip(handler))]
-    async fn run(addr: &str, handler: impl PacketHandler) -> Result<(), Error> {
+    type Error: StdError;
+
+    #[instrument(skip(self, handler))]
+    async fn run<H: PacketHandler>(
+        &self,
+        addr: &str,
+        handler: H,
+    ) -> Result<(), Error> {
         let addr: SocketAddr = addr.parse()?;
         let mut listener = TcpListener::bind(addr).await?;
         let mut incoming = listener.incoming();
@@ -26,21 +32,22 @@ pub trait Server {
             stream.set_send_buffer_size(64)?;
             stream.set_ttl(5)?;
             let handler = handler.clone();
-            tokio::spawn(async move {
+            let task = async move {
                 if let Err(e) = handle_stream(stream, handler).await {
                     error!("Error For Stream: {}", e);
                 }
                 debug!("Task Ended.");
-            });
+            };
+            tokio::spawn(task);
         }
         Ok(())
     }
 }
 
 #[instrument(skip(handler, stream))]
-async fn handle_stream(
+async fn handle_stream<H: PacketHandler>(
     stream: TcpStream,
-    handler: impl PacketHandler,
+    handler: H,
 ) -> Result<(), Error> {
     let (tx, rx) = mpsc::channel(50);
     let actor = Actor::new(tx);

@@ -1,4 +1,5 @@
 use super::{AccountCredentials, MsgConnectEx};
+use crate::Error;
 use async_trait::async_trait;
 use network::{Actor, PacketProcess};
 use serde::Deserialize;
@@ -17,7 +18,7 @@ pub struct MsgAccount {
 
 #[async_trait]
 impl PacketProcess for MsgAccount {
-    type Error = crate::Error;
+    type Error = Error;
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
         let res = MsgConnectEx::forword_connection(AccountCredentials {

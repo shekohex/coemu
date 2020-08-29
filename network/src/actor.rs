@@ -1,5 +1,6 @@
 use crate::{Error, PacketEncode};
 use bytes::Bytes;
+use std::hash::Hash;
 use tokio::sync::mpsc::Sender;
 use tracing::instrument;
 
@@ -12,8 +13,19 @@ pub enum Message {
 
 #[derive(Clone, Debug)]
 pub struct Actor {
+    id: usize,
     tx: Sender<Message>,
 }
+
+impl Hash for Actor {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.id.hash(state); }
+}
+
+impl PartialEq for Actor {
+    fn eq(&self, other: &Self) -> bool { self.id.eq(&other.id) }
+}
+
+impl Eq for Actor {}
 
 impl From<(u16, Bytes)> for Message {
     fn from((id, bytes): (u16, Bytes)) -> Self { Self::Packet(id, bytes) }
@@ -24,7 +36,14 @@ impl From<(u32, u32)> for Message {
 }
 
 impl Actor {
-    pub fn new(tx: Sender<Message>) -> Self { Self { tx } }
+    pub fn new(tx: Sender<Message>) -> Self {
+        Self {
+            id: fastrand::usize(0..usize::MAX),
+            tx,
+        }
+    }
+
+    pub fn id(&self) -> usize { self.id }
 
     /// Enqueue the packet and send it to the client connected to this actor
     pub async fn send(&self, packet: impl PacketEncode) -> Result<(), Error> {

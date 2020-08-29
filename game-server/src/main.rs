@@ -14,7 +14,9 @@ use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk, PacketType};
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct GameServer;
 
-impl Server for GameServer {}
+impl Server for GameServer {
+    type Error = Error;
+}
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 struct Handler;
@@ -80,7 +82,8 @@ Copyright 2020 Shady Khalifa (@shekohex)
     info!("Starting Game Server");
     info!("Initializing server...");
     let ctrlc = tokio::signal::ctrl_c();
-    let server = GameServer::run("0.0.0.0:5816", Handler::default());
+    let server = GameServer::default();
+    let server = server.run("0.0.0.0:5816", Handler::default());
     info!("Starting Server on 5816");
     tokio::select! {
         _ = ctrlc => {

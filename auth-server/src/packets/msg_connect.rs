@@ -1,3 +1,4 @@
+use crate::Error;
 use async_trait::async_trait;
 use network::{Actor, PacketProcess};
 use serde::Deserialize;
@@ -14,7 +15,7 @@ pub struct MsgConnect {
 
 #[async_trait]
 impl PacketProcess for MsgConnect {
-    type Error = crate::Error;
+    type Error = Error;
 
     async fn process(&self, _: &Actor) -> Result<(), Self::Error> { Ok(()) }
 }
