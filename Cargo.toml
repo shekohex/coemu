@@ -8,4 +8,6 @@ members = [
   # Bins
   "auth-server",
   "game-server",
-  ]
+  # Utils
+  "macros/*"
+]
