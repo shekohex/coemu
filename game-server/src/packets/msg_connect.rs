@@ -1,14 +1,15 @@
 use super::{MsgTalk, MsgUserInfo, TalkChannel};
 use crate::constants::ANSWER_OK;
 use async_trait::async_trait;
-use network::{Actor, PacketProcess};
+use network::{Actor, PacketID, PacketProcess};
 use serde::Deserialize;
 use tq_serde::String10;
 
 /// Message containing a connection request to the game server. Contains the
 /// player's access token from the Account server, and the patch and language
 /// versions of the game client.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PacketID)]
+#[packet(id = 1052)]
 pub struct MsgConnect {
     authentication_token: u32,
     authentication_code: u32,

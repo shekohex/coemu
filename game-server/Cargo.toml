@@ -19,6 +19,11 @@ tracing-subscriber = { version = "0.2", default-features = false, features = ["e
 uptime_lib = "0.2"
 dotenv = "0.15"
 
+# Utils
+[dependencies.num_enum]
+version = "0.5.1"
+default-features = false
+
 # Runtime
 [dependencies.tokio]
 version = "0.2"

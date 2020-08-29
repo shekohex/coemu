@@ -1,7 +1,5 @@
-use async_trait::async_trait;
-use bytes::Bytes;
-use network::{Actor, PacketDecode, PacketHandler, PacketProcess, Server};
-use tracing::{debug, info, warn};
+use network::{PacketHandler, Server};
+use tracing::info;
 
 mod constants;
 mod errors;
@@ -9,54 +7,17 @@ mod utils;
 use errors::Error;
 
 mod packets;
-use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk, PacketType};
+use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk};
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Server)]
 struct GameServer;
 
-impl Server for GameServer {}
-
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-struct Handler;
-
-#[async_trait]
-impl PacketHandler for Handler {
-    type Error = Error;
-
-    async fn handle(
-        &self,
-        (id, bytes): (u16, Bytes),
-        actor: &Actor,
-    ) -> Result<(), Self::Error> {
-        let id = id.into();
-        match id {
-            PacketType::MsgConnect => {
-                let msg = MsgConnect::decode(&bytes)?;
-                debug!("{:?}", msg);
-                msg.process(actor).await?;
-            },
-            PacketType::MsgTalk => {
-                let msg = MsgTalk::decode(&bytes)?;
-                debug!("{:?}", msg);
-                msg.process(actor).await?;
-            },
-            PacketType::MsgAction => {
-                let msg = MsgAction::decode(&bytes)?;
-                debug!("{:?}", msg);
-                msg.process(actor).await?;
-            },
-            PacketType::MsgItem => {
-                let msg = MsgItem::decode(&bytes)?;
-                debug!("{:?}", msg);
-                msg.process(actor).await?;
-            },
-            _ => {
-                warn!("{:?}", id);
-                return Ok(());
-            },
-        };
-        Ok(())
-    }
+#[derive(Copy, Clone, PacketHandler)]
+pub enum Handler {
+    MsgConnect,
+    MsgTalk,
+    MsgAction,
+    MsgItem,
 }
 
 #[tokio::main(core_threads = 8)]
@@ -80,8 +41,7 @@ Copyright 2020 Shady Khalifa (@shekohex)
     info!("Starting Game Server");
     info!("Initializing server...");
     let ctrlc = tokio::signal::ctrl_c();
-    let server = GameServer::default();
-    let server = server.run("0.0.0.0:5816", Handler::default());
+    let server = GameServer::run::<Handler>("0.0.0.0:5816");
     info!("Starting Server on 5816");
     tokio::select! {
         _ = ctrlc => {

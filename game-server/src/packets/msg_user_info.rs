@@ -4,7 +4,8 @@ use serde::Serialize;
 /// Message defining character information, used to initialize the client
 /// interface and game state. Character information is loaded from the game
 /// database on login if a character exists.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PacketID)]
+#[packet(id = 1006)]
 pub struct MsgUserInfo {
     character_id: u32,
     mesh: u32,
@@ -61,10 +62,4 @@ impl Default for MsgUserInfo {
             spouse: "None".to_string(),
         }
     }
-}
-
-impl PacketID for MsgUserInfo {
-    type ID = super::PacketType;
-
-    fn id(&self) -> Self::ID { super::PacketType::MsgUserInfo }
 }

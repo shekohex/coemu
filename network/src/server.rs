@@ -12,12 +12,8 @@ use tracing::{debug, error, instrument};
 
 #[async_trait]
 pub trait Server {
-    #[instrument(skip(self, handler))]
-    async fn run<H: PacketHandler>(
-        &self,
-        addr: &str,
-        handler: H,
-    ) -> Result<(), Error> {
+    #[instrument]
+    async fn run<H: PacketHandler>(addr: &str) -> Result<(), Error> {
         let addr: SocketAddr = addr.parse()?;
         let mut listener = TcpListener::bind(addr).await?;
         let mut incoming = listener.incoming();
@@ -29,9 +25,8 @@ pub trait Server {
             stream.set_recv_buffer_size(64)?;
             stream.set_send_buffer_size(64)?;
             stream.set_ttl(5)?;
-            let handler = handler.clone();
             let task = async move {
-                if let Err(e) = handle_stream(stream, handler).await {
+                if let Err(e) = handle_stream::<H>(stream).await {
                     error!("{}", e);
                 }
                 debug!("Task Ended.");
@@ -42,10 +37,9 @@ pub trait Server {
     }
 }
 
-#[instrument(skip(handler, stream))]
+#[instrument(skip(stream))]
 async fn handle_stream<H: PacketHandler>(
     stream: TcpStream,
-    handler: H,
 ) -> Result<(), Error> {
     let (tx, rx) = mpsc::channel(50);
     let actor = Actor::new(tx);
@@ -56,8 +50,7 @@ async fn handle_stream<H: PacketHandler>(
 
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
-        handler
-            .handle((id, bytes), &actor)
+        H::handle((id, bytes), &actor)
             .await
             .map_err(|e| Error::Other(e.to_string()))?;
     }

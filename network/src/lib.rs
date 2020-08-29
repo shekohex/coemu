@@ -1,6 +1,9 @@
 #![feature(try_trait, backtrace)]
 pub use async_trait::async_trait;
 use bytes::Bytes;
+pub use derive_packethandler::PacketHandler;
+pub use derive_packetid::PacketID;
+pub use derive_server::Server;
 use serde::{de::DeserializeOwned, Serialize};
 use std::error::Error as StdError;
 
@@ -12,11 +15,9 @@ pub use actor::{Actor, Message};
 
 mod server;
 pub use server::Server;
-
 pub trait PacketID {
-    type ID: Into<u16> + Copy;
     /// Get the ID of that packet.
-    fn id(&self) -> Self::ID;
+    fn id() -> u16;
 }
 
 #[async_trait]
@@ -50,10 +51,9 @@ pub trait PacketDecode {
 }
 
 #[async_trait]
-pub trait PacketHandler: Clone + Sync + Send + 'static {
+pub trait PacketHandler {
     type Error: StdError;
     async fn handle(
-        &self,
         packet: (u16, Bytes),
         actor: &Actor,
     ) -> Result<(), Self::Error>;
@@ -66,7 +66,7 @@ where
     type Packet = T;
 
     fn encode(&self) -> Result<(u16, Bytes), Error> {
-        let id = self.id().into();
+        let id = Self::id();
         let bytes = tq_serde::to_bytes(&self)?;
         Ok((id, bytes.freeze()))
     }

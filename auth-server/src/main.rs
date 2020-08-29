@@ -1,18 +1,21 @@
 mod errors;
 use errors::Error;
-use handler::Handler;
-use network::Server;
+use network::{PacketHandler, Server};
 use state::State;
 use tracing::info;
 
-mod handler;
 mod packets;
 mod state;
+use packets::{MsgAccount, MsgConnect};
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Server)]
 struct AuthServer;
 
-impl Server for AuthServer {}
+#[derive(Debug, PacketHandler)]
+pub enum Handler {
+    MsgAccount,
+    MsgConnect,
+}
 
 #[tokio::main(core_threads = 8)]
 async fn main() -> Result<(), Error> {
@@ -36,8 +39,7 @@ Copyright 2020 Shady Khalifa (@shekohex)
     info!("Initializing server...");
     State::init();
     let ctrlc = tokio::signal::ctrl_c();
-    let server = AuthServer::default();
-    let server = server.run("0.0.0.0:9958", Handler::default());
+    let server = AuthServer::run::<Handler>("0.0.0.0:9958");
 
     info!("Starting Server on 9958");
     tokio::select! {

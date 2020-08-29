@@ -1,11 +1,14 @@
 use super::{MsgTalk, TalkChannel};
 use async_trait::async_trait;
 use network::{Actor, PacketID, PacketProcess};
+use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-#[derive(Debug)]
+#[derive(Debug, FromPrimitive)]
+#[repr(u16)]
 enum ActionType {
+    #[num_enum(default)]
     Unknown = 0,
     SetLocation = 74,
     SetInventory = 75,
@@ -18,28 +21,12 @@ enum ActionType {
     SetLoginComplete = 130,
 }
 
-impl From<u16> for ActionType {
-    fn from(val: u16) -> ActionType {
-        match val {
-            74 => ActionType::SetLocation,
-            75 => ActionType::SetInventory,
-            76 => ActionType::SetAssociates,
-            77 => ActionType::SetProficiencies,
-            78 => ActionType::SetMagicSpells,
-            79 => ActionType::SetDirection,
-            80 => ActionType::SetAction,
-            104 => ActionType::SetMapARGB,
-            130 => ActionType::SetLoginComplete,
-            _ => ActionType::Unknown,
-        }
-    }
-}
-
 /// Message containing a general action being performed by the client. Commonly
 /// used as a request-response protocol for question and answer like exchanges.
 /// For example, walk requests are responded to with an answer as to if the step
 /// is legal or not.
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PacketID)]
+#[packet(id = 1010)]
 pub struct MsgAction {
     client_timestamp: u32,
     character_id: u32,
@@ -48,12 +35,6 @@ pub struct MsgAction {
     param2: u16,
     param3: u16,
     action_type: u16,
-}
-
-impl PacketID for MsgAction {
-    type ID = super::PacketType;
-
-    fn id(&self) -> Self::ID { super::PacketType::MsgAction }
 }
 
 #[async_trait]
@@ -81,12 +62,12 @@ impl PacketProcess for MsgAction {
                 let p = MsgTalk::from_system(
                     self.character_id,
                     TalkChannel::Talk,
-                    format!("Missing Action Type {:?}", ty),
+                    format!("Missing Action Type {:?}", self.action_type),
                 );
                 actor.send(p).await?;
                 let res = self.clone();
                 actor.send(res).await?;
-                warn!("Missing Action Type {:?}", ty);
+                warn!("Missing Action Type {:?}", self.action_type);
             },
         };
         Ok(())

@@ -1,12 +1,13 @@
-use crate::Error;
+use crate::{Error, State};
 use async_trait::async_trait;
-use network::{Actor, PacketProcess};
+use network::{Actor, PacketID, PacketProcess};
 use serde::Deserialize;
 use tq_serde::String16;
 /// Message containing a connection request to the game server. Contains the
 /// player's access token from the Account server, and the patch and language
 /// versions of the game client.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize, PacketID)]
+#[packet(id = 1052)]
 pub struct MsgConnect {
     id: u32,
     file_contents: u32,
@@ -17,5 +18,9 @@ pub struct MsgConnect {
 impl PacketProcess for MsgConnect {
     type Error = Error;
 
-    async fn process(&self, _: &Actor) -> Result<(), Self::Error> { Ok(()) }
+    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+        State::global().remove_actor(actor);
+        actor.shutdown().await?;
+        Ok(())
+    }
 }
