@@ -1,4 +1,4 @@
-use network::{NopCipher, PacketHandler, Server};
+use network::{NopCipher, PacketHandler, Server, TQCipher};
 use tracing::info;
 
 mod constants;
@@ -9,8 +9,19 @@ use errors::Error;
 mod packets;
 use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk, MsgTransfer};
 
-#[derive(Server)]
 struct GameServer;
+
+impl Server for GameServer {
+    type Cipher = TQCipher;
+    type PacketHandler = Handler;
+}
+
+struct RpcServer;
+
+impl Server for RpcServer {
+    type Cipher = NopCipher;
+    type PacketHandler = RpcHandler;
+}
 
 #[derive(Copy, Clone, PacketHandler)]
 pub enum Handler {
@@ -51,13 +62,10 @@ Copyright 2020 Shady Khalifa (@shekohex)
 
     let ctrlc = tokio::signal::ctrl_c();
 
-    let server =
-        GameServer::run::<Handler, String>(format!("0.0.0.0:{}", game_port));
+    let server = GameServer::run(format!("0.0.0.0:{}", game_port));
     let server = tokio::spawn(server);
 
-    let rpc_server = GameServer::run_with_cipher::<RpcHandler, String, NopCipher>(
-        format!("0.0.0.0:{}", rpc_port),
-    );
+    let rpc_server = RpcServer::run(format!("0.0.0.0:{}", rpc_port));
     let rpc_server = tokio::spawn(rpc_server);
 
     info!("Game Server will be available on {}", game_port);

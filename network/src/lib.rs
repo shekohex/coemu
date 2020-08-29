@@ -7,7 +7,6 @@ use std::error::Error as StdError;
 pub use crypto::{Cipher, NopCipher, TQCipher};
 pub use derive_packethandler::PacketHandler;
 pub use derive_packetid::PacketID;
-pub use derive_server::Server;
 pub use tq_codec::TQCodec;
 
 mod errors;

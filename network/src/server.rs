@@ -1,6 +1,6 @@
 use crate::{actor::Message, Actor, Error, PacketHandler};
 use async_trait::async_trait;
-use crypto::{Cipher, TQCipher};
+use crypto::Cipher;
 use std::fmt::Debug;
 use tokio::{
     net::{TcpListener, TcpStream, ToSocketAddrs},
@@ -12,23 +12,15 @@ use tracing::{debug, error, instrument};
 
 #[async_trait]
 pub trait Server {
-    #[instrument]
-    async fn run<H, A>(addr: A) -> Result<(), Error>
-    where
-        H: PacketHandler,
-        A: Debug + ToSocketAddrs + Send + Sync,
-    {
-        run::<H, A, TQCipher>(addr).await
-    }
+    type Cipher: Cipher;
+    type PacketHandler: PacketHandler;
 
     #[instrument]
-    async fn run_with_cipher<H, A, C>(addr: A) -> Result<(), Error>
+    async fn run<A>(addr: A) -> Result<(), Error>
     where
-        H: PacketHandler,
         A: Debug + ToSocketAddrs + Send + Sync,
-        C: Cipher,
     {
-        run::<H, A, C>(addr).await
+        run::<Self::PacketHandler, A, Self::Cipher>(addr).await
     }
 }
 

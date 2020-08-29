@@ -163,14 +163,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive-server"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
 name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -430,7 +422,6 @@ dependencies = [
  "crypto",
  "derive-packethandler",
  "derive-packetid",
- "derive-server",
  "fastrand",
  "serde",
  "thiserror",
