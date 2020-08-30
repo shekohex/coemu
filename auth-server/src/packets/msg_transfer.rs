@@ -1,6 +1,8 @@
-use super::AccountCredentials;
-use crate::Error;
-use network::{NopCipher, PacketDecode, PacketEncode, PacketID, TQCodec};
+use super::{AccountCredentials, MsgConnectEx, RejectionCode};
+use crate::{db, Error};
+use network::{
+    Actor, NopCipher, PacketDecode, PacketEncode, PacketID, TQCodec,
+};
 use serde::{Deserialize, Serialize};
 use std::io;
 use tokio::{net::TcpStream, stream::StreamExt};
@@ -20,14 +22,52 @@ pub struct MsgTransfer {
 
 impl MsgTransfer {
     pub async fn handle(
-        account_id: u32,
-        _realm: &str,
+        actor: &Actor,
+        realm: &str,
     ) -> Result<AccountCredentials, Error> {
-        let stream = TcpStream::connect("192.168.1.4:5817").await?;
+        let maybe_realm = db::Realm::by_name(realm).await?;
+        // Check if there is a realm with that name
+        let realm = match maybe_realm {
+            Some(realm) => realm,
+            None => {
+                actor
+                    .send(MsgConnectEx::from_code(RejectionCode::TryAgainLater))
+                    .await?;
+                actor.shutdown().await?;
+                return Err(Error::Other(
+                    "Realm Not Found, Closed the socket of the player",
+                ));
+            },
+        };
+        // Try to connect to that realm first.
+        let stream = TcpStream::connect(format!(
+            "{}:{}",
+            realm.rpc_ip_address.ip(),
+            realm.rpc_port
+        ))
+        .await;
+        let stream = match stream {
+            Ok(s) => s,
+            Err(e) => {
+                actor
+                    .send(MsgConnectEx::from_code(RejectionCode::ServerDown))
+                    .await?;
+                actor.shutdown().await?;
+                return Err(e.into());
+            },
+        };
+        Self::transfer(actor, realm, stream).await
+    }
+
+    async fn transfer(
+        actor: &Actor,
+        realm: db::Realm,
+        stream: TcpStream,
+    ) -> Result<AccountCredentials, Error> {
         let (mut encoder, mut decoder) =
             TQCodec::new(stream, NopCipher::default()).split();
         let transfer = MsgTransfer {
-            account_id,
+            account_id: actor.id() as u32,
             ..Default::default()
         };
 
@@ -38,6 +78,11 @@ impl MsgTransfer {
             Some(Ok((_, bytes))) => MsgTransfer::decode(&bytes)?,
             Some(Err(e)) => return Err(e.into()),
             None => {
+                actor
+                    .send(MsgConnectEx::from_code(
+                        RejectionCode::ServerTimedOut,
+                    ))
+                    .await?;
                 let io = io::Error::new(
                     io::ErrorKind::ConnectionAborted,
                     "Connection Seems to be closed",
@@ -48,8 +93,8 @@ impl MsgTransfer {
         Ok(AccountCredentials {
             authentication_code: res.authentication_code,
             authentication_token: res.authentication_token,
-            server_ip: "192.168.1.4".into(),
-            server_port: 5816,
+            server_ip: realm.game_ip_address.ip().to_string(),
+            server_port: realm.game_port as u32,
         })
     }
 }

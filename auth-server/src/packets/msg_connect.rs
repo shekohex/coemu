@@ -19,7 +19,7 @@ impl PacketProcess for MsgConnect {
     type Error = Error;
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
-        State::global().remove_actor(actor);
+        State::global()?.remove_actor(actor);
         actor.shutdown().await?;
         Ok(())
     }

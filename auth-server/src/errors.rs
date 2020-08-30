@@ -8,4 +8,10 @@ pub enum Error {
     IO(#[from] std::io::Error),
     #[error(transparent)]
     Env(#[from] dotenv::Error),
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+    #[error("State Error: {}", _0)]
+    State(&'static str),
+    #[error("{}", _0)]
+    Other(&'static str),
 }

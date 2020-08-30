@@ -12,6 +12,7 @@ pub enum RejectionCode {
     InvalidPassword = 1,
     Ready = 2,
     ServerDown = 10,
+    TryAgainLater = 11,
     AccountBanned = 12,
     ServerBusy = 20,
     AccountLocked = 22,

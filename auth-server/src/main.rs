@@ -1,12 +1,16 @@
-mod errors;
-use errors::Error;
 use network::{PacketHandler, Server, TQCipher};
-use state::State;
 use tracing::info;
 
-mod packets;
+mod errors;
+use errors::Error;
+
 mod state;
+use state::State;
+
+mod packets;
 use packets::{MsgAccount, MsgConnect};
+
+mod db;
 
 struct AuthServer;
 
@@ -41,10 +45,12 @@ Copyright 2020 Shady Khalifa (@shekohex)
     );
     info!("Starting Auth Server");
     info!("Initializing server...");
-    State::init();
     let auth_port = dotenv::var("AUTH_PORT")?;
     let ctrlc = tokio::signal::ctrl_c();
     let server = AuthServer::run(format!("0.0.0.0:{}", auth_port));
+
+    info!("Initializing State ..");
+    State::init().await?;
 
     info!("Auth Server will be available on {}", auth_port);
 
