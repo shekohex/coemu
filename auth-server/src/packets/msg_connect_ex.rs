@@ -24,11 +24,15 @@ pub enum RejectionCode {
     ServerOldProtocol = 73,
 }
 
+impl RejectionCode {
+    pub fn packet(self) -> MsgConnectRejection { MsgConnectEx::from_code(self) }
+}
+
 #[derive(Debug, Serialize, PacketID)]
 #[packet(id = 1055)]
 pub struct MsgConnectEx {
-    authentication_token: u32,
-    authentication_code: u32,
+    token: u32,
+    code: u32,
     game_server_ip: String16,
     game_server_port: u32,
 }
@@ -43,8 +47,8 @@ pub struct MsgConnectRejection {
 
 #[derive(Debug, Clone)]
 pub struct AccountCredentials {
-    pub authentication_token: u32,
-    pub authentication_code: u32,
+    pub token: u32,
+    pub code: u32,
     pub server_ip: String,
     pub server_port: u32,
 }
@@ -64,8 +68,8 @@ impl MsgConnectEx {
 
     pub fn forword_connection(acc_credentials: AccountCredentials) -> Self {
         MsgConnectEx {
-            authentication_token: acc_credentials.authentication_token,
-            authentication_code: acc_credentials.authentication_code,
+            token: acc_credentials.token,
+            code: acc_credentials.code,
             game_server_ip: acc_credentials.server_ip.into(),
             game_server_port: acc_credentials.server_port,
         }

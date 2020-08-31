@@ -2,6 +2,9 @@ use crate::{Error, State};
 use chrono::{DateTime, Utc};
 use sqlx::types::ipnetwork::IpNetwork;
 
+/// Realms are configured instances of the game server. This struct defines
+/// routing details for authenticated clients to be redirected to. Redirection
+/// involves access token leasing, provided by the game server via RPC.
 #[derive(Debug)]
 pub struct Realm {
     pub realm_id: i32,
@@ -16,6 +19,7 @@ pub struct Realm {
 impl Realm {
     pub async fn by_name(name: &str) -> Result<Option<Self>, Error> {
         let pool = State::global()?.pool();
+        let name = String::from(name);
         let realm =
             sqlx::query_as!(Self, "SELECT * FROM realms WHERE name = $1", name)
                 .fetch_optional(pool)

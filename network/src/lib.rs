@@ -33,28 +33,30 @@ pub trait PacketProcess {
 }
 
 pub trait PacketEncode {
+    type Error: StdError + From<Error>;
     /// The Packet that we will encode.
     type Packet: Serialize + PacketID;
     /// Encodes the packet structure defined by this message struct into a byte
     /// packet that can be sent to the client. Invoked automatically by the
     /// client's send method. Encodes using byte ordering rules
     /// interoperable with the game client.
-    fn encode(&self) -> Result<(u16, Bytes), Error>;
+    fn encode(&self) -> Result<(u16, Bytes), Self::Error>;
 }
 
 pub trait PacketDecode {
+    type Error: StdError;
     /// The Packet that we will Decode into.
     type Packet: DeserializeOwned;
     /// Decodes a byte packet into the packet structure defined by this message
     /// struct. Should be invoked to structure data from the client for
     /// processing. Decoding follows TQ Digital's byte ordering rules for an
     /// all-binary protocol.
-    fn decode(bytes: &Bytes) -> Result<Self::Packet, Error>;
+    fn decode(bytes: &Bytes) -> Result<Self::Packet, Self::Error>;
 }
 
 #[async_trait]
 pub trait PacketHandler {
-    type Error: StdError;
+    type Error: StdError + PacketEncode + Send + Sync;
     async fn handle(
         packet: (u16, Bytes),
         actor: &Actor,
@@ -65,9 +67,10 @@ impl<T> PacketEncode for T
 where
     T: Serialize + PacketID,
 {
+    type Error = Error;
     type Packet = T;
 
-    fn encode(&self) -> Result<(u16, Bytes), Error> {
+    fn encode(&self) -> Result<(u16, Bytes), Self::Error> {
         let id = Self::id();
         let bytes = tq_serde::to_bytes(&self)?;
         Ok((id, bytes.freeze()))
@@ -78,9 +81,34 @@ impl<T> PacketDecode for T
 where
     T: DeserializeOwned,
 {
+    type Error = Error;
     type Packet = T;
 
-    fn decode(bytes: &Bytes) -> Result<T, Error> {
+    fn decode(bytes: &Bytes) -> Result<T, Self::Error> {
         Ok(tq_serde::from_bytes(bytes)?)
     }
+}
+
+impl PacketID for () {
+    fn id() -> u16 { 0 }
+}
+
+pub struct ErrorPacket<T: PacketEncode>(pub T);
+
+pub trait IntoErrorPacket<T: PacketEncode> {
+    fn error_packet(self) -> ErrorPacket<T>;
+}
+
+impl<T> IntoErrorPacket<T> for T
+where
+    T: PacketEncode,
+{
+    fn error_packet(self) -> ErrorPacket<T> { ErrorPacket(self) }
+}
+
+impl<T> From<T> for ErrorPacket<T>
+where
+    T: PacketEncode,
+{
+    fn from(v: T) -> Self { Self(v) }
 }

@@ -53,9 +53,12 @@ async fn handle_stream<S: Server>(stream: TcpStream) -> Result<(), Error> {
 
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
-        S::PacketHandler::handle((id, bytes), &actor)
-            .await
-            .map_err(|e| Error::Other(e.to_string()))?;
+        if let Err(e) = S::PacketHandler::handle((id, bytes), &actor).await {
+            actor
+                .send(e)
+                .await
+                .map_err(|e| Error::Other(e.to_string()))?;
+        }
     }
 
     debug!("Socket Closed, stopping task.");

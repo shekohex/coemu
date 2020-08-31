@@ -58,9 +58,9 @@ name = "auth-server"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bcrypt",
  "bytes",
  "chrono",
- "dashmap",
  "dotenv",
  "network",
  "num_enum",
@@ -88,6 +88,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
+name = "bcrypt"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2cab630912253fb9dc92c0e2fabd0a7b51f5a5a4007177cfa31e517015b7204"
+dependencies = [
+ "base64",
+ "blowfish",
+ "byteorder",
+ "getrandom",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -100,6 +112,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "block-cipher"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f337a3e6da609650eb74e02bc9fac7b735049f7623ab12f2e4c719316fcc7e80"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
+name = "blowfish"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f06850ba969bc59388b2cc0a4f186fc6d9d37208863b15b84ae3866ac90ac06"
+dependencies = [
+ "block-cipher",
+ "byteorder",
+ "opaque-debug",
 ]
 
 [[package]]
@@ -508,17 +540,21 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bytes",
+ "chrono",
+ "dashmap",
  "dotenv",
+ "fastrand",
  "network",
  "num_enum",
+ "once_cell",
  "serde",
+ "sqlx",
  "thiserror",
  "tokio",
  "tq-serde",
  "tracing",
  "tracing-futures",
  "tracing-subscriber",
- "uptime_lib",
 ]
 
 [[package]]
@@ -813,7 +849,6 @@ dependencies = [
  "crypto",
  "derive-packethandler",
  "derive-packetid",
- "fastrand",
  "serde",
  "thiserror",
  "tokio",
@@ -1595,16 +1630,6 @@ name = "unicode-xid"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
-
-[[package]]
-name = "uptime_lib"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc607a5ae41deb3299122326da284aecc43608a6454bb1dca05ee28117776f10"
-dependencies = [
- "kernel32-sys",
- "libc",
-]
 
 [[package]]
 name = "url"

@@ -1,7 +1,7 @@
-use super::{MsgTalk, MsgUserInfo, TalkChannel};
-use crate::constants::ANSWER_OK;
+use super::{MsgTalk, MsgUserInfo};
+use crate::{db, state::ClientState, Error, State};
 use async_trait::async_trait;
-use network::{Actor, PacketID, PacketProcess};
+use network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use serde::Deserialize;
 use tq_serde::String10;
 
@@ -11,8 +11,8 @@ use tq_serde::String10;
 #[derive(Debug, Default, Deserialize, PacketID)]
 #[packet(id = 1052)]
 pub struct MsgConnect {
-    authentication_token: u32,
-    authentication_code: u32,
+    token: u32,
+    code: u32,
     build_version: u16,
     language: String10,
     file_contents: u32,
@@ -20,17 +20,35 @@ pub struct MsgConnect {
 
 #[async_trait]
 impl PacketProcess for MsgConnect {
-    type Error = crate::Error;
+    type Error = Error;
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
-        actor
-            .generate_keys(self.authentication_code, self.authentication_token)
-            .await?;
-        let msg =
-            MsgTalk::from_system(0, TalkChannel::Login, ANSWER_OK.to_string());
-        actor.send(msg).await?;
-        let msg = MsgUserInfo::default();
-        actor.send(msg).await?;
+        let state = State::global()?;
+        let (id, realm_id) = state
+            .login_tokens()
+            .remove(&self.token)
+            .map(|(_, account_id)| account_id)
+            .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
+        actor.generate_keys(self.code, self.token).await?;
+        actor.set_id(id as usize);
+        let maybe_character = db::Character::from_account(id).await?;
+        match maybe_character {
+            Some(character) => {
+                state.clients().insert(
+                    actor.id(),
+                    ClientState {
+                        character: character.clone(),
+                    },
+                );
+                actor.send(MsgTalk::login_ok()).await?;
+                let msg = MsgUserInfo::from(character);
+                actor.send(msg).await?;
+            },
+            None => {
+                state.creation_tokens().insert(self.token, (id, realm_id));
+                actor.send(MsgTalk::login_new_role()).await?;
+            },
+        };
         Ok(())
     }
 }
