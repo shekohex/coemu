@@ -1,0 +1,115 @@
+{
+  "db": "PostgreSQL",
+  "5d0df01a1b4ca2f638b0e0ecf94fdf6f56478424082505cac323b6efa09d8578": {
+    "query": "SELECT * FROM accounts WHERE username = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "account_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "username",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 2,
+          "name": "password",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 3,
+          "name": "name",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 4,
+          "name": "email",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 5,
+          "name": "ip_address",
+          "type_info": "Inet"
+        },
+        {
+          "ordinal": 6,
+          "name": "created_at",
+          "type_info": "Timestamptz"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ]
+    }
+  },
+  "f080cb2770e99a5c1dfc7a019d43060376f96e02a37352394c6e5800627caf78": {
+    "query": "SELECT * FROM realms WHERE name = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "realm_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "name",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 2,
+          "name": "game_ip_address",
+          "type_info": "Inet"
+        },
+        {
+          "ordinal": 3,
+          "name": "game_port",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 4,
+          "name": "rpc_ip_address",
+          "type_info": "Inet"
+        },
+        {
+          "ordinal": 5,
+          "name": "rpc_port",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 6,
+          "name": "created_at",
+          "type_info": "Timestamptz"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  }
+}

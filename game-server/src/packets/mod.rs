@@ -15,3 +15,6 @@ pub use msg_item::MsgItem;
 
 mod msg_transfer;
 pub use msg_transfer::MsgTransfer;
+
+mod msg_register;
+pub use msg_register::MsgRegister;

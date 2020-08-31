@@ -1,0 +1,412 @@
+{
+  "db": "PostgreSQL",
+  "2462225c224e92a4631aeff416ebdb5bcd804db1e37036894dc7f53d253cd3a7": {
+    "query": "SELECT * FROM characters WHERE account_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "character_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "account_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 2,
+          "name": "realm_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 3,
+          "name": "name",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 4,
+          "name": "mesh",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 5,
+          "name": "avatar",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 6,
+          "name": "hair_style",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 7,
+          "name": "silver",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 8,
+          "name": "cps",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 9,
+          "name": "current_class",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 10,
+          "name": "previous_class",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 11,
+          "name": "rebirths",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 12,
+          "name": "level",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 13,
+          "name": "experience",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 14,
+          "name": "map_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 15,
+          "name": "x",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 16,
+          "name": "y",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 17,
+          "name": "virtue",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 18,
+          "name": "strength",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 19,
+          "name": "agility",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 20,
+          "name": "vitality",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 21,
+          "name": "spirit",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 22,
+          "name": "attribute_points",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 23,
+          "name": "health_points",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 24,
+          "name": "mana_points",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 25,
+          "name": "kill_points",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 26,
+          "name": "created_at",
+          "type_info": "Timestamptz"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "aaf5fcbc6b2304e1666e8c534e274c2b9c73db18988a68a6e930a453fff64e16": {
+    "query": "\n            INSERT INTO characters\n                (\n                    account_id, realm_id, name, mesh, avatar,\n                    hair_style, silver, current_class,\n                    map_id, x, y, virtue, strength, agility,\n                    vitality, spirit, health_points, mana_points\n                )\n            VALUES \n                (\n                    $1, $2, $3, $4, $5, $6,\n                    $7, $8, $9, $10, $11, $12,\n                    $13, $14, $15, $16, $17, $18\n                )\n            RETURNING character_id\n            ",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "character_id",
+          "type_info": "Int4"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4",
+          "Varchar",
+          "Int4",
+          "Int2",
+          "Int2",
+          "Int8",
+          "Int2",
+          "Int4",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Int2"
+        ]
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
+  "bd01d2b4ad00d8bc78bc90ef0d5d81a3b539ccfa3085aee2bae86a460904200c": {
+    "query": "SELECT EXISTS (SELECT character_id FROM characters WHERE name = $1)",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "exists",
+          "type_info": "Bool"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      },
+      "nullable": [
+        null
+      ]
+    }
+  },
+  "dad2c0e1dc62e2894e44e75ea21763e3ecaabdfd8134082bc460a880eab8daac": {
+    "query": "SELECT * FROM characters WHERE character_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "character_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "account_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 2,
+          "name": "realm_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 3,
+          "name": "name",
+          "type_info": "Varchar"
+        },
+        {
+          "ordinal": 4,
+          "name": "mesh",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 5,
+          "name": "avatar",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 6,
+          "name": "hair_style",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 7,
+          "name": "silver",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 8,
+          "name": "cps",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 9,
+          "name": "current_class",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 10,
+          "name": "previous_class",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 11,
+          "name": "rebirths",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 12,
+          "name": "level",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 13,
+          "name": "experience",
+          "type_info": "Int8"
+        },
+        {
+          "ordinal": 14,
+          "name": "map_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 15,
+          "name": "x",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 16,
+          "name": "y",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 17,
+          "name": "virtue",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 18,
+          "name": "strength",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 19,
+          "name": "agility",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 20,
+          "name": "vitality",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 21,
+          "name": "spirit",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 22,
+          "name": "attribute_points",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 23,
+          "name": "health_points",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 24,
+          "name": "mana_points",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 25,
+          "name": "kill_points",
+          "type_info": "Int2"
+        },
+        {
+          "ordinal": 26,
+          "name": "created_at",
+          "type_info": "Timestamptz"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  }
+}

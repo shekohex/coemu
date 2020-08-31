@@ -1,5 +1,5 @@
 use super::{MsgConnectEx, MsgTransfer};
-use crate::{Error, State};
+use crate::{db, Error};
 use async_trait::async_trait;
 use network::{Actor, PacketID, PacketProcess};
 use serde::Deserialize;
@@ -22,9 +22,9 @@ impl PacketProcess for MsgAccount {
     type Error = Error;
 
     async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
-        State::global().add_actor(actor);
-        let account_id = actor.id() as u32;
-        let res = MsgTransfer::handle(account_id, &self.realm).await?;
+        let account = db::Account::auth(&self.username, &self.password).await?;
+        actor.set_id(account.account_id as usize);
+        let res = MsgTransfer::handle(actor, &self.realm).await?;
         let res = MsgConnectEx::forword_connection(res);
         actor.send(res).await?;
         Ok(())

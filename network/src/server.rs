@@ -8,10 +8,10 @@ use tokio::{
     sync::mpsc,
 };
 use tq_codec::{TQCodec, TQEncoder};
-use tracing::{debug, error, instrument};
+use tracing::{debug, instrument};
 
 #[async_trait]
-pub trait Server {
+pub trait Server: Sized {
     type Cipher: Cipher;
     type PacketHandler: PacketHandler;
 
@@ -20,56 +20,47 @@ pub trait Server {
     where
         A: Debug + ToSocketAddrs + Send + Sync,
     {
-        run::<Self::PacketHandler, A, Self::Cipher>(addr).await
+        let mut listener = TcpListener::bind(addr).await?;
+        let mut incoming = listener.incoming();
+        while let Some(stream) = incoming.next().await {
+            let stream = stream?;
+            debug!("Got Connection from {}", stream.peer_addr()?);
+            stream.set_nodelay(true)?;
+            stream.set_linger(None)?;
+            stream.set_recv_buffer_size(64)?;
+            stream.set_send_buffer_size(64)?;
+            stream.set_ttl(5)?;
+            tokio::spawn(async move {
+                if let Err(e) = handle_stream::<Self>(stream).await {
+                    tracing::error!("{}", e);
+                }
+                debug!("Task Ended.");
+                Result::<_, Error>::Ok(())
+            });
+        }
+        Ok(())
     }
 }
 
-#[instrument()]
-async fn run<H, A, C>(addr: A) -> Result<(), Error>
-where
-    H: PacketHandler,
-    A: Debug + ToSocketAddrs + Send + Sync,
-    C: Cipher,
-{
-    let mut listener = TcpListener::bind(addr).await?;
-    let mut incoming = listener.incoming();
-    while let Some(stream) = incoming.next().await {
-        let stream = stream?;
-        debug!("Got Connection from {}", stream.peer_addr()?);
-        stream.set_nodelay(true)?;
-        stream.set_linger(None)?;
-        stream.set_recv_buffer_size(64)?;
-        stream.set_send_buffer_size(64)?;
-        stream.set_ttl(5)?;
-        let task = async move {
-            if let Err(e) = handle_stream::<H, C>(stream).await {
-                error!("{}", e);
-            }
-            debug!("Task Ended.");
-        };
-        tokio::spawn(task);
-    }
-    Ok(())
-}
 #[instrument(skip(stream))]
-async fn handle_stream<H, C>(stream: TcpStream) -> Result<(), Error>
-where
-    H: PacketHandler,
-    C: Cipher,
-{
+async fn handle_stream<S: Server>(stream: TcpStream) -> Result<(), Error> {
     let (tx, rx) = mpsc::channel(50);
     let actor = Actor::new(tx);
-    let cipher = C::default();
+    let cipher = S::Cipher::default();
     let (encoder, mut decoder) = TQCodec::new(stream, cipher.clone()).split();
     // Start MsgHandler in a seprate task.
     tokio::spawn(handle_msg(rx, encoder, cipher));
 
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
-        H::handle((id, bytes), &actor)
-            .await
-            .map_err(|e| Error::Other(e.to_string()))?;
+        if let Err(e) = S::PacketHandler::handle((id, bytes), &actor).await {
+            actor
+                .send(e)
+                .await
+                .map_err(|e| Error::Other(e.to_string()))?;
+        }
     }
+
     debug!("Socket Closed, stopping task.");
     Ok(())
 }

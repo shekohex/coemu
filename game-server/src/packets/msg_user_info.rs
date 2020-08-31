@@ -1,3 +1,4 @@
+use crate::db;
 use network::PacketID;
 use serde::Serialize;
 
@@ -20,8 +21,8 @@ pub struct MsgUserInfo {
     vitality: u16,
     spirit: u16,
     attribute_points: u16,
-    health: u16,
-    mana: u16,
+    health_points: u16,
+    mana_points: u16,
     kill_points: u16,
     level: u8,
     current_class: u8,
@@ -49,8 +50,8 @@ impl Default for MsgUserInfo {
             vitality: 12,
             spirit: 6,
             attribute_points: 0,
-            health: 318,
-            mana: 0,
+            health_points: 318,
+            mana_points: 0,
             kill_points: 0,
             level: 1,
             current_class: 10,
@@ -60,6 +61,37 @@ impl Default for MsgUserInfo {
             list_count: 2,
             character_name: "Test".into(),
             spouse: "None".to_string(),
+        }
+    }
+}
+
+impl From<db::Character> for MsgUserInfo {
+    fn from(c: db::Character) -> Self {
+        Self {
+            character_id: c.character_id as u32,
+            mesh: c.mesh as u32,
+            hair_style: c.hair_style as u16,
+            silver: c.silver as u32,
+            cps: c.cps as u32,
+            experience: c.experience as u64,
+            reserved0: 0,
+            reserved1: 0,
+            strength: c.strength as u16,
+            agility: c.agility as u16,
+            vitality: c.vitality as u16,
+            spirit: c.spirit as u16,
+            attribute_points: c.attribute_points as u16,
+            health_points: c.health_points as u16,
+            mana_points: c.mana_points as u16,
+            kill_points: c.kill_points as u16,
+            level: c.level as u8,
+            current_class: c.current_class as u8,
+            previous_class: c.previous_class as u8,
+            rebirths: c.rebirths as u8,
+            show_name: true,
+            list_count: 2,
+            character_name: c.name,
+            spouse: "None".to_owned(),
         }
     }
 }

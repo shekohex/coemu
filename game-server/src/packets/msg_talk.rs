@@ -26,7 +26,7 @@ pub enum TalkChannel {
     Service = 2014,
     Tip = 2015,
     World = 2021,
-    Create = 2100,
+    Register = 2100,
     Login = 2101,
     Shop = 2102,
     Vendor = 2104,
@@ -98,6 +98,50 @@ impl MsgTalk {
             suffix: String::new(),
             message,
         }
+    }
+
+    pub fn login_invalid() -> Self {
+        Self::from_system(0, TalkChannel::Login, String::from("Login Invalid"))
+    }
+
+    pub fn register_invalid() -> Self {
+        Self::from_system(
+            0,
+            TalkChannel::Register,
+            String::from("Register Invalid"),
+        )
+    }
+
+    pub fn register_ok() -> Self {
+        Self::from_system(
+            0,
+            TalkChannel::Register,
+            crate::constants::ANSWER_OK.to_owned(),
+        )
+    }
+
+    pub fn register_name_taken() -> Self {
+        Self::from_system(
+            0,
+            TalkChannel::Register,
+            String::from("Character name taken, try another one."),
+        )
+    }
+
+    pub fn login_ok() -> Self {
+        Self::from_system(
+            0,
+            TalkChannel::Login,
+            crate::constants::ANSWER_OK.to_owned(),
+        )
+    }
+
+    pub fn login_new_role() -> Self {
+        Self::from_system(
+            0,
+            TalkChannel::Login,
+            crate::constants::NEW_ROLE.to_owned(),
+        )
     }
 }
 

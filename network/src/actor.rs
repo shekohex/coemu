@@ -1,6 +1,12 @@
 use crate::{Error, PacketEncode};
 use bytes::Bytes;
-use std::hash::Hash;
+use std::{
+    hash::Hash,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
 use tokio::sync::mpsc::Sender;
 use tracing::instrument;
 
@@ -13,16 +19,22 @@ pub enum Message {
 
 #[derive(Clone, Debug)]
 pub struct Actor {
-    id: usize,
+    id: Arc<AtomicUsize>,
     tx: Sender<Message>,
 }
 
 impl Hash for Actor {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.id.hash(state); }
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.load(Ordering::Relaxed).hash(state);
+    }
 }
 
 impl PartialEq for Actor {
-    fn eq(&self, other: &Self) -> bool { self.id.eq(&other.id) }
+    fn eq(&self, other: &Self) -> bool {
+        self.id
+            .load(Ordering::Relaxed)
+            .eq(&other.id.load(Ordering::Relaxed))
+    }
 }
 
 impl Eq for Actor {}
@@ -38,18 +50,23 @@ impl From<(u32, u32)> for Message {
 impl Actor {
     pub fn new(tx: Sender<Message>) -> Self {
         Self {
-            id: fastrand::usize(0..usize::MAX),
+            id: Arc::new(AtomicUsize::new(0)),
             tx,
         }
     }
 
-    pub fn id(&self) -> usize { self.id }
+    pub fn id(&self) -> usize { self.id.load(Ordering::Relaxed) }
+
+    pub fn set_id(&self, id: usize) { self.id.store(id, Ordering::Relaxed); }
 
     /// Enqueue the packet and send it to the client connected to this actor
-    pub async fn send(&self, packet: impl PacketEncode) -> Result<(), Error> {
+    pub async fn send<P: PacketEncode>(
+        &self,
+        packet: P,
+    ) -> Result<(), P::Error> {
         let msg = packet.encode()?;
         let mut tx = self.tx.clone();
-        tx.send(msg.into()).await?;
+        tx.send(msg.into()).await.map_err(Into::into)?;
         Ok(())
     }
 

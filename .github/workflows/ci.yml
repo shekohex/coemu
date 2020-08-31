@@ -29,10 +29,14 @@ jobs:
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1
+        env:
+          SQLX_OFFLINE: true
         with:
           command: build
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
+        env:
+          SQLX_OFFLINE: true
         with:
           command: test

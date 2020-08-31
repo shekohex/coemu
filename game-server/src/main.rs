@@ -1,13 +1,20 @@
+#![feature(try_trait, backtrace)]
+
 use network::{NopCipher, PacketHandler, Server, TQCipher};
 use tracing::info;
 
 mod constants;
-mod errors;
+mod db;
 mod utils;
+
+mod state;
+use state::State;
+
+mod errors;
 use errors::Error;
 
 mod packets;
-use packets::{MsgAction, MsgConnect, MsgItem, MsgTalk, MsgTransfer};
+use packets::*;
 
 struct GameServer;
 
@@ -26,6 +33,7 @@ impl Server for RpcServer {
 #[derive(Copy, Clone, PacketHandler)]
 pub enum Handler {
     MsgConnect,
+    MsgRegister,
     MsgTalk,
     MsgAction,
     MsgItem,
@@ -67,6 +75,9 @@ Copyright 2020 Shady Khalifa (@shekohex)
 
     let rpc_server = RpcServer::run(format!("0.0.0.0:{}", rpc_port));
     let rpc_server = tokio::spawn(rpc_server);
+
+    info!("Initializing State ..");
+    State::init().await?;
 
     info!("Game Server will be available on {}", game_port);
     info!("RPC Server will be available on {}", rpc_port);
