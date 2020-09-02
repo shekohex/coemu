@@ -1,8 +1,8 @@
 //! crate that contians a [`TQCodec`] that wraps any [`AsyncRead`] +
 //! [`AsyncWrite`] and Outputs a Stream-like [`TQDecoder`] of `(u16, Bytes)`
-//! where the `u16` is the PacketID and Bytes is the Body of the Packet.
-//! It also implements Sink-like [`TQEncoder`] where you could write `(u16,
-//! Bytes)` to it.
+//! where the `u16`{ title: (), ascii: (), width: (), group: (), chunk: ()}s the
+//! PacketID and Bytes is the Body of the Packet. It also implements Sink-like
+//! [`TQEncoder`] where you could write `(u16, Bytes)` to it.
 //!
 //! Basiclly, Client Packets are length-prefixed bytes, where the First 2
 //! bytes are the length of the packet, next 2 bytes are the ID of the packet,
@@ -21,7 +21,7 @@
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::future::Future;
-use pretty_hex::PrettyHex;
+use pretty_hex::{HexConfig, PrettyHex};
 use std::{
     io,
     pin::Pin,
@@ -109,7 +109,7 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
             // get type
             let packet_id = ty.as_ref().get_u16_le();
             trace!("len {}, id {}", n, packet_id);
-            if n > 5_000 {
+            if n > 2048 {
                 trace!("Frame too big!");
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -188,10 +188,15 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
         result.put_u16_le(packet_id); // packet type (2) -> (4)
         result.extend_from_slice(&body); // packet_body (4) -> (packet_length)
         let full_packet = result.freeze();
+        let config = HexConfig {
+            title: false,
+            ..Default::default()
+        };
         trace!(
-            "\nServer -> Client ID({}) {:?}",
+            "\nServer -> Client ID({}) Length({})\n{:?}",
             packet_id,
-            full_packet.as_ref().hex_dump()
+            n,
+            full_packet.as_ref().hex_conf(config)
         );
         let mut encrypted_data = BytesMut::with_capacity(n);
         encrypted_data.resize(n, 0);
@@ -294,10 +299,15 @@ where
             DecodeState::Data((n, packet_id)) => (n, packet_id),
         };
         if let Some(data) = self.decode_data(n)? {
+            let config = HexConfig {
+                title: false,
+                ..Default::default()
+            };
             trace!(
-                "\nClient -> Server ID({}) {:?}",
+                "\nClient -> Server ID({}) Length({})\n{:?}",
                 packet_id,
-                data.as_ref().hex_dump()
+                n + 4,
+                data.as_ref().hex_conf(config)
             );
             // Update the decode state
             self.state = DecodeState::Head;
