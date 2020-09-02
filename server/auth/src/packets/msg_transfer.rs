@@ -1,11 +1,11 @@
 use super::{AccountCredentials, RejectionCode};
 use crate::{db, Error};
+use serde::{Deserialize, Serialize};
+use tokio::{net::TcpStream, stream::StreamExt};
 use tq_network::{
     Actor, IntoErrorPacket, NopCipher, PacketDecode, PacketEncode, PacketID,
     TQCodec,
 };
-use serde::{Deserialize, Serialize};
-use tokio::{net::TcpStream, stream::StreamExt};
 
 /// Defines account parameters to be transferred from the account server to the
 /// game server. Account information is supplied from the account database, and

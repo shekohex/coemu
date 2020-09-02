@@ -3,9 +3,9 @@ use crate::{
     ActorState,
 };
 use async_trait::async_trait;
-use tq_network::{Actor, PacketID, PacketProcess};
 use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
+use tq_network::{Actor, PacketID, PacketProcess};
 use tracing::warn;
 
 /// Enumeration for defining the channel text is printed to. Can also print to

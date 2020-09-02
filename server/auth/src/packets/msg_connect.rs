@@ -1,7 +1,7 @@
 use crate::Error;
 use async_trait::async_trait;
-use tq_network::{Actor, PacketID, PacketProcess};
 use serde::Deserialize;
+use tq_network::{Actor, PacketID, PacketProcess};
 use tq_serde::String16;
 /// Message containing a connection request to the game server. Contains the
 /// player's access token from the Account server, and the patch and language

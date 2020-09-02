@@ -1,7 +1,7 @@
 use crate::{Error, State};
 use async_trait::async_trait;
-use tq_network::{Actor, PacketID, PacketProcess};
 use serde::{Deserialize, Serialize};
+use tq_network::{Actor, PacketID, PacketProcess};
 
 /// Defines account parameters to be transferred from the account server to the
 /// game server. Account information is supplied from the account database, and

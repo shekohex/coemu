@@ -1,8 +1,8 @@
 use super::{MsgTalk, MsgUserInfo};
 use crate::{db, world::Character, ActorState, Error, State};
 use async_trait::async_trait;
-use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use serde::Deserialize;
+use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use tq_serde::String10;
 
 /// Message containing a connection request to the game server. Contains the

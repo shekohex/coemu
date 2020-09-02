@@ -1,10 +1,10 @@
 use super::MsgTalk;
 use crate::{db, world::Character, ActorState, Error, State};
 use async_trait::async_trait;
-use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use num_enum::TryFromPrimitive;
 use serde::Deserialize;
 use std::convert::TryFrom;
+use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use tq_serde::{String16, TQPassword};
 
 #[derive(Debug, Default, Deserialize, PacketID)]

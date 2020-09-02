@@ -1,6 +1,6 @@
 use crate::db;
-use tq_network::PacketID;
 use serde::Serialize;
+use tq_network::PacketID;
 
 /// Message defining character information, used to initialize the client
 /// interface and game state. Character information is loaded from the game

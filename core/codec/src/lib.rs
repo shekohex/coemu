@@ -21,7 +21,6 @@
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::future::Future;
-use tq_crypto::Cipher;
 use pretty_hex::PrettyHex;
 use std::{
     io,
@@ -35,6 +34,7 @@ use tokio::{
     },
     stream::Stream,
 };
+use tq_crypto::Cipher;
 use tracing::{instrument, trace, warn};
 
 /// A simple State Machine for Decoding the Stream.

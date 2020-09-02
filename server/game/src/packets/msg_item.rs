@@ -1,9 +1,9 @@
 use super::{MsgTalk, TalkChannel};
 use crate::ActorState;
 use async_trait::async_trait;
-use tq_network::{Actor, PacketID, PacketProcess};
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
+use tq_network::{Actor, PacketID, PacketProcess};
 use tracing::warn;
 
 /// Enumeration type for defining item actions that may be requested by the

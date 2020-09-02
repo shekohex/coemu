@@ -1,6 +1,6 @@
 use bytes::Bytes;
-use tq_network::{ErrorPacket, PacketEncode};
 use thiserror::Error;
+use tq_network::{ErrorPacket, PacketEncode};
 
 #[derive(Debug, Error)]
 pub enum Error {
