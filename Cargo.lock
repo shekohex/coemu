@@ -62,13 +62,13 @@ dependencies = [
  "bytes",
  "chrono",
  "dotenv",
- "network",
  "num_enum",
  "once_cell",
  "serde",
  "sqlx",
  "thiserror",
  "tokio",
+ "tq-network",
  "tq-serde",
  "tracing",
  "tracing-futures",
@@ -250,13 +250,6 @@ dependencies = [
  "autocfg",
  "cfg-if",
  "lazy_static",
-]
-
-[[package]]
-name = "crypto"
-version = "0.1.0"
-dependencies = [
- "bytes",
 ]
 
 [[package]]
@@ -544,13 +537,13 @@ dependencies = [
  "dashmap",
  "dotenv",
  "fastrand",
- "network",
  "num_enum",
  "once_cell",
  "serde",
  "sqlx",
  "thiserror",
  "tokio",
+ "tq-network",
  "tq-serde",
  "tracing",
  "tracing-futures",
@@ -848,24 +841,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "network"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bytes",
- "crypto",
- "derive-packethandler",
- "derive-packetid",
- "serde",
- "thiserror",
- "tokio",
- "tq-codec",
- "tq-serde",
- "tracing",
- "tracing-futures",
-]
-
-[[package]]
 name = "num-integer"
 version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1038,9 +1013,9 @@ checksum = "c36fa947111f5c62a733b652544dd0016a43ce89619538a8ef92724a6f501a20"
 
 [[package]]
 name = "pretty-hex"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be91bcc43e73799dc46a6c194a55e7aae1d86cc867c860fd4a436019af21bd8c"
+checksum = "c8a6a27f79f3ec19193cd2ecfe9b73276b79026529466aef45d70d0f9eca651b"
 
 [[package]]
 name = "proc-macro-hack"
@@ -1526,9 +1501,34 @@ name = "tq-codec"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "crypto",
  "pretty-hex",
  "tokio",
+ "tq-crypto",
+ "tracing",
+ "tracing-futures",
+]
+
+[[package]]
+name = "tq-crypto"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+]
+
+[[package]]
+name = "tq-network"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "derive-packethandler",
+ "derive-packetid",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tq-codec",
+ "tq-crypto",
+ "tq-serde",
  "tracing",
  "tracing-futures",
 ]
@@ -1538,10 +1538,10 @@ name = "tq-serde"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "crypto",
  "encoding",
  "serde",
  "thiserror",
+ "tq-crypto",
 ]
 
 [[package]]

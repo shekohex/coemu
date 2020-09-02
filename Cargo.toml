@@ -1,14 +1,11 @@
 [workspace]
 members = [
   # Core Libs
-  "crypto",
-  "tq-serde",
-  "tq-codec",
-  "network",
+  "core/*",
   # Servers
-  "auth-server",
-  "game-server",
+  "server/*",
   # Utils
   "macros/*",
+  # Cli Tools
   "tools/*",
 ]

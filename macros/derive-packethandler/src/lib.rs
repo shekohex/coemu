@@ -51,14 +51,14 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
         #[async_trait::async_trait]
-        impl #impl_generics network::PacketHandler for #name #ty_generics #where_clause {
+        impl #impl_generics tq_network::PacketHandler for #name #ty_generics #where_clause {
             type Error = crate::Error;
             type ActorState = #state;
              async fn handle(
                  (id, bytes): (u16, bytes::Bytes),
-                 actor: &network::Actor<Self::ActorState>,
+                 actor: &tq_network::Actor<Self::ActorState>,
                 ) -> Result<(), Self::Error> {
-                    use network::{PacketID, PacketProcess};
+                    use tq_network::{PacketID, PacketProcess};
                     #body
                     Ok(())
                 }
@@ -77,7 +77,7 @@ fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
         let ident = v.ident;
         quote! {
             _ if id == #ident::id() => {
-                let msg = <#ident as network::PacketDecode>::decode(&bytes)?;
+                let msg = <#ident as tq_network::PacketDecode>::decode(&bytes)?;
                 tracing::debug!("{:?}", msg);
                 msg.process(actor).await?;
             },
