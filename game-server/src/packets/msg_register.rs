@@ -1,5 +1,5 @@
 use super::MsgTalk;
-use crate::{db, state::ClientState, Error, State};
+use crate::{db, world::Character, ActorState, Error, State};
 use async_trait::async_trait;
 use network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use num_enum::TryFromPrimitive;
@@ -72,15 +72,7 @@ impl MsgRegister {
             spirit,
             health_points,
             mana_points,
-            /// Default Values
-            character_id: 0,
-            previous_class: 0,
-            rebirths: 0,
-            level: 0,
-            experience: 0,
-            attribute_points: 0,
-            kill_points: 0,
-            created_at: chrono::Utc::now(),
+            ..Default::default()
         };
         Ok(c)
     }
@@ -106,9 +98,13 @@ pub enum BaseClass {
 
 #[async_trait]
 impl PacketProcess for MsgRegister {
+    type ActorState = ActorState;
     type Error = Error;
 
-    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+    async fn process(
+        &self,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
         let state = State::global()?;
         let (id, realm_id) = state
             .creation_tokens()
@@ -128,9 +124,8 @@ impl PacketProcess for MsgRegister {
 
         let character_id = self.build_character(id, realm_id)?.save().await?;
         let character = db::Character::by_id(character_id).await?;
-        state
-            .clients()
-            .insert(actor.id(), ClientState { character });
+        let mut default_character = actor.state().character_mut().await;
+        *default_character = Character::new(actor.clone(), character);
         tracing::info!(
             "Account #{} Created Character #{} with Name {}",
             id,

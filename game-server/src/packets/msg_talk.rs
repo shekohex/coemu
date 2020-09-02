@@ -1,4 +1,7 @@
-use crate::constants::{ALL_USERS, SYSTEM};
+use crate::{
+    constants::{ALL_USERS, SYSTEM},
+    ActorState,
+};
 use async_trait::async_trait;
 use network::{Actor, PacketID, PacketProcess};
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -147,9 +150,13 @@ impl MsgTalk {
 
 #[async_trait]
 impl PacketProcess for MsgTalk {
+    type ActorState = ActorState;
     type Error = crate::Error;
 
-    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+    async fn process(
+        &self,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
         if self.message.starts_with('$') {
             // Command Message.
             let (_, command) = self.message.split_at(1);

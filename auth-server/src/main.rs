@@ -1,3 +1,9 @@
+//! This program encapsulates the account server.
+//! The account server is designed to accept login data from the client and
+//! to verify that the username and password combination inputted is
+//! correct with the database. If the combination is correct, the client
+//! will be transferred to the message server of their choice.
+
 use network::{PacketHandler, Server, TQCipher};
 use tracing::info;
 
@@ -15,11 +21,13 @@ mod db;
 struct AuthServer;
 
 impl Server for AuthServer {
+    type ActorState = ();
     type Cipher = TQCipher;
     type PacketHandler = Handler;
 }
 
 #[derive(Debug, PacketHandler)]
+#[handle(state = ())]
 pub enum Handler {
     MsgAccount,
     MsgConnect,

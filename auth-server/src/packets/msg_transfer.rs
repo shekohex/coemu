@@ -23,7 +23,7 @@ pub struct MsgTransfer {
 
 impl MsgTransfer {
     pub async fn handle(
-        actor: &Actor,
+        actor: &Actor<()>,
         realm: &str,
     ) -> Result<AccountCredentials, Error> {
         let maybe_realm = db::Realm::by_name(realm).await?;
@@ -56,7 +56,7 @@ impl MsgTransfer {
     }
 
     async fn transfer(
-        actor: &Actor,
+        actor: &Actor<()>,
         realm: db::Realm,
         stream: TcpStream,
     ) -> Result<AccountCredentials, Error> {

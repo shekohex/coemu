@@ -1,4 +1,4 @@
-/// Nop Cipher, dose no work .. Could be useful for testing or for using
+/// Nop Cipher, does almost no work, Could be useful for testing or for using
 /// internally between local servers to act as RPC.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct NopCipher;

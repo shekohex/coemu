@@ -1,5 +1,5 @@
 use super::{MsgTalk, MsgUserInfo};
-use crate::{db, state::ClientState, Error, State};
+use crate::{db, world::Character, ActorState, Error, State};
 use async_trait::async_trait;
 use network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use serde::Deserialize;
@@ -20,9 +20,13 @@ pub struct MsgConnect {
 
 #[async_trait]
 impl PacketProcess for MsgConnect {
+    type ActorState = ActorState;
     type Error = Error;
 
-    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+    async fn process(
+        &self,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
         let state = State::global()?;
         let (id, realm_id) = state
             .login_tokens()
@@ -34,12 +38,9 @@ impl PacketProcess for MsgConnect {
         let maybe_character = db::Character::from_account(id).await?;
         match maybe_character {
             Some(character) => {
-                state.clients().insert(
-                    actor.id(),
-                    ClientState {
-                        character: character.clone(),
-                    },
-                );
+                let mut default_character = actor.state().character_mut().await;
+                *default_character =
+                    Character::new(actor.clone(), character.clone());
                 actor.send(MsgTalk::login_ok()).await?;
                 let msg = MsgUserInfo::from(character);
                 actor.send(msg).await?;

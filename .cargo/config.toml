@@ -13,3 +13,7 @@ rustflags = ["-Zshare-generics=y"]
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
 rustflags = ["-Zshare-generics=y"]
+
+[alias]
+auth = "run --bin auth-server"
+game = "run --bin game-server"

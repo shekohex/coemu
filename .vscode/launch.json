@@ -15,8 +15,19 @@
           "kind": "bin"
         }
       },
-      "env": {
-        "RUST_LOG": "debug"
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'game-server'",
+      "cargo": {
+        "args": ["build", "--bin=game-server", "--package=game-server"],
+        "filter": {
+          "name": "game-server",
+          "kind": "bin"
+        }
       },
       "args": [],
       "cwd": "${workspaceFolder}"

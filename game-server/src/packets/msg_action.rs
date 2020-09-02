@@ -1,5 +1,5 @@
 use super::{MsgTalk, TalkChannel};
-use crate::State;
+use crate::{world::ScreenObject, ActorState};
 use async_trait::async_trait;
 use network::{Actor, PacketID, PacketProcess};
 use num_enum::FromPrimitive;
@@ -40,27 +40,30 @@ pub struct MsgAction {
 
 #[async_trait]
 impl PacketProcess for MsgAction {
+    type ActorState = ActorState;
     type Error = crate::Error;
 
-    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+    async fn process(
+        &self,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
         let ty = self.action_type.into();
-        let state = State::global()?;
-        let client = state.clients().get(&actor.id())?;
+        let state = actor.state();
         match ty {
             ActionType::SetLocation => {
-                let client = client.value();
                 let mut res = self.clone();
-                res.param0 = client.character.map_id as u32;
-                res.param1 = client.character.x as u16;
-                res.param2 = client.character.y as u16;
+                let character = state.character().await;
+                res.param0 = character.map_id();
+                res.param1 = character.x();
+                res.param2 = character.y();
                 actor.send(res).await?;
             },
             ActionType::SetMapARGB => {
-                let client = client.value();
                 let mut res = self.clone();
+                let character = state.character().await;
                 res.param0 = 0x00FF_FFFF;
-                res.param1 = client.character.x as u16;
-                res.param2 = client.character.y as u16;
+                res.param1 = character.x();
+                res.param2 = character.y();
                 actor.send(res).await?;
             },
             _ => {

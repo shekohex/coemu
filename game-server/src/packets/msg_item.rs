@@ -1,4 +1,5 @@
 use super::{MsgTalk, TalkChannel};
+use crate::ActorState;
 use async_trait::async_trait;
 use network::{Actor, PacketID, PacketProcess};
 use num_enum::FromPrimitive;
@@ -33,9 +34,13 @@ pub struct MsgItem {
 
 #[async_trait]
 impl PacketProcess for MsgItem {
+    type ActorState = ActorState;
     type Error = crate::Error;
 
-    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+    async fn process(
+        &self,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
         let action = self.action_type.into();
         match action {
             ItemActionType::Ping => {

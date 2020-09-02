@@ -19,9 +19,13 @@ pub struct MsgAccount {
 
 #[async_trait]
 impl PacketProcess for MsgAccount {
+    type ActorState = ();
     type Error = Error;
 
-    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+    async fn process(
+        &self,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
         let account = db::Account::auth(&self.username, &self.password).await?;
         actor.set_id(account.account_id as usize);
         let res = MsgTransfer::handle(actor, &self.realm).await?;

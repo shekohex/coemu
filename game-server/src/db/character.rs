@@ -1,6 +1,11 @@
 use crate::{Error, State};
 use chrono::{DateTime, Utc};
 
+/// This class encapsulates the game character for a player. The player controls
+/// the character as the protagonist of the Conquer Online storyline. The
+/// character is the persona of the player who controls it. The persona can be
+/// altered using different avatars, hairstyles, and body types. The player also
+/// controls the character's professions and abilities.
 #[derive(Debug, Clone)]
 pub struct Character {
     pub character_id: i32,
@@ -30,6 +35,40 @@ pub struct Character {
     pub mana_points: i16,
     pub kill_points: i16,
     pub created_at: DateTime<Utc>,
+}
+
+impl Default for Character {
+    fn default() -> Self {
+        Self {
+            character_id: Default::default(),
+            account_id: Default::default(),
+            realm_id: Default::default(),
+            name: Default::default(),
+            mesh: Default::default(),
+            avatar: Default::default(),
+            hair_style: Default::default(),
+            silver: Default::default(),
+            cps: Default::default(),
+            current_class: Default::default(),
+            previous_class: Default::default(),
+            rebirths: Default::default(),
+            level: Default::default(),
+            experience: Default::default(),
+            map_id: Default::default(),
+            x: Default::default(),
+            y: Default::default(),
+            virtue: Default::default(),
+            strength: Default::default(),
+            agility: Default::default(),
+            vitality: Default::default(),
+            spirit: Default::default(),
+            attribute_points: Default::default(),
+            health_points: Default::default(),
+            mana_points: Default::default(),
+            kill_points: Default::default(),
+            created_at: Utc::now(),
+        }
+    }
 }
 
 #[derive(Debug)]

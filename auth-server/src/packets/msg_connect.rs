@@ -16,9 +16,13 @@ pub struct MsgConnect {
 
 #[async_trait]
 impl PacketProcess for MsgConnect {
+    type ActorState = ();
     type Error = Error;
 
-    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+    async fn process(
+        &self,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
         actor.shutdown().await?;
         Ok(())
     }

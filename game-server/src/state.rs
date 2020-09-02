@@ -1,16 +1,21 @@
-use crate::{db, Error};
+use crate::{world::Character, Error};
 use dashmap::DashMap;
 use once_cell::sync::OnceCell;
 use sqlx::postgres::{PgPool, PgPoolOptions};
-use std::sync::Arc;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
+use tokio::sync::RwLock;
 
 static STATE: OnceCell<State> = OnceCell::new();
+
 type LoginTokens = Arc<DashMap<u32, (u32, u32)>>;
 type CreationTokens = Arc<DashMap<u32, (u32, u32)>>;
-type Clients = Arc<DashMap<usize, ClientState>>;
+type Shared<T> = Arc<RwLock<T>>;
+
 #[derive(Debug, Clone)]
 pub struct State {
-    clients: Clients,
     login_tokens: LoginTokens,
     creation_tokens: CreationTokens,
     pool: PgPool,
@@ -27,7 +32,6 @@ impl State {
             .connect(&dotenv::var("DATABASE_URL")?)
             .await?;
         let state = Self {
-            clients: Arc::new(DashMap::new()),
             login_tokens: Arc::new(DashMap::new()),
             creation_tokens: Arc::new(DashMap::new()),
             pool,
@@ -47,8 +51,6 @@ impl State {
         })
     }
 
-    pub fn clients(&self) -> &Clients { &self.clients }
-
     /// Get access to the database pool
     pub fn pool(&self) -> &PgPool { &self.pool }
 
@@ -57,7 +59,19 @@ impl State {
     pub fn creation_tokens(&self) -> &CreationTokens { &self.creation_tokens }
 }
 
-#[derive(Debug)]
-pub struct ClientState {
-    pub character: db::Character,
+#[derive(Debug, Default, Clone)]
+pub struct ActorState {
+    character: Shared<Character>,
+}
+
+impl ActorState {
+    pub async fn character(&self) -> impl Deref<Target = Character> + '_ {
+        self.character.read().await
+    }
+
+    pub async fn character_mut(
+        &self,
+    ) -> impl DerefMut<Target = Character> + '_ {
+        self.character.write().await
+    }
 }

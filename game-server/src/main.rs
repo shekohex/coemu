@@ -1,4 +1,9 @@
-#![feature(try_trait, backtrace)]
+//! This program encapsulates the game server.
+//! The game server is designed to accept authenticated data from the
+//! account server, load the player's character data, and control the game
+//! world environment. Any game structures involving location and the map
+//! are processed on this server. Entity intelligence is processed by this
+//! server as well.
 
 use network::{NopCipher, PacketHandler, Server, TQCipher};
 use tracing::info;
@@ -6,9 +11,10 @@ use tracing::info;
 mod constants;
 mod db;
 mod utils;
+mod world;
 
 mod state;
-use state::State;
+use state::{ActorState, State};
 
 mod errors;
 use errors::Error;
@@ -19,6 +25,7 @@ use packets::*;
 struct GameServer;
 
 impl Server for GameServer {
+    type ActorState = ActorState;
     type Cipher = TQCipher;
     type PacketHandler = Handler;
 }
@@ -26,11 +33,13 @@ impl Server for GameServer {
 struct RpcServer;
 
 impl Server for RpcServer {
+    type ActorState = ();
     type Cipher = NopCipher;
     type PacketHandler = RpcHandler;
 }
 
 #[derive(Copy, Clone, PacketHandler)]
+#[handle(state = ActorState)]
 pub enum Handler {
     MsgConnect,
     MsgRegister,
@@ -40,6 +49,7 @@ pub enum Handler {
 }
 
 #[derive(Copy, Clone, PacketHandler)]
+#[handle(state = ())]
 pub enum RpcHandler {
     MsgTransfer,
 }

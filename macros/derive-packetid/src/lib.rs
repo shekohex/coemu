@@ -2,35 +2,37 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, AttrStyle, DeriveInput, Ident, Lit, Token,
+    parse_macro_input, AttrStyle, DeriveInput, Ident, Lit, LitInt, Token,
 };
 
 #[derive(Debug)]
 struct Args {
-    ident: Ident,
-    token: Token![=],
-    id: Lit,
+    ident: String,
+    id: LitInt,
 }
 
 impl Parse for Args {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let args = Self {
-            ident: input.parse()?,
-            token: input.parse()?,
-            id: input.parse()?,
-        };
-        if args.ident != "id" {
+        let ident: Ident = input.parse()?;
+        let _: Token!(=) = input.parse()?;
+        let id: Lit = input.parse()?;
+        if ident != "id" {
             return Err(syn::Error::new(
-                args.ident.span(),
-                format!("expected `id` but got {}", args.ident),
+                ident.span(),
+                format!("expected `id` but got {}", ident),
             ));
         }
-        if let Lit::Int(_) = &args.id {
-            Ok(args)
+        let id = if let Lit::Int(v) = id {
+            v
         } else {
-            let e = syn::Error::new(args.ident.span(), "Expected u16");
-            Err(e)
-        }
+            let e = syn::Error::new(ident.span(), "Expected u16");
+            return Err(e);
+        };
+        let args = Self {
+            ident: ident.to_string(),
+            id,
+        };
+        Ok(args)
     }
 }
 

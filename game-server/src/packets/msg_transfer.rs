@@ -19,9 +19,13 @@ pub struct MsgTransfer {
 
 #[async_trait]
 impl PacketProcess for MsgTransfer {
+    type ActorState = ();
     type Error = Error;
 
-    async fn process(&self, actor: &Actor) -> Result<(), Self::Error> {
+    async fn process(
+        &self,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
         let token = fastrand::u32(0..u32::MAX);
         let code = fastrand::u32(0..u32::MAX);
         State::global()?

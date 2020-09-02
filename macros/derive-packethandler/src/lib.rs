@@ -1,7 +1,31 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataEnum, DeriveInput};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_macro_input, AttrStyle, Data, DataEnum, DeriveInput, Expr, Ident,
+    Token,
+};
 
+#[derive(Debug)]
+struct Args {
+    state: Expr,
+}
+
+impl Parse for Args {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ident: Ident = input.parse()?;
+        let _: Token!(=) = input.parse()?;
+        let state: Expr = input.parse()?;
+        if ident != "state" {
+            return Err(syn::Error::new(
+                ident.span(),
+                format!("expected `state` but got {}", ident),
+            ));
+        }
+        let args = Self { state };
+        Ok(args)
+    }
+}
 fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
     let body = if let Data::Enum(e) = input.data {
         body(e)?
@@ -13,6 +37,15 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
     };
     // Used in the quasi-quotation below as `#name`.
     let name = input.ident;
+    let attr = input
+        .attrs
+        .iter()
+        .find(|a| a.style == AttrStyle::Outer && a.path.is_ident("handle"))
+        .ok_or_else( ||
+            syn::Error::new(name.span(),"Missing ActorState! please add #[handle(state = ..)] on the enum"),
+        )?;
+    let args: Args = attr.parse_args()?;
+    let state = args.state;
     let generics = input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     // Build the output, possibly using quasi-quotation
@@ -20,9 +53,10 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
         #[async_trait::async_trait]
         impl #impl_generics network::PacketHandler for #name #ty_generics #where_clause {
             type Error = crate::Error;
+            type ActorState = #state;
              async fn handle(
                  (id, bytes): (u16, bytes::Bytes),
-                 actor: &network::Actor
+                 actor: &network::Actor<Self::ActorState>,
                 ) -> Result<(), Self::Error> {
                     use network::{PacketID, PacketProcess};
                     #body
@@ -60,7 +94,7 @@ fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
     Ok(tokens)
 }
 
-#[proc_macro_derive(PacketHandler)]
+#[proc_macro_derive(PacketHandler, attributes(handle))]
 pub fn derive(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);

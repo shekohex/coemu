@@ -1,6 +1,5 @@
 use bytes::Bytes;
 use network::{ErrorPacket, PacketEncode};
-use std::{backtrace::Backtrace, option::NoneError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -19,12 +18,6 @@ pub enum Error {
     Other(String),
     #[error("Msg {}", _0)]
     Msg(u16, Bytes),
-    #[error("NullError")]
-    NullError {
-        e: NoneError,
-        #[backtrace]
-        backtrace: Backtrace,
-    },
 }
 
 impl<T: PacketEncode> From<ErrorPacket<T>> for Error {
@@ -42,15 +35,6 @@ impl PacketEncode for Error {
         match self {
             Self::Msg(id, bytes) => Ok((*id, bytes.clone())),
             e => Err(Self::Other(e.to_string())),
-        }
-    }
-}
-
-impl From<NoneError> for Error {
-    fn from(e: NoneError) -> Self {
-        Error::NullError {
-            e,
-            backtrace: Backtrace::capture(),
         }
     }
 }
