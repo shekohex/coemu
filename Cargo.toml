@@ -5,9 +5,10 @@ members = [
   "tq-serde",
   "tq-codec",
   "network",
-  # Bins
+  # Servers
   "auth-server",
   "game-server",
   # Utils
-  "macros/*"
+  "macros/*",
+  "tools/*",
 ]

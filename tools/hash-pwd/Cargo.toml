@@ -1,0 +1,8 @@
+[package]
+name = "hash-pwd"
+version = "0.1.0"
+authors = ["Shady Khalifa <shekohex@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bcrypt = "0.8"

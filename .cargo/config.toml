@@ -17,3 +17,4 @@ rustflags = ["-Zshare-generics=y"]
 [alias]
 auth = "run --bin auth-server"
 game = "run --bin game-server"
+hash-pwd = "run --bin hash-pwd"
