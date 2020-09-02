@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 use tokio::sync::RwLock;
-use tracing::{debug, error, trace};
+use tracing::debug;
 
 static STATE: OnceCell<State> = OnceCell::new();
 
@@ -83,19 +83,10 @@ impl State {
     async fn init_maps(&self) -> Result<(), Error> {
         debug!("Loading Maps from Database");
         let maps = db::Map::load_all().await?;
-        debug!("Loaded #{} Map", maps.len());
+        debug!("Loaded #{} Map From Database", maps.len());
         for map in maps {
-            let mut map = Map::new(map);
-            let maps = self.maps.clone();
-            tokio::spawn(async move {
-                if let Err(e) = map.load().await {
-                    error!("Error While Loading Map {}: {}", map.id(), e);
-                } else {
-                    trace!("{} Loaded and Added to the pool", map.id());
-                    maps.insert(map.id(), map);
-                }
-                Result::<_, Error>::Ok(())
-            });
+            let map = Map::new(map);
+            self.maps.insert(map.id(), map);
         }
         Ok(())
     }
@@ -136,5 +127,15 @@ impl ActorState {
 
     pub async fn tile_mut(&self) -> impl DerefMut<Target = Tile> + '_ {
         self.tile.write().await
+    }
+
+    pub(super) async fn on_disconnect(
+        &self,
+        actor_id: usize,
+    ) -> Result<(), Error> {
+        // TODO(shekohex) do clear anything that releated to that actor here.
+        self.map().await.remove_actor(actor_id).await?;
+        tracing::debug!("Actor Disconnected");
+        Ok(())
     }
 }

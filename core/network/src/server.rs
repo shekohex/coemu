@@ -11,7 +11,7 @@ use tq_crypto::Cipher;
 use tracing::{debug, info, instrument, trace};
 
 #[async_trait]
-pub trait Server: Sized {
+pub trait Server: Sized + Send + Sync {
     type Cipher: Cipher;
     type ActorState: Default + Send + Sync;
     type PacketHandler: PacketHandler<ActorState = Self::ActorState>;
@@ -26,9 +26,10 @@ pub trait Server: Sized {
 
     /// Get Called right before ending the connection with that client.
     /// good chance to clean up anything related to that actor.
-    #[instrument]
-    async fn on_disconnected(actor_id: usize) -> Result<(), Error> {
-        let _ = actor_id;
+    async fn on_disconnected(
+        actor: Actor<Self::ActorState>,
+    ) -> Result<(), Error> {
+        let _ = actor;
         Ok(())
     }
 
@@ -77,14 +78,18 @@ async fn handle_stream<S: Server>(stream: TcpStream) -> Result<(), Error> {
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
         if let Err(e) = S::PacketHandler::handle((id, bytes), &actor).await {
-            actor
-                .send(e)
-                .await
-                .map_err(|e| Error::Other(e.to_string()))?;
+            let e =
+                actor.send(e).await.map_err(|e| Error::Other(e.to_string()));
+            match e {
+                Ok(_) => {},
+                Err(e) => {
+                    tracing::error!("{}", e);
+                },
+            }
         }
     }
     trace!("Calling on_disconnected lifetime hook");
-    S::on_disconnected(actor.id()).await?;
+    S::on_disconnected(actor).await?;
     debug!("Socket Closed, stopping task.");
     Ok(())
 }

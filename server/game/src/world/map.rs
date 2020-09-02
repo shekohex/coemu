@@ -5,6 +5,7 @@ use primitives::Point;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tq_network::Actor;
+use tracing::debug;
 
 /// This struct encapsulates map information from a compressed map and the
 /// database. It includes the identification of the map, pools and methods for
@@ -43,10 +44,21 @@ impl Map {
     /// server will make an attempt to find and convert a dmap version of the
     /// map into a compressed map file. After converting the map, the map
     /// will be loaded for the server.
-    pub async fn load(&mut self) -> Result<(), Error> {
+    pub async fn load(&self) -> Result<(), Error> {
+        debug!("Loading {} into memory", self.id());
         self.floor.write().await.load().await?;
+        debug!("Map {} Loaded into memory", self.id());
         Ok(())
     }
+
+    pub async fn unload(&self) -> Result<(), Error> {
+        debug!("Unload {} from memory", self.id());
+        self.floor.write().await.unload();
+        debug!("Map {} Unloaded from memory", self.id());
+        Ok(())
+    }
+
+    pub async fn loaded(&self) -> bool { self.floor.read().await.loaded() }
 
     /// This method adds the client specified in the parameters to the map pool.
     /// It does this by removing the player from the previous map, then
@@ -56,11 +68,15 @@ impl Map {
         &self,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
-        {
-            // Remove the client from the previous map
-            let actor_map = actor.state().map().await;
-            actor_map.remove_actor(actor.id()).await?;
+        // if the map is not loaded in memory, load it.
+        if !self.loaded().await {
+            self.load().await?;
         }
+
+        // Remove the client from the previous map
+        let current_map = actor.state().map().await;
+        current_map.remove_actor(actor.id()).await?;
+        drop(current_map);
         // Add the player to the current map
         let added = self.actors.insert(actor.id(), actor.clone()).is_none();
         if added {
@@ -83,6 +99,11 @@ impl Map {
         if let Some(entry) = self.actors.remove(&actor_id) {
             let _actor = entry.1;
             // TODO(shekohex) Remove From Observers
+        }
+        // No One in this map?
+        if self.actors.is_empty() {
+            // Unload the map from the wrold.
+            self.unload().await?;
         }
         Ok(())
     }

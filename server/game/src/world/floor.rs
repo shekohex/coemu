@@ -39,6 +39,8 @@ impl Floor {
         }
     }
 
+    pub fn loaded(&self) -> bool { self.loaded }
+
     /// This method loads a compressed map from the server's flat file database.
     /// If the file does not exist, the server will make an attempt to find
     /// and convert a dmap version of the map into a compressed map file.
@@ -78,6 +80,16 @@ impl Floor {
         }
         self.loaded = true;
         Ok(())
+    }
+
+    /// This method unloads the map from memory .. useful when there is no one
+    /// on that map. it should get loaded again once needed by calling
+    /// [`Self::load`].
+    pub fn unload(&mut self) {
+        self.boundaries = Size::default();
+        self.coordinates.clear();
+        self.coordinates = Default::default();
+        self.loaded = false;
     }
 
     /// This method converts a data map from TQ Digital's Conquer Online client

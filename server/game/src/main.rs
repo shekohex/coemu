@@ -5,7 +5,8 @@
 //! are processed on this server. Entity intelligence is processed by this
 //! server as well.
 
-use tq_network::{NopCipher, PacketHandler, Server, TQCipher};
+use async_trait::async_trait;
+use tq_network::{Actor, NopCipher, PacketHandler, Server, TQCipher};
 use tracing::info;
 
 mod constants;
@@ -25,10 +26,22 @@ use std::env;
 
 struct GameServer;
 
+#[async_trait]
 impl Server for GameServer {
     type ActorState = ActorState;
     type Cipher = TQCipher;
     type PacketHandler = Handler;
+
+    async fn on_disconnected(
+        actor: Actor<Self::ActorState>,
+    ) -> Result<(), tq_network::Error> {
+        actor
+            .state()
+            .on_disconnect(actor.id())
+            .await
+            .unwrap_or_default();
+        Ok(())
+    }
 }
 
 struct RpcServer;

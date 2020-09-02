@@ -16,6 +16,10 @@ pub enum Error {
     Db(#[from] sqlx::Error),
     #[error("State Error: {}", _0)]
     State(&'static str),
+    #[error(transparent)]
+    ParseInt(#[from] std::num::ParseIntError),
+    #[error(transparent)]
+    ParseFloat(#[from] std::num::ParseFloatError),
     #[error("{}", _0)]
     Other(String),
     #[error("Msg {}", _0)]

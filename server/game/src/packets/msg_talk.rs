@@ -146,6 +146,10 @@ impl MsgTalk {
             crate::constants::NEW_ROLE.to_owned(),
         )
     }
+
+    pub fn unknown_cmd(character_id: u32, message: String) -> Self {
+        Self::from_system(character_id, TalkChannel::TopLeft, message)
+    }
 }
 
 #[async_trait]
@@ -160,15 +164,19 @@ impl PacketProcess for MsgTalk {
         if self.message.starts_with('$') {
             // Command Message.
             let (_, command) = self.message.split_at(1);
+            let mut parts = command.split_whitespace();
+            let command = parts.next().unwrap_or_default();
             match command {
                 "dc" => {
                     actor.shutdown().await?;
                 },
+                "tele" => {
+                    // TODO(shekohex) implement a teleport command.
+                },
                 missing => {
                     warn!("Unknown Command {}", missing);
-                    let p = MsgTalk::from_system(
-                        1,
-                        TalkChannel::TopLeft,
+                    let p = MsgTalk::unknown_cmd(
+                        self.character_id,
                         format!("Unkonwn Command {}", missing),
                     );
                     actor.send(p).await?;
