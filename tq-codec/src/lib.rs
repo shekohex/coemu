@@ -1,7 +1,8 @@
 //! crate that contians a [`TQCodec`] that wraps any [`AsyncRead`] +
-//! [`AsyncWrite`] and Outputs a [`Stream`] of `(u16, Bytes)` where the `u16` is
-//! the PacketID and Bytes is the Body of the Packet.
-//! It also implements [`Sink`] where you could write `(u16, Bytes)` to it.
+//! [`AsyncWrite`] and Outputs a Stream-like [`TQDecoder`] of `(u16, Bytes)`
+//! where the `u16` is the PacketID and Bytes is the Body of the Packet.
+//! It also implements Sink-like [`TQEncoder`] where you could write `(u16,
+//! Bytes)` to it.
 //!
 //! Basiclly, Client Packets are length-prefixed bytes, where the First 2
 //! bytes are the length of the packet, next 2 bytes are the ID of the packet,

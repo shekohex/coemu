@@ -1,6 +1,6 @@
 //! This crate contains cipher algorithms used between the Conquer
 //! Online game client and server, it Defines generalized methods for ciphers
-//! used by `TcpServerActor` and `TcpServerListener` for encrypting and
+//! used by `Server` for encrypting and
 //! decrypting data to and from the game client.
 
 mod rc5;
@@ -13,7 +13,7 @@ mod nop;
 pub use nop::NopCipher;
 
 /// Defines generalized methods for ciphers used by
-/// `TcpServerActor` and `TcpServerListener` for encrypting and decrypting
+/// `Server` for encrypting and decrypting
 /// data to and from the game client.
 /// Can be used to switch between ciphers easily for
 /// seperate states of the game client connection.
