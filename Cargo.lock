@@ -536,18 +536,30 @@ dependencies = [
  "chrono",
  "dashmap",
  "dotenv",
+ "encoding",
  "fastrand",
  "num_enum",
  "once_cell",
+ "primitives",
  "serde",
  "sqlx",
  "thiserror",
  "tokio",
+ "tq-math",
  "tq-network",
  "tq-serde",
  "tracing",
  "tracing-futures",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "gamemap-decoder"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "dotenv",
+ "encoding",
 ]
 
 [[package]]
@@ -1016,6 +1028,13 @@ name = "pretty-hex"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8a6a27f79f3ec19193cd2ecfe9b73276b79026529466aef45d70d0f9eca651b"
+
+[[package]]
+name = "primitives"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "proc-macro-hack"
@@ -1514,6 +1533,10 @@ version = "0.1.0"
 dependencies = [
  "bytes",
 ]
+
+[[package]]
+name = "tq-math"
+version = "0.1.0"
 
 [[package]]
 name = "tq-network"

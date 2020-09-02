@@ -15,6 +15,7 @@ use state::State;
 
 mod packets;
 use packets::{MsgAccount, MsgConnect};
+use std::env;
 
 mod db;
 
@@ -53,7 +54,7 @@ Copyright 2020 Shady Khalifa (@shekohex)
     );
     info!("Starting Auth Server");
     info!("Initializing server...");
-    let auth_port = dotenv::var("AUTH_PORT")?;
+    let auth_port = env::var("AUTH_PORT")?;
     let ctrlc = tokio::signal::ctrl_c();
     let server = AuthServer::run(format!("0.0.0.0:{}", auth_port));
 

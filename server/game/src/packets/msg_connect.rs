@@ -38,9 +38,15 @@ impl PacketProcess for MsgConnect {
         let maybe_character = db::Character::from_account(id).await?;
         match maybe_character {
             Some(character) => {
-                let mut default_character = actor.state().character_mut().await;
-                *default_character =
-                    Character::new(actor.clone(), character.clone());
+                let mut old = actor.state().character_mut().await;
+                *old = Character::new(actor.clone(), character.clone());
+                drop(old);
+                state
+                    .maps()
+                    .get(&(character.map_id as u32))
+                    .ok_or_else(|| MsgTalk::login_invalid().error_packet())?
+                    .add_actor(actor)
+                    .await?;
                 actor.send(MsgTalk::login_ok()).await?;
                 let msg = MsgUserInfo::from(character);
                 actor.send(msg).await?;

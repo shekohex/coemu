@@ -124,8 +124,16 @@ impl PacketProcess for MsgRegister {
 
         let character_id = self.build_character(id, realm_id)?.save().await?;
         let character = db::Character::by_id(character_id).await?;
-        let mut default_character = actor.state().character_mut().await;
-        *default_character = Character::new(actor.clone(), character);
+        let mut old = actor.state().character_mut().await;
+        let map_id = character.map_id;
+        *old = Character::new(actor.clone(), character);
+        // Set player map.
+        state
+            .maps()
+            .get(&(map_id as u32))
+            .ok_or_else(|| MsgTalk::register_invalid().error_packet())?
+            .add_actor(actor)
+            .await?;
         tracing::info!(
             "Account #{} Created Character #{} with Name {}",
             id,

@@ -2,3 +2,6 @@
 
 mod character;
 pub use character::Character;
+
+mod map;
+pub use map::Map;

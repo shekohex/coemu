@@ -9,7 +9,9 @@ pub enum Error {
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
-    Env(#[from] dotenv::Error),
+    DotEnv(#[from] dotenv::Error),
+    #[error(transparent)]
+    Env(#[from] std::env::VarError),
     #[error(transparent)]
     Db(#[from] sqlx::Error),
     #[error("State Error: {}", _0)]

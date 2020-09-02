@@ -1,5 +1,71 @@
 {
   "db": "PostgreSQL",
+  "0cb8b9cb252edb68022f336c52e3588d5d1d155833bb92927e299a3f6c44ffd8": {
+    "query": "SELECT * FROM maps",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "map_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "path",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 2,
+          "name": "revive_point_x",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 3,
+          "name": "revive_point_y",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 4,
+          "name": "flags",
+          "type_info": "Int4"
+        }
+      ],
+      "parameters": {
+        "Left": []
+      },
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "1895c2155191f4daa0088fd11a9297746af9c651b7f0bb1e19915880470180c5": {
+    "query": "\n            INSERT INTO maps \n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (map_id)\n            DO UPDATE SET \n              path = $2,\n              revive_point_x = $3,\n              revive_point_y = $4,\n              flags = $5\n            RETURNING map_id\n          ",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "map_id",
+          "type_info": "Int4"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Text",
+          "Int4",
+          "Int4",
+          "Int4"
+        ]
+      },
+      "nullable": [
+        false
+      ]
+    }
+  },
   "2462225c224e92a4631aeff416ebdb5bcd804db1e37036894dc7f53d253cd3a7": {
     "query": "SELECT * FROM characters WHERE account_id = $1",
     "describe": {
@@ -168,6 +234,50 @@
         false,
         false,
         false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "a856b85502fcf4c75887fe9dbfc77b97dc5d9128c1345ee250b4e6df585c36b4": {
+    "query": "SELECT * FROM maps WHERE map_id = $1",
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "map_id",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 1,
+          "name": "path",
+          "type_info": "Text"
+        },
+        {
+          "ordinal": 2,
+          "name": "revive_point_x",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 3,
+          "name": "revive_point_y",
+          "type_info": "Int4"
+        },
+        {
+          "ordinal": 4,
+          "name": "flags",
+          "type_info": "Int4"
+        }
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      },
+      "nullable": [
         false,
         false,
         false,

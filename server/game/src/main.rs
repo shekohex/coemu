@@ -21,6 +21,7 @@ use errors::Error;
 
 mod packets;
 use packets::*;
+use std::env;
 
 struct GameServer;
 
@@ -75,8 +76,8 @@ Copyright 2020 Shady Khalifa (@shekohex)
     info!("Starting Game Server");
     info!("Initializing server...");
 
-    let game_port = dotenv::var("GAME_PORT")?;
-    let rpc_port = dotenv::var("GAME_RPC_PORT")?;
+    let game_port = env::var("GAME_PORT")?;
+    let rpc_port = env::var("GAME_RPC_PORT")?;
 
     let ctrlc = tokio::signal::ctrl_c();
 

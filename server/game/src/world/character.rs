@@ -11,6 +11,7 @@ use tq_network::Actor;
 pub struct Character {
     inner: db::Character,
     owner: Option<Actor<ActorState>>,
+    elevation: u16,
 }
 
 impl Character {
@@ -18,10 +19,15 @@ impl Character {
         Self {
             inner,
             owner: Some(owner),
+            elevation: 0,
         }
     }
 
-    pub fn map_id(&self) -> u32 { self.inner.map_id as u32 }
+    pub fn inner(&self) -> &db::Character { &self.inner }
+
+    pub fn elevation(&self) -> u16 { self.elevation }
+
+    pub fn set_elevation(&mut self, value: u16) { self.elevation = value; }
 }
 
 impl Default for Character {
@@ -29,6 +35,7 @@ impl Default for Character {
         Self {
             inner: Default::default(),
             owner: None,
+            elevation: 0,
         }
     }
 }

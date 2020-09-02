@@ -53,7 +53,7 @@ impl PacketProcess for MsgAction {
             ActionType::SetLocation => {
                 let mut res = self.clone();
                 let character = state.character().await;
-                res.param0 = character.map_id();
+                res.param0 = character.inner().map_id as u32;
                 res.param1 = character.x();
                 res.param2 = character.y();
                 actor.send(res).await?;
