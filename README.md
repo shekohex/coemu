@@ -14,21 +14,61 @@
 
 CoEmu is a Conquer Online server project containing an account server and game server. The account server authenticates players, while the game server services players in the game world. This simple two-server architecture acts as a good introduction into server programming and networking. The server is interoperable with the Conquer Online game client, patch 5017 (not provided by this project).
 
-## Build
+## Build and Run
 
 1. [Install Rust](https://rustup.rs/)
+
 2. Use Nightly Rust (it offers speed compile-time).
 
 ```bash
 $ rustup default nightly
 ```
 
-3. Clone and Build
+3. Clone and Configure
 
-```
+```bash
 $ git clone https://github.com/shekohex/coemu
 $ cd coemu
-$ cargo build
+$ cp .env.example .env # edit the env file if you want.
+```
+
+4. Start Database
+
+We are using [Postgres](https://www.postgresql.org/) as Database for storing all of server data and states, and we are using it inside a docker container so it is easy to manage on any system.
+
+```bash
+$ docker-compose up -d postgres
+```
+
+Then Install [sqlx-cli](https://github.com/launchbadge/sqlx/tree/master/sqlx-cli) for running Database Migrations.
+
+```bash
+$ cargo install cargo-sqlx
+```
+
+that will take some time, then run
+
+```bash
+$ sqlx database create
+$ sqlx migrate run
+```
+
+Good, let's build the servers!
+
+5. Build and Run Server
+
+Now After the database is ready, run the servers
+
+- **Auth Server**
+
+```bash
+$ cargo auth
+```
+
+- **Game Server**
+
+```bash
+$ cargo game
 ```
 
 ## Game Client Download
@@ -72,7 +112,21 @@ Pic1=servericon33
 
 2. How do I create an account?
 
-- Not yet implemented!.
+To Create an Account, you should open the Database on a Database Manager (something like [Datagrip](https://www.jetbrains.com/datagrip/) or [alternatives](https://www.slant.co/options/210/alternatives/~datagrip-alternatives)) then in the `accounts` table you should create a new raw with your account information, you should only need to input the `username` and `password`.
+Please note that the `password` needs to be hashed using [Bcrypt](https://en.wikipedia.org/wiki/Bcrypt) .. You could use the provided tool to get a hashed password, just run
+
+```bash
+$ cargo hash-pwd <password>
+```
+
+for example
+
+```
+$ cargo hash-pwd test
+$2b$12$iSrnkacd/i/8eZr5pBoDlO5qcbLmLUWGQ6IN.oQuemnlRKU/NExIW
+```
+
+After creating the account, you should be able to login and create your character :)
 
 ## Resources
 
