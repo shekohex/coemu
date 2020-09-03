@@ -1,3 +1,4 @@
+use async_channel::SendError;
 use bytes::Bytes;
 use thiserror::Error;
 use tq_network::{ErrorPacket, PacketEncode};
@@ -16,6 +17,8 @@ pub enum Error {
     Db(#[from] sqlx::Error),
     #[error("State Error: {}", _0)]
     State(&'static str),
+    #[error("Actor State Send Error!")]
+    SendError,
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
     #[error(transparent)]
@@ -24,6 +27,10 @@ pub enum Error {
     Other(String),
     #[error("Msg {}", _0)]
     Msg(u16, Bytes),
+}
+
+impl<T> From<SendError<T>> for Error {
+    fn from(_: SendError<T>) -> Self { Self::SendError }
 }
 
 impl<T: PacketEncode> From<ErrorPacket<T>> for Error {

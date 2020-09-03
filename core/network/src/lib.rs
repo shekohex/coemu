@@ -13,7 +13,7 @@ mod errors;
 pub use errors::Error;
 
 mod actor;
-pub use actor::{Actor, Message};
+pub use actor::{Actor, ActorState, Message};
 
 mod server;
 pub use server::Server;
@@ -25,7 +25,7 @@ pub trait PacketID {
 #[async_trait]
 pub trait PacketProcess {
     type Error: StdError;
-    type ActorState: Default + Send + Sync;
+    type ActorState: ActorState;
     /// Process can be invoked by a packet after decode has been called to
     /// structure packet fields and properties. For the server
     /// implementations, this is called in the packet handler after the
@@ -61,7 +61,7 @@ pub trait PacketDecode {
 #[async_trait]
 pub trait PacketHandler {
     type Error: StdError + PacketEncode + Send + Sync;
-    type ActorState: Default + Send + Sync;
+    type ActorState: ActorState;
     async fn handle(
         packet: (u16, Bytes),
         actor: &Actor<Self::ActorState>,

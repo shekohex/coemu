@@ -35,11 +35,8 @@ impl Server for GameServer {
     async fn on_disconnected(
         actor: Actor<Self::ActorState>,
     ) -> Result<(), tq_network::Error> {
-        actor
-            .state()
-            .on_disconnect(actor.id())
-            .await
-            .unwrap_or_default();
+        let mystate = actor.state();
+        tq_network::ActorState::dispose(mystate, &actor).unwrap_or_default();
         Ok(())
     }
 }

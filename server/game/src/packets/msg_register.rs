@@ -124,9 +124,11 @@ impl PacketProcess for MsgRegister {
 
         let character_id = self.build_character(id, realm_id)?.save().await?;
         let character = db::Character::by_id(character_id).await?;
-        let mut old = actor.state().character_mut().await;
         let map_id = character.map_id;
-        *old = Character::new(actor.clone(), character);
+        actor
+            .state()
+            .set_character(Character::new(actor.clone(), character))
+            .await?;
         // Set player map.
         state
             .maps()

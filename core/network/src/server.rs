@@ -1,10 +1,9 @@
-use crate::{actor::Message, Actor, Error, PacketHandler};
+use crate::{actor::Message, Actor, ActorState, Error, PacketHandler};
 use async_trait::async_trait;
 use std::{fmt::Debug, net::SocketAddr};
 use tokio::{
     net::{TcpListener, TcpStream, ToSocketAddrs},
     stream::StreamExt,
-    sync::mpsc,
 };
 use tq_codec::{TQCodec, TQEncoder};
 use tq_crypto::Cipher;
@@ -13,7 +12,7 @@ use tracing::{debug, info, instrument, trace};
 #[async_trait]
 pub trait Server: Sized + Send + Sync {
     type Cipher: Cipher;
-    type ActorState: Default + Send + Sync;
+    type ActorState: ActorState;
     type PacketHandler: PacketHandler<ActorState = Self::ActorState>;
 
     /// Get Called once a Stream Got Connected, Returing Error here will stop
@@ -68,7 +67,7 @@ pub trait Server: Sized + Send + Sync {
 
 #[instrument(skip(stream))]
 async fn handle_stream<S: Server>(stream: TcpStream) -> Result<(), Error> {
-    let (tx, rx) = mpsc::channel(50);
+    let (tx, rx) = async_channel::bounded(50);
     let actor = Actor::new(tx);
     let cipher = S::Cipher::default();
     let (encoder, mut decoder) = TQCodec::new(stream, cipher.clone()).split();
@@ -96,7 +95,7 @@ async fn handle_stream<S: Server>(stream: TcpStream) -> Result<(), Error> {
 
 #[instrument(skip(rx, encoder, cipher))]
 async fn handle_msg<C: Cipher>(
-    mut rx: mpsc::Receiver<Message>,
+    mut rx: async_channel::Receiver<Message>,
     mut encoder: TQEncoder<TcpStream, C>,
     cipher: C,
 ) -> Result<(), Error> {
