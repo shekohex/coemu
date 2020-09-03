@@ -1,5 +1,9 @@
 use super::{MsgTalk, MsgUserInfo};
-use crate::{db, world::Character, ActorState, Error, State};
+use crate::{
+    db,
+    world::{Character, Screen},
+    ActorState, Error, State,
+};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
@@ -39,7 +43,6 @@ impl PacketProcess for MsgConnect {
         match maybe_character {
             Some(character) => {
                 actor
-                    .state()
                     .set_character(Character::new(
                         actor.clone(),
                         character.clone(),
@@ -49,11 +52,15 @@ impl PacketProcess for MsgConnect {
                     .maps()
                     .get(&(character.map_id as u32))
                     .ok_or_else(|| MsgTalk::login_invalid().error_packet())?
-                    .add_actor(actor)
+                    .insert_actor(actor)
                     .await?;
+                let screen = Screen::new(actor.clone());
+                actor.set_screen(screen).await?;
                 actor.send(MsgTalk::login_ok()).await?;
                 let msg = MsgUserInfo::from(character);
+                let screen = actor.screen().await?;
                 actor.send(msg).await?;
+                screen.load_surroundings().await?;
             },
             None => {
                 state.creation_tokens().insert(self.token, (id, realm_id));

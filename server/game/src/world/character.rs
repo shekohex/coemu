@@ -1,5 +1,6 @@
 use super::ScreenObject;
-use crate::{db, ActorState};
+use crate::{db, packets::MsgPlayer, ActorState, Error};
+use async_trait::async_trait;
 use std::{
     ops::Deref,
     sync::{
@@ -9,11 +10,11 @@ use std::{
 };
 use tq_network::Actor;
 
-/// This class encapsulates the game character for a player. The player controls
-/// the character as the protagonist of the Conquer Online storyline. The
-/// character is the persona of the player who controls it. The persona can be
-/// altered using different avatars, hairstyles, and body types. The player also
-/// controls the character's professions and abilities.
+/// This struct encapsulates the game character for a player. The player
+/// controls the character as the protagonist of the Conquer Online storyline.
+/// The character is the persona of the player who controls it. The persona can
+/// be altered using different avatars, hairstyles, and body types. The player
+/// also controls the character's professions and abilities.
 #[derive(Debug, Clone)]
 pub struct Character {
     inner: Arc<db::Character>,
@@ -41,6 +42,19 @@ impl Character {
     pub fn set_elevation(&self, value: u16) {
         self.elevation.store(value, Ordering::Relaxed);
     }
+
+    pub async fn exchange_spawn_packets(
+        &self,
+        observer: impl ScreenObject,
+    ) -> Result<(), Error> {
+        if let (Some(observer_owner), Some(myowner)) =
+            (observer.owner(), self.owner())
+        {
+            self.send_spawn(&observer_owner).await?;
+            observer.send_spawn(&myowner).await?;
+        }
+        Ok(())
+    }
 }
 
 impl Default for Character {
@@ -53,8 +67,9 @@ impl Default for Character {
     }
 }
 
+#[async_trait]
 impl ScreenObject for Character {
-    fn owner(&self) -> Option<&Actor<ActorState>> { self.owner.as_ref() }
+    fn owner(&self) -> Option<Actor<ActorState>> { self.owner.clone() }
 
     fn id(&self) -> usize { self.inner.character_id as usize }
 
@@ -62,11 +77,11 @@ impl ScreenObject for Character {
 
     fn y(&self) -> u16 { self.inner.y as u16 }
 
-    fn send_spawn(
-        &self,
-        to: &Actor<ActorState>,
-    ) -> Result<(), crate::errors::Error> {
-        let _ = to;
-        todo!()
+    fn is_charachter(&self) -> bool { true }
+
+    async fn send_spawn(&self, to: &Actor<ActorState>) -> Result<(), Error> {
+        let msg = MsgPlayer::from(self.clone());
+        to.send(msg).await?;
+        Ok(())
     }
 }

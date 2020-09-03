@@ -2,6 +2,7 @@ use crate::{Error, PacketEncode};
 use bytes::Bytes;
 use std::{
     hash::Hash,
+    ops::Deref,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -40,6 +41,12 @@ impl<S: ActorState> PartialEq for Actor<S> {
 
 impl<S: ActorState> Eq for Actor<S> {}
 
+impl<S: ActorState> Deref for Actor<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target { &self.state }
+}
+
 impl From<(u16, Bytes)> for Message {
     fn from((id, bytes): (u16, Bytes)) -> Self { Self::Packet(id, bytes) }
 }
@@ -72,8 +79,6 @@ impl<S: ActorState> Actor<S> {
     pub fn id(&self) -> usize { self.id.load(Ordering::Relaxed) }
 
     pub fn set_id(&self, id: usize) { self.id.store(id, Ordering::Relaxed); }
-
-    pub fn state(&self) -> &S { &self.state }
 
     /// Enqueue the packet and send it to the client connected to this actor
     pub async fn send<P: PacketEncode>(

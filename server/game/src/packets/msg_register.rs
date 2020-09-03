@@ -1,5 +1,9 @@
 use super::MsgTalk;
-use crate::{db, world::Character, ActorState, Error, State};
+use crate::{
+    db,
+    world::{Character, Screen},
+    ActorState, Error, State,
+};
 use async_trait::async_trait;
 use num_enum::TryFromPrimitive;
 use serde::Deserialize;
@@ -126,7 +130,6 @@ impl PacketProcess for MsgRegister {
         let character = db::Character::by_id(character_id).await?;
         let map_id = character.map_id;
         actor
-            .state()
             .set_character(Character::new(actor.clone(), character))
             .await?;
         // Set player map.
@@ -134,8 +137,11 @@ impl PacketProcess for MsgRegister {
             .maps()
             .get(&(map_id as u32))
             .ok_or_else(|| MsgTalk::register_invalid().error_packet())?
-            .add_actor(actor)
+            .insert_actor(actor)
             .await?;
+        let screen = Screen::new(actor.clone());
+        screen.load_surroundings().await?;
+        actor.set_screen(screen).await?;
         tracing::info!(
             "Account #{} Created Character #{} with Name {}",
             id,

@@ -8,7 +8,7 @@ mod msg_user_info;
 pub use msg_user_info::MsgUserInfo;
 
 mod msg_action;
-pub use msg_action::MsgAction;
+pub use msg_action::{ActionType, MsgAction};
 
 mod msg_item;
 pub use msg_item::MsgItem;
@@ -18,3 +18,9 @@ pub use msg_transfer::MsgTransfer;
 
 mod msg_register;
 pub use msg_register::MsgRegister;
+
+mod msg_walk;
+pub use msg_walk::{MovementType, MsgWalk};
+
+mod msg_player;
+pub use msg_player::MsgPlayer;

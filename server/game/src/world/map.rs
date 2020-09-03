@@ -1,4 +1,4 @@
-use super::{floor::Floor, ScreenObject};
+use super::{floor::Floor, ScreenObject, Tile};
 use crate::{db, ActorState, Error};
 use dashmap::DashMap;
 use primitives::Point;
@@ -6,6 +6,8 @@ use std::{ops::Deref, sync::Arc};
 use tokio::sync::RwLock;
 use tq_network::Actor;
 use tracing::debug;
+
+type Actors = Arc<DashMap<usize, Actor<ActorState>>>;
 
 /// This struct encapsulates map information from a compressed map and the
 /// database. It includes the identification of the map, pools and methods for
@@ -17,7 +19,7 @@ pub struct Map {
     /// The Inner map loaded from the database
     inner: Arc<db::Map>,
     /// Holds client information for each player on the map.
-    actors: Arc<DashMap<usize, Actor<ActorState>>>,
+    actors: Actors,
     /// where should the player get revived on this map
     revive_point: Arc<Point<u32>>,
     /// defines the map's coordinate tile grid.
@@ -45,6 +47,13 @@ impl Map {
 
     pub fn id(&self) -> u32 { self.inner.map_id as u32 }
 
+    pub fn actors(&self) -> &Actors { &self.actors }
+
+    pub async fn tile(&self, x: u16, y: u16) -> Result<Tile, Error> {
+        let floor = self.floor.read().await;
+        Ok(floor[(x as u32, y as u32)])
+    }
+
     // This method loads a compressed map from the server's flat file database.
     // If the file does not exist, the
     /// server will make an attempt to find and convert a dmap version of the
@@ -70,7 +79,7 @@ impl Map {
     /// It does this by removing the player from the previous map, then
     /// adding it to the current map. As the character is added, its map,
     /// current tile, and current elevation are changed.
-    pub async fn add_actor(
+    pub async fn insert_actor(
         &self,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
@@ -78,19 +87,18 @@ impl Map {
         if !self.loaded().await {
             self.load().await?;
         }
-        let mystate = actor.state();
         // Remove the client from the previous map
-        mystate.map().await?.remove_actor(actor.id()).await?;
+        actor.map().await?.remove_actor(actor.id()).await?;
         // Add the player to the current map
         let added = self.actors.insert(actor.id(), actor.clone()).is_none();
+        actor.set_map(self.clone()).await?;
         if added {
-            mystate.set_map(self.clone()).await?;
             let floor = self.floor.read().await;
-            let character = mystate.character().await?;
+            let character = actor.character().await?;
             let tile = floor[(character.x() as u32, character.y() as u32)];
             character.set_elevation(tile.elevation);
-            mystate.set_character(character).await?;
-            mystate.set_tile(tile).await?;
+            actor.set_character(character).await?;
+            actor.set_tile(tile).await?;
             // TODO(shekohex): Send environment packets.
         }
         Ok(())

@@ -8,6 +8,6 @@ mod map;
 pub use map::Map;
 
 mod tile;
-pub use tile::Tile;
+pub use tile::{SceneryType, Tile, TileType};
 
 mod floor;

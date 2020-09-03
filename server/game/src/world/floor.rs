@@ -11,10 +11,10 @@ use std::{
 };
 use tokio::{fs::File, io};
 use tracing::{debug, trace};
-/// This class encapsulates the coordinate tile grid for a map. It contains
+/// This struct encapsulates the coordinate tile grid for a map. It contains
 /// methods for loading the map from a flat binary file and for obtaining
-/// coordinate values directly from the class using indexers. The map
-/// class composes from this base struct. If the file does not exist for the
+/// coordinate values directly from the struct using indexers. The map
+/// struct composes from this base struct. If the file does not exist for the
 /// map, then a compressed map will be generated from TQ Digital's data map
 /// file.
 #[derive(Debug, Clone, Default)]

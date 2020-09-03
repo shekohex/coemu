@@ -1,15 +1,18 @@
 use crate::{
     db,
-    world::{Character, Map, Tile},
+    world::{Character, Map, Screen, Tile},
     Error,
 };
 use dashmap::DashMap;
 use once_cell::sync::OnceCell;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::{ops::Deref, sync::Arc};
-use tokio::sync::{
-    mpsc::{self, Receiver, Sender},
-    RwLock,
+use tokio::{
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        RwLock,
+    },
+    task,
 };
 use tracing::debug;
 
@@ -97,6 +100,7 @@ enum StateEvent {
     Map(Map),
     Character(Character),
     Tile(Tile),
+    Screen(Screen),
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +114,7 @@ pub struct ActorState {
 impl ActorState {
     pub async fn set_map(&self, map: Map) -> Result<(), Error> {
         self.tx.clone().send(StateEvent::Map(map)).await?;
+        task::yield_now().await;
         Ok(())
     }
 
@@ -121,11 +126,19 @@ impl ActorState {
             .clone()
             .send(StateEvent::Character(character))
             .await?;
+        task::yield_now().await;
         Ok(())
     }
 
     pub async fn set_tile(&self, tile: Tile) -> Result<(), Error> {
         self.tx.clone().send(StateEvent::Tile(tile)).await?;
+        task::yield_now().await;
+        Ok(())
+    }
+
+    pub async fn set_screen(&self, screen: Screen) -> Result<(), Error> {
+        self.tx.clone().send(StateEvent::Screen(screen)).await?;
+        task::yield_now().await;
         Ok(())
     }
 
@@ -146,6 +159,12 @@ impl ActorState {
         let tile = *tile.deref();
         Ok(tile)
     }
+
+    pub async fn screen(&self) -> Result<Screen, Error> {
+        let screen = self.inner.screen.read().await;
+        let screen = screen.deref().clone();
+        Ok(screen)
+    }
 }
 
 impl tq_network::ActorState for ActorState {
@@ -155,6 +174,7 @@ impl tq_network::ActorState for ActorState {
             rx: Arc::new(RwLock::new(rx)),
             character: Default::default(),
             map: Default::default(),
+            screen: Default::default(),
             tile: Default::default(),
         };
         let state = ActorState {
@@ -171,6 +191,7 @@ struct InnerActorState {
     character: Shared<Character>,
     map: Shared<Map>,
     tile: Shared<Tile>,
+    screen: Shared<Screen>,
     rx: Shared<Receiver<StateEvent>>,
 }
 
@@ -191,6 +212,10 @@ impl InnerActorState {
                     let mut current_tile = self.tile.write().await;
                     *current_tile = tile;
                 },
+                StateEvent::Screen(screen) => {
+                    let mut current_screen = self.screen.write().await;
+                    *current_screen = screen;
+                },
             }
         }
         Ok(())
@@ -203,6 +228,7 @@ impl Clone for InnerActorState {
             character: Arc::clone(&self.character),
             map: Arc::clone(&self.map),
             tile: Arc::clone(&self.tile),
+            screen: Arc::clone(&self.screen),
             rx: Arc::clone(&self.rx),
         }
     }
