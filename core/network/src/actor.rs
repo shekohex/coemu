@@ -1,5 +1,4 @@
 use crate::{Error, PacketEncode};
-use async_channel::Sender;
 use bytes::Bytes;
 use std::{
     hash::Hash,
@@ -8,6 +7,7 @@ use std::{
         Arc,
     },
 };
+use tokio::sync::mpsc::Sender;
 use tracing::instrument;
 
 #[derive(Clone, Debug)]
@@ -81,7 +81,7 @@ impl<S: ActorState> Actor<S> {
         packet: P,
     ) -> Result<(), P::Error> {
         let msg = packet.encode()?;
-        self.tx.send(msg.into()).await.map_err(Into::into)?;
+        self.tx.clone().send(msg.into()).await.map_err(Into::into)?;
         Ok(())
     }
 
@@ -92,12 +92,12 @@ impl<S: ActorState> Actor<S> {
         key2: u32,
     ) -> Result<(), Error> {
         let msg = (key1, key2).into();
-        self.tx.send(msg).await?;
+        self.tx.clone().send(msg).await?;
         Ok(())
     }
 
     pub async fn shutdown(&self) -> Result<(), Error> {
-        self.tx.send(Message::Shutdown).await?;
+        self.tx.clone().send(Message::Shutdown).await?;
         Ok(())
     }
 }

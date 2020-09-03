@@ -3,12 +3,14 @@ use crate::{
     world::{Character, Map, Tile},
     Error,
 };
-use async_channel::{Receiver, Sender};
 use dashmap::DashMap;
 use once_cell::sync::OnceCell;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::{ops::Deref, sync::Arc};
-use tokio::sync::RwLock;
+use tokio::sync::{
+    mpsc::{self, Receiver, Sender},
+    RwLock,
+};
 use tracing::debug;
 
 static STATE: OnceCell<State> = OnceCell::new();
@@ -107,7 +109,7 @@ pub struct ActorState {
 
 impl ActorState {
     pub async fn set_map(&self, map: Map) -> Result<(), Error> {
-        self.tx.send(StateEvent::Map(map)).await?;
+        self.tx.clone().send(StateEvent::Map(map)).await?;
         Ok(())
     }
 
@@ -115,12 +117,15 @@ impl ActorState {
         &self,
         character: Character,
     ) -> Result<(), Error> {
-        self.tx.send(StateEvent::Character(character)).await?;
+        self.tx
+            .clone()
+            .send(StateEvent::Character(character))
+            .await?;
         Ok(())
     }
 
     pub async fn set_tile(&self, tile: Tile) -> Result<(), Error> {
-        self.tx.send(StateEvent::Tile(tile)).await?;
+        self.tx.clone().send(StateEvent::Tile(tile)).await?;
         Ok(())
     }
 
@@ -145,9 +150,9 @@ impl ActorState {
 
 impl tq_network::ActorState for ActorState {
     fn init() -> Self {
-        let (tx, rx) = async_channel::bounded(50);
+        let (tx, rx) = mpsc::channel(50);
         let inner = InnerActorState {
-            rx: Arc::new(rx),
+            rx: Arc::new(RwLock::new(rx)),
             character: Default::default(),
             map: Default::default(),
             tile: Default::default(),
@@ -166,12 +171,13 @@ struct InnerActorState {
     character: Shared<Character>,
     map: Shared<Map>,
     tile: Shared<Tile>,
-    rx: Arc<Receiver<StateEvent>>,
+    rx: Shared<Receiver<StateEvent>>,
 }
 
 impl InnerActorState {
     async fn run(self) -> Result<(), Error> {
-        while let Ok(event) = self.rx.recv().await {
+        let mut rx = self.rx.write().await;
+        while let Some(event) = rx.recv().await {
             match event {
                 StateEvent::Map(map) => {
                     let mut current_map = self.map.write().await;

@@ -1,6 +1,6 @@
-use async_channel::SendError;
 use bytes::Bytes;
 use thiserror::Error;
+use tokio::sync::mpsc::error::SendError;
 use tq_network::{ErrorPacket, PacketEncode};
 
 #[derive(Debug, Error)]
