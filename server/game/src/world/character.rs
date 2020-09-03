@@ -1,5 +1,12 @@
 use super::ScreenObject;
 use crate::{db, ActorState};
+use std::{
+    ops::Deref,
+    sync::{
+        atomic::{AtomicU16, Ordering},
+        Arc,
+    },
+};
 use tq_network::Actor;
 
 /// This class encapsulates the game character for a player. The player controls
@@ -9,33 +16,39 @@ use tq_network::Actor;
 /// controls the character's professions and abilities.
 #[derive(Debug, Clone)]
 pub struct Character {
-    inner: db::Character,
+    inner: Arc<db::Character>,
     owner: Option<Actor<ActorState>>,
-    elevation: u16,
+    elevation: Arc<AtomicU16>,
+}
+
+impl Deref for Character {
+    type Target = db::Character;
+
+    fn deref(&self) -> &Self::Target { &self.inner }
 }
 
 impl Character {
     pub fn new(owner: Actor<ActorState>, inner: db::Character) -> Self {
         Self {
-            inner,
+            inner: Arc::new(inner),
             owner: Some(owner),
-            elevation: 0,
+            elevation: Default::default(),
         }
     }
 
-    pub fn inner(&self) -> &db::Character { &self.inner }
+    pub fn elevation(&self) -> u16 { self.elevation.load(Ordering::Relaxed) }
 
-    pub fn elevation(&self) -> u16 { self.elevation }
-
-    pub fn set_elevation(&mut self, value: u16) { self.elevation = value; }
+    pub fn set_elevation(&self, value: u16) {
+        self.elevation.store(value, Ordering::Relaxed);
+    }
 }
 
 impl Default for Character {
     fn default() -> Self {
         Self {
             inner: Default::default(),
+            elevation: Default::default(),
             owner: None,
-            elevation: 0,
         }
     }
 }

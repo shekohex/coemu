@@ -48,19 +48,19 @@ impl PacketProcess for MsgAction {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let ty = self.action_type.into();
-        let state = actor.state();
+        let mystate = actor.state();
         match ty {
             ActionType::SetLocation => {
                 let mut res = self.clone();
-                let character = state.character().await;
-                res.param0 = character.inner().map_id as u32;
+                let character = mystate.character().await?;
+                res.param0 = character.map_id as u32;
                 res.param1 = character.x();
                 res.param2 = character.y();
                 actor.send(res).await?;
             },
             ActionType::SetMapARGB => {
                 let mut res = self.clone();
-                let character = state.character().await;
+                let character = mystate.character().await?;
                 res.param0 = 0x00FF_FFFF;
                 res.param1 = character.x();
                 res.param2 = character.y();

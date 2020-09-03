@@ -2,7 +2,7 @@ use super::{floor::Floor, ScreenObject};
 use crate::{db, ActorState, Error};
 use dashmap::DashMap;
 use primitives::Point;
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 use tokio::sync::RwLock;
 use tq_network::Actor;
 use tracing::debug;
@@ -22,6 +22,12 @@ pub struct Map {
     revive_point: Arc<Point<u32>>,
     /// defines the map's coordinate tile grid.
     floor: Arc<RwLock<Floor>>,
+}
+
+impl Deref for Map {
+    type Target = db::Map;
+
+    fn deref(&self) -> &Self::Target { &self.inner }
 }
 
 impl Map {
@@ -72,21 +78,19 @@ impl Map {
         if !self.loaded().await {
             self.load().await?;
         }
-
+        let mystate = actor.state();
         // Remove the client from the previous map
-        let current_map = actor.state().map().await;
-        current_map.remove_actor(actor.id()).await?;
-        drop(current_map);
+        mystate.map().await?.remove_actor(actor.id()).await?;
         // Add the player to the current map
         let added = self.actors.insert(actor.id(), actor.clone()).is_none();
         if added {
-            let mut actor_map = actor.state().map_mut().await;
-            *actor_map = self.clone();
-            let mut actor_tile = actor.state().tile_mut().await;
-            let mut character = actor.state().character_mut().await;
+            mystate.set_map(self.clone()).await?;
             let floor = self.floor.read().await;
-            *actor_tile = floor[(character.x() as u32, character.y() as u32)];
-            character.set_elevation(actor_tile.elevation);
+            let character = mystate.character().await?;
+            let tile = floor[(character.x() as u32, character.y() as u32)];
+            character.set_elevation(tile.elevation);
+            mystate.set_character(character).await?;
+            mystate.set_tile(tile).await?;
             // TODO(shekohex): Send environment packets.
         }
         Ok(())

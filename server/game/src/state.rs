@@ -3,13 +3,11 @@ use crate::{
     world::{Character, Map, Tile},
     Error,
 };
+use async_channel::{Receiver, Sender};
 use dashmap::DashMap;
 use once_cell::sync::OnceCell;
 use sqlx::postgres::{PgPool, PgPoolOptions};
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
+use std::{ops::Deref, sync::Arc};
 use tokio::sync::RwLock;
 use tracing::debug;
 
@@ -92,50 +90,114 @@ impl State {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug)]
+enum StateEvent {
+    Map(Map),
+    Character(Character),
+    Tile(Tile),
+}
+
+#[derive(Debug, Clone)]
 pub struct ActorState {
-    /// The player's character structure.
-    character: Shared<Character>,
-    /// The current map the character is playing on.
-    map: Shared<Map>,
-    /// The current tile the character is standing on.
-    tile: Shared<Tile>,
+    /// the inner state.
+    inner: InnerActorState,
+    /// to dispatch events.
+    tx: Sender<StateEvent>,
 }
 
 impl ActorState {
-    pub async fn character(&self) -> impl Deref<Target = Character> + '_ {
-        self.character.read().await
-    }
-
-    pub async fn character_mut(
-        &self,
-    ) -> impl DerefMut<Target = Character> + '_ {
-        self.character.write().await
-    }
-
-    pub async fn map(&self) -> impl Deref<Target = Map> + '_ {
-        self.map.read().await
-    }
-
-    pub async fn map_mut(&self) -> impl DerefMut<Target = Map> + '_ {
-        self.map.write().await
-    }
-
-    pub async fn tile(&self) -> impl Deref<Target = Tile> + '_ {
-        self.tile.read().await
-    }
-
-    pub async fn tile_mut(&self) -> impl DerefMut<Target = Tile> + '_ {
-        self.tile.write().await
-    }
-
-    pub(super) async fn on_disconnect(
-        &self,
-        actor_id: usize,
-    ) -> Result<(), Error> {
-        // TODO(shekohex) do clear anything that releated to that actor here.
-        self.map().await.remove_actor(actor_id).await?;
-        tracing::debug!("Actor Disconnected");
+    pub async fn set_map(&self, map: Map) -> Result<(), Error> {
+        self.tx.send(StateEvent::Map(map)).await?;
         Ok(())
+    }
+
+    pub async fn set_character(
+        &self,
+        character: Character,
+    ) -> Result<(), Error> {
+        self.tx.send(StateEvent::Character(character)).await?;
+        Ok(())
+    }
+
+    pub async fn set_tile(&self, tile: Tile) -> Result<(), Error> {
+        self.tx.send(StateEvent::Tile(tile)).await?;
+        Ok(())
+    }
+
+    pub async fn map(&self) -> Result<Map, Error> {
+        let map = self.inner.map.read().await;
+        let map = map.deref().clone();
+        Ok(map)
+    }
+
+    pub async fn character(&self) -> Result<Character, Error> {
+        let character = self.inner.character.read().await;
+        let character = character.deref().clone();
+        Ok(character)
+    }
+
+    pub async fn tile(&self) -> Result<Tile, Error> {
+        let tile = self.inner.tile.read().await;
+        let tile = *tile.deref();
+        Ok(tile)
+    }
+}
+
+impl tq_network::ActorState for ActorState {
+    fn init() -> Self {
+        let (tx, rx) = async_channel::bounded(50);
+        let inner = InnerActorState {
+            rx: Arc::new(rx),
+            character: Default::default(),
+            map: Default::default(),
+            tile: Default::default(),
+        };
+        let state = ActorState {
+            tx,
+            inner: inner.clone(),
+        };
+        tokio::spawn(inner.run());
+        state
+    }
+}
+
+#[derive(Debug)]
+struct InnerActorState {
+    character: Shared<Character>,
+    map: Shared<Map>,
+    tile: Shared<Tile>,
+    rx: Arc<Receiver<StateEvent>>,
+}
+
+impl InnerActorState {
+    async fn run(self) -> Result<(), Error> {
+        while let Ok(event) = self.rx.recv().await {
+            match event {
+                StateEvent::Map(map) => {
+                    let mut current_map = self.map.write().await;
+                    *current_map = map;
+                },
+                StateEvent::Character(character) => {
+                    let mut current_character = self.character.write().await;
+                    *current_character = character;
+                },
+                StateEvent::Tile(tile) => {
+                    let mut current_tile = self.tile.write().await;
+                    *current_tile = tile;
+                },
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Clone for InnerActorState {
+    fn clone(&self) -> Self {
+        Self {
+            character: Arc::clone(&self.character),
+            map: Arc::clone(&self.map),
+            tile: Arc::clone(&self.tile),
+            rx: Arc::clone(&self.rx),
+        }
     }
 }

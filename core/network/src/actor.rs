@@ -1,4 +1,5 @@
 use crate::{Error, PacketEncode};
+use async_channel::Sender;
 use bytes::Bytes;
 use std::{
     hash::Hash,
@@ -7,7 +8,6 @@ use std::{
         Arc,
     },
 };
-use tokio::sync::mpsc::Sender;
 use tracing::instrument;
 
 #[derive(Clone, Debug)]
@@ -18,19 +18,19 @@ pub enum Message {
 }
 
 #[derive(Clone, Debug)]
-pub struct Actor<S: Send + Sync> {
+pub struct Actor<S: ActorState> {
     id: Arc<AtomicUsize>,
     tx: Sender<Message>,
     state: Arc<S>,
 }
 
-impl<S: Send + Sync> Hash for Actor<S> {
+impl<S: ActorState> Hash for Actor<S> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.load(Ordering::Relaxed).hash(state);
     }
 }
 
-impl<S: Send + Sync> PartialEq for Actor<S> {
+impl<S: ActorState> PartialEq for Actor<S> {
     fn eq(&self, other: &Self) -> bool {
         self.id
             .load(Ordering::Relaxed)
@@ -38,7 +38,7 @@ impl<S: Send + Sync> PartialEq for Actor<S> {
     }
 }
 
-impl<S: Send + Sync> Eq for Actor<S> {}
+impl<S: ActorState> Eq for Actor<S> {}
 
 impl From<(u16, Bytes)> for Message {
     fn from((id, bytes): (u16, Bytes)) -> Self { Self::Packet(id, bytes) }
@@ -48,14 +48,23 @@ impl From<(u32, u32)> for Message {
     fn from((key1, key2): (u32, u32)) -> Self { Self::GenerateKeys(key1, key2) }
 }
 
-impl<S: Send + Sync> Actor<S> {
-    pub fn new(tx: Sender<Message>) -> Self
-    where
-        S: Default + Send + Sync,
-    {
+pub trait ActorState: Send + Sync + Sized {
+    fn init() -> Self;
+    fn dispose(&self, actor: &Actor<Self>) -> Result<(), Error> {
+        let _ = actor;
+        Ok(())
+    }
+}
+
+impl ActorState for () {
+    fn init() -> Self {}
+}
+
+impl<S: ActorState> Actor<S> {
+    pub fn new(tx: Sender<Message>) -> Self {
         Self {
             id: Arc::new(AtomicUsize::new(0)),
-            state: Arc::new(S::default()),
+            state: Arc::new(S::init()),
             tx,
         }
     }
@@ -72,8 +81,7 @@ impl<S: Send + Sync> Actor<S> {
         packet: P,
     ) -> Result<(), P::Error> {
         let msg = packet.encode()?;
-        let mut tx = self.tx.clone();
-        tx.send(msg.into()).await.map_err(Into::into)?;
+        self.tx.send(msg.into()).await.map_err(Into::into)?;
         Ok(())
     }
 
@@ -84,14 +92,12 @@ impl<S: Send + Sync> Actor<S> {
         key2: u32,
     ) -> Result<(), Error> {
         let msg = (key1, key2).into();
-        let mut tx = self.tx.clone();
-        tx.send(msg).await?;
+        self.tx.send(msg).await?;
         Ok(())
     }
 
     pub async fn shutdown(&self) -> Result<(), Error> {
-        let mut tx = self.tx.clone();
-        tx.send(Message::Shutdown).await?;
+        self.tx.send(Message::Shutdown).await?;
         Ok(())
     }
 }
