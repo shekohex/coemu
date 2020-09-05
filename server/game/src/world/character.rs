@@ -1,7 +1,8 @@
 use crate::{
     db,
     entities::{BaseEntity, Entity, EntityTypeFlag},
-    packets::MsgPlayer,
+    packets::{ActionType, MsgAction, MsgPlayer},
+    utils::LoHi,
     ActorState, Error,
 };
 use async_trait::async_trait;
@@ -58,6 +59,19 @@ impl Character {
     pub fn hp(&self) -> u16 { self.inner.health_points as u16 }
 
     pub fn hair_style(&self) -> u16 { self.inner.hair_style as u16 }
+
+    pub async fn kick_back(&self) -> Result<(), Error> {
+        let location = u32::constract(self.y(), self.x());
+        let msg = MsgAction::new(
+            self.id(),
+            self.map_id(),
+            location,
+            self.direction() as u16,
+            ActionType::Teleport,
+        );
+        self.owner.send(msg).await?;
+        Ok(())
+    }
 
     pub async fn exchange_spawn_packets(
         &self,

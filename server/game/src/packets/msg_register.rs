@@ -135,9 +135,7 @@ impl PacketProcess for MsgRegister {
             .insert_character(me)
             .await?;
         let screen = Screen::new(actor.clone());
-        actor.set_screen(screen.clone()).await?;
-        screen.load_surroundings().await?;
-        screen.refresh_spawn_for_observers().await?;
+        actor.set_screen(screen).await?;
 
         tracing::info!(
             "Account #{} Created Character #{} with Name {}",

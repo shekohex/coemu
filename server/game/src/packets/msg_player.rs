@@ -14,8 +14,10 @@ pub struct MsgPlayer {
     character_id: u32,
     mesh: u32,
     status_flags: u64,
-    /// Syndicate
-    reserved0: u32,
+    syndicate_id: u16,
+    /// Unknown
+    reserved0: u8,
+    syndicate_member_rank: u8,
     germent: u32,
     helment: u32,
     armor: u32,
@@ -54,6 +56,8 @@ impl From<Character> for MsgPlayer {
             list_count: 1,
             character_name: c.name(),
             status_flags: c.flags().bits(),
+            direction: c.direction(),
+            action: c.action() as u8,
             ..Default::default()
         };
         tracing::debug!("{:?}", msg);

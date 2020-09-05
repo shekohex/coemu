@@ -50,10 +50,7 @@ impl PacketProcess for MsgConnect {
                 actor.set_screen(screen).await?;
                 actor.send(MsgTalk::login_ok()).await?;
                 let msg = MsgUserInfo::from(character);
-                let screen = actor.screen().await?;
                 actor.send(msg).await?;
-                screen.load_surroundings().await?;
-                screen.refresh_spawn_for_observers().await?;
             },
             None => {
                 state.creation_tokens().insert(self.token, (id, realm_id));

@@ -29,9 +29,17 @@ impl Screen {
         }
     }
 
-    pub fn clear(&self) {
+    pub async fn clear(&self) -> Result<(), Error> {
         debug!("Clearing Screen..");
+        let me = self.owner.character().await?;
+        for character in self.characters.iter() {
+            let observer = character.owner();
+            let observer_screen = observer.screen().await?;
+            observer_screen.remove_character(me.id()).await?;
+            self.remove_character(character.id()).await?;
+        }
         self.characters.clear();
+        Ok(())
     }
 
     pub async fn insert_charcter(

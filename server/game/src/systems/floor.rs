@@ -263,15 +263,13 @@ impl Index<(u32, u32)> for Floor {
     type Output = Tile;
 
     fn index(&self, index: (u32, u32)) -> &Self::Output {
-        let i = (index.0 * self.boundaries.width as u32) + index.1;
-        &self.coordinates[i as usize]
+        &self[(index.0 as i32, index.1 as i32)]
     }
 }
 
 impl IndexMut<(u32, u32)> for Floor {
     fn index_mut(&mut self, index: (u32, u32)) -> &mut Self::Output {
-        let i = (index.0 * self.boundaries.width as u32) + index.1;
-        &mut self.coordinates[i as usize]
+        &mut self[(index.0 as i32, index.1 as i32)]
     }
 }
 
@@ -301,7 +299,7 @@ pub struct Tile {
 }
 
 /// This enumeration type defines the access types for tiles.
-#[derive(Debug, Copy, Clone, FromPrimitive)]
+#[derive(Debug, Copy, Clone, FromPrimitive, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(u8)]
 pub enum TileType {
     Terrain = 0,
