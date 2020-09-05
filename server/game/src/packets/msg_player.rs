@@ -41,19 +41,22 @@ pub struct MsgPlayer {
 
 impl From<Character> for MsgPlayer {
     fn from(c: Character) -> Self {
-        Self {
-            character_id: c.character_id as u32,
-            character_id2: c.character_id as u32,
-            mesh: c.mesh as u32,
-            health_points: c.health_points as u16,
-            hair_style: c.hair_style as u16,
-            level: c.level as u16,
-            level2: c.level as u16,
-            x: c.x as u16,
-            y: c.y as u16,
+        let msg = Self {
+            character_id: c.id(),
+            character_id2: c.id(),
+            mesh: c.mesh(),
+            health_points: c.hp(),
+            hair_style: c.hair_style(),
+            level: c.level(),
+            level2: c.level(),
+            x: c.x(),
+            y: c.y(),
             list_count: 1,
-            character_name: c.name.clone(),
+            character_name: c.name(),
+            status_flags: c.flags().bits(),
             ..Default::default()
-        }
+        };
+        tracing::debug!("{:?}", msg);
+        msg
     }
 }

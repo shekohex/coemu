@@ -11,6 +11,8 @@ use tracing::info;
 
 mod constants;
 mod db;
+mod entities;
+mod systems;
 mod utils;
 mod world;
 

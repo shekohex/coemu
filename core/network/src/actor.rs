@@ -8,7 +8,7 @@ use std::{
         Arc,
     },
 };
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{self, Sender};
 use tracing::instrument;
 
 #[derive(Clone, Debug)]
@@ -22,7 +22,19 @@ pub enum Message {
 pub struct Actor<S: ActorState> {
     id: Arc<AtomicUsize>,
     tx: Sender<Message>,
-    state: Arc<S>,
+    state: S,
+}
+
+/// Default actor comes with Empty State.
+impl<S: ActorState> Default for Actor<S> {
+    fn default() -> Self {
+        let (tx, _) = mpsc::channel(1);
+        Self {
+            id: Default::default(),
+            state: S::empty(),
+            tx,
+        }
+    }
 }
 
 impl<S: ActorState> Hash for Actor<S> {
@@ -55,8 +67,10 @@ impl From<(u32, u32)> for Message {
     fn from((key1, key2): (u32, u32)) -> Self { Self::GenerateKeys(key1, key2) }
 }
 
-pub trait ActorState: Send + Sync + Sized {
+pub trait ActorState: Send + Sync + Sized + Clone {
     fn init() -> Self;
+    /// Should be only used for the Default Actor
+    fn empty() -> Self;
     fn dispose(&self, actor: &Actor<Self>) -> Result<(), Error> {
         let _ = actor;
         Ok(())
@@ -65,13 +79,15 @@ pub trait ActorState: Send + Sync + Sized {
 
 impl ActorState for () {
     fn init() -> Self {}
+
+    fn empty() -> Self {}
 }
 
 impl<S: ActorState> Actor<S> {
     pub fn new(tx: Sender<Message>) -> Self {
         Self {
             id: Arc::new(AtomicUsize::new(0)),
-            state: Arc::new(S::init()),
+            state: S::init(),
             tx,
         }
     }

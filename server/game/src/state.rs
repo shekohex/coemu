@@ -1,6 +1,7 @@
 use crate::{
     db,
-    world::{Character, Map, Screen, Tile},
+    systems::Screen,
+    world::{Character, Map},
     Error,
 };
 use dashmap::DashMap;
@@ -99,16 +100,25 @@ impl State {
 enum StateEvent {
     Map(Map),
     Character(Character),
-    Tile(Tile),
     Screen(Screen),
 }
 
 #[derive(Debug, Clone)]
 pub struct ActorState {
     /// the inner state.
-    inner: InnerActorState,
+    inner: Option<InnerActorState>,
     /// to dispatch events.
     tx: Sender<StateEvent>,
+}
+
+impl Default for ActorState {
+    fn default() -> Self {
+        let (tx, _) = mpsc::channel(1);
+        Self {
+            inner: Default::default(),
+            tx,
+        }
+    }
 }
 
 impl ActorState {
@@ -130,12 +140,6 @@ impl ActorState {
         Ok(())
     }
 
-    pub async fn set_tile(&self, tile: Tile) -> Result<(), Error> {
-        self.tx.clone().send(StateEvent::Tile(tile)).await?;
-        task::yield_now().await;
-        Ok(())
-    }
-
     pub async fn set_screen(&self, screen: Screen) -> Result<(), Error> {
         self.tx.clone().send(StateEvent::Screen(screen)).await?;
         task::yield_now().await;
@@ -143,28 +147,28 @@ impl ActorState {
     }
 
     pub async fn map(&self) -> Result<Map, Error> {
-        let map = self.inner.map.read().await;
+        let inner = self.inner();
+        let map = inner.map.read().await;
         let map = map.deref().clone();
         Ok(map)
     }
 
     pub async fn character(&self) -> Result<Character, Error> {
-        let character = self.inner.character.read().await;
+        let inner = self.inner();
+        let character = inner.character.read().await;
         let character = character.deref().clone();
         Ok(character)
     }
 
-    pub async fn tile(&self) -> Result<Tile, Error> {
-        let tile = self.inner.tile.read().await;
-        let tile = *tile.deref();
-        Ok(tile)
-    }
-
     pub async fn screen(&self) -> Result<Screen, Error> {
-        let screen = self.inner.screen.read().await;
+        let inner = self.inner();
+        let screen = inner.screen.read().await;
         let screen = screen.deref().clone();
         Ok(screen)
     }
+
+    #[track_caller]
+    fn inner(&self) -> InnerActorState { self.inner.clone().unwrap() }
 }
 
 impl tq_network::ActorState for ActorState {
@@ -175,14 +179,18 @@ impl tq_network::ActorState for ActorState {
             character: Default::default(),
             map: Default::default(),
             screen: Default::default(),
-            tile: Default::default(),
         };
         let state = ActorState {
             tx,
-            inner: inner.clone(),
+            inner: Some(inner.clone()),
         };
         tokio::spawn(inner.run());
         state
+    }
+
+    fn empty() -> Self {
+        let (tx, _) = mpsc::channel(1);
+        Self { inner: None, tx }
     }
 }
 
@@ -190,9 +198,20 @@ impl tq_network::ActorState for ActorState {
 struct InnerActorState {
     character: Shared<Character>,
     map: Shared<Map>,
-    tile: Shared<Tile>,
     screen: Shared<Screen>,
     rx: Shared<Receiver<StateEvent>>,
+}
+
+impl Default for InnerActorState {
+    fn default() -> Self {
+        let (_, rx) = mpsc::channel(1);
+        Self {
+            character: Default::default(),
+            map: Default::default(),
+            screen: Default::default(),
+            rx: Arc::new(RwLock::new(rx)),
+        }
+    }
 }
 
 impl InnerActorState {
@@ -207,10 +226,6 @@ impl InnerActorState {
                 StateEvent::Character(character) => {
                     let mut current_character = self.character.write().await;
                     *current_character = character;
-                },
-                StateEvent::Tile(tile) => {
-                    let mut current_tile = self.tile.write().await;
-                    *current_tile = tile;
                 },
                 StateEvent::Screen(screen) => {
                     let mut current_screen = self.screen.write().await;
@@ -227,7 +242,6 @@ impl Clone for InnerActorState {
         Self {
             character: Arc::clone(&self.character),
             map: Arc::clone(&self.map),
-            tile: Arc::clone(&self.tile),
             screen: Arc::clone(&self.screen),
             rx: Arc::clone(&self.rx),
         }

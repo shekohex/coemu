@@ -9,8 +9,14 @@ pub const MAX_DIFFERENCE_IN_ELEVATION: u16 = 210;
 /// This function returns true if an object is within the bounds of another
 /// object's screen.
 pub fn in_screen(p1: (u16, u16), p2: (u16, u16)) -> bool {
-    p1.0.wrapping_sub(p2.0) <= SCREEN_DISTANCE
-        && p1.1.wrapping_sub(p2.1) <= SCREEN_DISTANCE
+    let x1 = p1.0 as i16;
+    let x2 = p2.0 as i16;
+    let y1 = p1.1 as i16;
+    let y2 = p2.1 as i16;
+    let delta_x = (x2 - x1).abs();
+    let delta_y = (y2 - y1).abs();
+    let screen_distance = SCREEN_DISTANCE as i16;
+    delta_x <= screen_distance && delta_y <= screen_distance
 }
 
 /// This function checks the elevation difference of two tiles.

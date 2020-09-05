@@ -1,5 +1,5 @@
 use super::{MsgTalk, TalkChannel};
-use crate::{utils, world::ScreenObject, ActorState};
+use crate::{utils, ActorState};
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -73,7 +73,7 @@ impl PacketProcess for MsgAction {
             ActionType::SetLocation => {
                 let mut res = self.clone();
                 let character = actor.character().await?;
-                res.data1 = character.map_id as u32;
+                res.data1 = character.map_id();
                 res.data2 = u32::constract(character.y(), character.x());
                 actor.send(res).await?;
             },
@@ -83,6 +83,14 @@ impl PacketProcess for MsgAction {
                 res.data1 = 0x00FF_FFFF;
                 res.data2 = u32::constract(character.y(), character.x());
                 actor.send(res).await?;
+            },
+            ActionType::RequestEntitySpawn => {
+                let mymap = actor.map().await?;
+                let other = mymap.characters().get(&self.data1);
+                if let Some(other) = other {
+                    let msg = super::MsgPlayer::from(other.clone());
+                    actor.send(msg).await?;
+                }
             },
             _ => {
                 let p = MsgTalk::from_system(

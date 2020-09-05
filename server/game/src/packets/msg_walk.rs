@@ -1,6 +1,7 @@
 use crate::{
     constants::{WALK_XCOORDS, WALK_YCOORDS},
-    world::{ScreenObject, TileType},
+    entities::BaseEntity,
+    systems::TileType,
     ActorState, Error,
 };
 use async_trait::async_trait;
@@ -58,6 +59,13 @@ impl PacketProcess for MsgWalk {
         if (tile.access as u8 > TileType::Npc as u8) {
             // The packet is valid. Assign character data:
             // Send the movement back to the message server and client:
+            actor
+                .character()
+                .await?
+                .entity()
+                .set_x(x)
+                .set_y(y)
+                .set_direction(direction as u8);
             actor.send(self.clone()).await?;
             let myscreen = actor.screen().await?;
             myscreen.send_movement(self.clone()).await?;

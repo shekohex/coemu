@@ -1,4 +1,8 @@
 use num_traits::PrimInt;
+use std::sync::{
+    atomic::{AtomicU16, AtomicU8},
+    Arc,
+};
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
 pub struct Size<I: PrimInt> {
@@ -20,4 +24,18 @@ pub struct Point<I: PrimInt> {
 
 impl<I: PrimInt> Point<I> {
     pub fn new(x: I, y: I) -> Self { Self { x, y } }
+}
+
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
+pub struct Location {
+    pub x: u16,
+    pub y: u16,
+    pub direction: u8,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AtomicLocation {
+    pub x: Arc<AtomicU16>,
+    pub y: Arc<AtomicU16>,
+    pub direction: Arc<AtomicU8>,
 }
