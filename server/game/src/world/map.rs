@@ -1,11 +1,17 @@
-use super::{floor::Floor, ScreenObject};
-use crate::{db, ActorState, Error};
+use super::Character;
+use crate::{
+    db,
+    entities::BaseEntity,
+    systems::{Floor, Tile},
+    Error,
+};
 use dashmap::DashMap;
 use primitives::Point;
 use std::{ops::Deref, sync::Arc};
 use tokio::sync::RwLock;
-use tq_network::Actor;
 use tracing::debug;
+
+type Characters = Arc<DashMap<u32, Character>>;
 
 /// This struct encapsulates map information from a compressed map and the
 /// database. It includes the identification of the map, pools and methods for
@@ -17,7 +23,7 @@ pub struct Map {
     /// The Inner map loaded from the database
     inner: Arc<db::Map>,
     /// Holds client information for each player on the map.
-    actors: Arc<DashMap<usize, Actor<ActorState>>>,
+    characters: Characters,
     /// where should the player get revived on this map
     revive_point: Arc<Point<u32>>,
     /// defines the map's coordinate tile grid.
@@ -34,7 +40,7 @@ impl Map {
     pub fn new(inner: db::Map) -> Self {
         Self {
             floor: Arc::new(RwLock::new(Floor::new(inner.path.clone()))),
-            actors: Arc::new(DashMap::new()),
+            characters: Arc::new(DashMap::new()),
             revive_point: Arc::new(Point::new(
                 inner.revive_point_x as u32,
                 inner.revive_point_y as u32,
@@ -44,6 +50,13 @@ impl Map {
     }
 
     pub fn id(&self) -> u32 { self.inner.map_id as u32 }
+
+    pub fn characters(&self) -> &Characters { &self.characters }
+
+    pub async fn tile(&self, x: u16, y: u16) -> Result<Tile, Error> {
+        let floor = self.floor.read().await;
+        Ok(floor[(x as u32, y as u32)])
+    }
 
     // This method loads a compressed map from the server's flat file database.
     // If the file does not exist, the
@@ -70,27 +83,31 @@ impl Map {
     /// It does this by removing the player from the previous map, then
     /// adding it to the current map. As the character is added, its map,
     /// current tile, and current elevation are changed.
-    pub async fn add_actor(
+    pub async fn insert_character(
         &self,
-        actor: &Actor<ActorState>,
+        character: Character,
     ) -> Result<(), Error> {
         // if the map is not loaded in memory, load it.
         if !self.loaded().await {
             self.load().await?;
         }
-        let mystate = actor.state();
         // Remove the client from the previous map
-        mystate.map().await?.remove_actor(actor.id()).await?;
+        character
+            .owner()
+            .map()
+            .await?
+            .remove_character(character.id())
+            .await?;
         // Add the player to the current map
-        let added = self.actors.insert(actor.id(), actor.clone()).is_none();
+        let added = self
+            .characters
+            .insert(character.id(), character.clone())
+            .is_none();
+        character.owner().set_map(self.clone()).await?;
         if added {
-            mystate.set_map(self.clone()).await?;
             let floor = self.floor.read().await;
-            let character = mystate.character().await?;
             let tile = floor[(character.x() as u32, character.y() as u32)];
             character.set_elevation(tile.elevation);
-            mystate.set_character(character).await?;
-            mystate.set_tile(tile).await?;
             // TODO(shekohex): Send environment packets.
         }
         Ok(())
@@ -99,13 +116,13 @@ impl Map {
     /// This method removes the client specified in the parameters from the map.
     /// If the screen of the character still exists, it will remove the
     /// character from each observer's screen.
-    pub async fn remove_actor(&self, actor_id: usize) -> Result<(), Error> {
-        if let Some(entry) = self.actors.remove(&actor_id) {
-            let _actor = entry.1;
+    pub async fn remove_character(&self, id: u32) -> Result<(), Error> {
+        if let Some(entry) = self.characters.remove(&id) {
+            let _character = entry.1;
             // TODO(shekohex) Remove From Observers
         }
         // No One in this map?
-        if self.actors.is_empty() {
+        if self.characters.is_empty() {
             // Unload the map from the wrold.
             self.unload().await?;
         }

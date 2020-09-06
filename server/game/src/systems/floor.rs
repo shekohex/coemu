@@ -1,8 +1,8 @@
-use super::tile::{SceneryType, Tile, TileType};
 use crate::Error;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use encoding::{all::ASCII, DecoderTrap, Encoding};
 use io::{AsyncReadExt, AsyncWriteExt};
+use num_enum::FromPrimitive;
 use primitives::{Point, Size};
 use std::{
     env,
@@ -11,10 +11,10 @@ use std::{
 };
 use tokio::{fs::File, io};
 use tracing::{debug, trace};
-/// This class encapsulates the coordinate tile grid for a map. It contains
+/// This struct encapsulates the coordinate tile grid for a map. It contains
 /// methods for loading the map from a flat binary file and for obtaining
-/// coordinate values directly from the class using indexers. The map
-/// class composes from this base struct. If the file does not exist for the
+/// coordinate values directly from the struct using indexers. The map
+/// struct composes from this base struct. If the file does not exist for the
 /// map, then a compressed map will be generated from TQ Digital's data map
 /// file.
 #[derive(Debug, Clone, Default)]
@@ -263,15 +263,13 @@ impl Index<(u32, u32)> for Floor {
     type Output = Tile;
 
     fn index(&self, index: (u32, u32)) -> &Self::Output {
-        let i = (index.0 * self.boundaries.width as u32) + index.1;
-        &self.coordinates[i as usize]
+        &self[(index.0 as i32, index.1 as i32)]
     }
 }
 
 impl IndexMut<(u32, u32)> for Floor {
     fn index_mut(&mut self, index: (u32, u32)) -> &mut Self::Output {
-        let i = (index.0 * self.boundaries.width as u32) + index.1;
-        &mut self.coordinates[i as usize]
+        &mut self[(index.0 as i32, index.1 as i32)]
     }
 }
 
@@ -289,4 +287,44 @@ impl IndexMut<(i32, i32)> for Floor {
         let i = (index.0 * self.boundaries.width) + index.1;
         &mut self.coordinates[i as usize]
     }
+}
+
+/// This structure encapsulates a tile from the floor's coordinate grid. It
+/// contains the tile access information and the elevation of the tile. The
+/// map's coordinate grid is composed of these tiles.
+#[derive(Debug, Copy, Clone, Default)]
+pub struct Tile {
+    pub access: TileType,
+    pub elevation: u16,
+}
+
+/// This enumeration type defines the access types for tiles.
+#[derive(Debug, Copy, Clone, FromPrimitive, Eq, PartialEq, Ord, PartialOrd)]
+#[repr(u8)]
+pub enum TileType {
+    Terrain = 0,
+    Npc = 1,
+    Monster = 2,
+    Portal = 3,
+    Item = 4,
+    MarketSpot = 5,
+    Available = 6,
+    #[num_enum(default)]
+    Unknown = u8::MAX,
+}
+
+impl Default for TileType {
+    fn default() -> Self { Self::Unknown }
+}
+
+/// This enumeration type defines the types of scenery files used by the client.
+#[derive(Debug, Copy, Clone, FromPrimitive)]
+#[repr(u8)]
+pub enum SceneryType {
+    SceneryObject = 1,
+    DDSCover = 4,
+    Effect = 10,
+    Sound = 15,
+    #[num_enum(default)]
+    Unknown = u8::MAX,
 }

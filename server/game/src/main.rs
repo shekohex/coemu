@@ -11,6 +11,8 @@ use tracing::info;
 
 mod constants;
 mod db;
+mod entities;
+mod systems;
 mod utils;
 mod world;
 
@@ -22,7 +24,7 @@ use errors::Error;
 
 mod packets;
 use packets::*;
-use std::env;
+use std::{env, ops::Deref};
 
 struct GameServer;
 
@@ -35,8 +37,8 @@ impl Server for GameServer {
     async fn on_disconnected(
         actor: Actor<Self::ActorState>,
     ) -> Result<(), tq_network::Error> {
-        let mystate = actor.state();
-        tq_network::ActorState::dispose(mystate, &actor).unwrap_or_default();
+        tq_network::ActorState::dispose(actor.deref(), &actor)
+            .unwrap_or_default();
         Ok(())
     }
 }
@@ -57,6 +59,7 @@ pub enum Handler {
     MsgTalk,
     MsgAction,
     MsgItem,
+    MsgWalk,
 }
 
 #[derive(Copy, Clone, PacketHandler)]
