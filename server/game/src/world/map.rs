@@ -118,8 +118,9 @@ impl Map {
     /// character from each observer's screen.
     pub async fn remove_character(&self, id: u32) -> Result<(), Error> {
         if let Some(entry) = self.characters.remove(&id) {
-            let _character = entry.1;
-            // TODO(shekohex) Remove From Observers
+            let character = entry.1;
+            let screen = character.owner().screen().await?;
+            screen.remove_from_observers().await?;
         }
         // No One in this map?
         if self.characters.is_empty() {

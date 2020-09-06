@@ -41,6 +41,8 @@ impl Character {
             .set_x(inner.x as u16)
             .set_y(inner.y as u16)
             .set_map_id(inner.map_id as u32)
+            .set_level(inner.level as u16)
+            .set_action(100)
             .set_mesh(inner.mesh as u32);
         Self {
             entity,
@@ -59,6 +61,8 @@ impl Character {
     pub fn hp(&self) -> u16 { self.inner.health_points as u16 }
 
     pub fn hair_style(&self) -> u16 { self.inner.hair_style as u16 }
+
+    pub fn avatar(&self) -> u16 { self.inner.avatar as u16 }
 
     pub async fn kick_back(&self) -> Result<(), Error> {
         let location = u32::constract(self.y(), self.x());

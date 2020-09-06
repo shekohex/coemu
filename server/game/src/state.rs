@@ -4,6 +4,7 @@ use crate::{
     world::{Character, Map},
     Error,
 };
+use async_trait::async_trait;
 use dashmap::DashMap;
 use once_cell::sync::OnceCell;
 use sqlx::postgres::{PgPool, PgPoolOptions};
@@ -15,6 +16,7 @@ use tokio::{
     },
     task,
 };
+use tq_network::Actor;
 use tracing::debug;
 
 static STATE: OnceCell<State> = OnceCell::new();
@@ -171,6 +173,7 @@ impl ActorState {
     fn inner(&self) -> InnerActorState { self.inner.clone().unwrap() }
 }
 
+#[async_trait]
 impl tq_network::ActorState for ActorState {
     fn init() -> Self {
         let (tx, rx) = mpsc::channel(50);
@@ -191,6 +194,17 @@ impl tq_network::ActorState for ActorState {
     fn empty() -> Self {
         let (tx, _) = mpsc::channel(1);
         Self { inner: None, tx }
+    }
+
+    async fn dispose(
+        &self,
+        actor: &Actor<Self>,
+    ) -> Result<(), tq_network::Error> {
+        let into = |e: Error| tq_network::Error::Other(e.to_string());
+        let mymap = actor.map().await.map_err(into)?;
+        let me = self.character().await.map_err(into)?;
+        mymap.remove_character(me.id()).await.map_err(into)?;
+        Ok(())
     }
 }
 

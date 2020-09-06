@@ -1,4 +1,5 @@
 use crate::{Error, PacketEncode};
+use async_trait::async_trait;
 use bytes::Bytes;
 use std::{
     hash::Hash,
@@ -67,11 +68,13 @@ impl From<(u32, u32)> for Message {
     fn from((key1, key2): (u32, u32)) -> Self { Self::GenerateKeys(key1, key2) }
 }
 
+#[async_trait]
 pub trait ActorState: Send + Sync + Sized + Clone {
     fn init() -> Self;
     /// Should be only used for the Default Actor
     fn empty() -> Self;
-    fn dispose(&self, actor: &Actor<Self>) -> Result<(), Error> {
+    /// A good chance to dispose the state and clear anything.
+    async fn dispose(&self, actor: &Actor<Self>) -> Result<(), Error> {
         let _ = actor;
         Ok(())
     }

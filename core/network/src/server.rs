@@ -1,6 +1,6 @@
 use crate::{actor::Message, Actor, ActorState, Error, PacketHandler};
 use async_trait::async_trait;
-use std::{fmt::Debug, net::SocketAddr};
+use std::{fmt::Debug, net::SocketAddr, ops::Deref};
 use tokio::{
     net::{TcpListener, TcpStream, ToSocketAddrs},
     stream::StreamExt,
@@ -29,7 +29,7 @@ pub trait Server: Sized + Send + Sync {
     async fn on_disconnected(
         actor: Actor<Self::ActorState>,
     ) -> Result<(), Error> {
-        let _ = actor;
+        ActorState::dispose(actor.deref(), &actor).await?;
         Ok(())
     }
 

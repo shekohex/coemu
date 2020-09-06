@@ -6,7 +6,7 @@
 //! server as well.
 
 use async_trait::async_trait;
-use tq_network::{Actor, NopCipher, PacketHandler, Server, TQCipher};
+use tq_network::{NopCipher, PacketHandler, Server, TQCipher};
 use tracing::info;
 
 mod constants;
@@ -24,7 +24,7 @@ use errors::Error;
 
 mod packets;
 use packets::*;
-use std::{env, ops::Deref};
+use std::env;
 
 struct GameServer;
 
@@ -33,14 +33,6 @@ impl Server for GameServer {
     type ActorState = ActorState;
     type Cipher = TQCipher;
     type PacketHandler = Handler;
-
-    async fn on_disconnected(
-        actor: Actor<Self::ActorState>,
-    ) -> Result<(), tq_network::Error> {
-        tq_network::ActorState::dispose(actor.deref(), &actor)
-            .unwrap_or_default();
-        Ok(())
-    }
 }
 
 struct RpcServer;
