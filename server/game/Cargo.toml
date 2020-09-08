@@ -34,7 +34,7 @@ default-features = false
 [dependencies.tokio]
 version = "0.2"
 default-features = false
-features = ["rt-threaded", "macros", "signal", "stream", "sync"]
+features = ["rt-threaded", "macros", "signal", "stream", "sync", "parking_lot"]
 
 # Database
 [dependencies.sqlx]
