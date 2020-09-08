@@ -1,5 +1,5 @@
 use crate::{
-    db,
+    constants, db,
     entities::{BaseEntity, Entity, EntityTypeFlag},
     packets::{ActionType, MsgAction, MsgPlayer},
     utils::LoHi,
@@ -36,7 +36,10 @@ impl Deref for Character {
 
 impl Character {
     pub fn new(owner: Actor<ActorState>, inner: db::Character) -> Self {
-        let entity = Entity::new(inner.character_id as u32, inner.name.clone());
+        let entity = Entity::new(
+            inner.character_id as u32 + constants::CHARACTER_BASE_ID,
+            inner.name.clone(),
+        );
         entity
             .set_x(inner.x as u16)
             .set_y(inner.y as u16)
@@ -63,6 +66,34 @@ impl Character {
     pub fn hair_style(&self) -> u16 { self.inner.hair_style as u16 }
 
     pub fn avatar(&self) -> u16 { self.inner.avatar as u16 }
+
+    pub fn silver(&self) -> u64 { self.inner.silver as u64 }
+
+    pub fn cps(&self) -> u64 { self.inner.cps as u64 }
+
+    pub fn experience(&self) -> u64 { self.inner.experience as u64 }
+
+    pub fn strength(&self) -> u16 { self.inner.strength as u16 }
+
+    pub fn agility(&self) -> u16 { self.inner.agility as u16 }
+
+    pub fn vitality(&self) -> u16 { self.inner.vitality as u16 }
+
+    pub fn spirit(&self) -> u16 { self.inner.spirit as u16 }
+
+    pub fn attribute_points(&self) -> u16 { self.inner.attribute_points as u16 }
+
+    pub fn health_points(&self) -> u16 { self.inner.health_points as u16 }
+
+    pub fn mana_points(&self) -> u16 { self.inner.mana_points as u16 }
+
+    pub fn kill_points(&self) -> u16 { self.inner.kill_points as u16 }
+
+    pub fn current_class(&self) -> u8 { self.inner.current_class as u8 }
+
+    pub fn previous_class(&self) -> u8 { self.inner.previous_class as u8 }
+
+    pub fn rebirths(&self) -> u8 { self.inner.rebirths as u8 }
 
     pub async fn kick_back(&self) -> Result<(), Error> {
         let location = u32::constract(self.y(), self.x());

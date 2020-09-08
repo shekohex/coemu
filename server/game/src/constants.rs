@@ -10,3 +10,7 @@ pub const HAIR_STYLES: [i16; 12] =
 
 pub const WALK_XCOORDS: [i8; 8] = [0, -1, -1, -1, 0, 1, 1, 1];
 pub const WALK_YCOORDS: [i8; 8] = [1, 1, 0, -1, -1, -1, 0, 1];
+
+pub const MONSTER_BASE_ID: u32 = 400_000;
+pub const CHARACTER_BASE_ID: u32 = 1_000_000;
+pub const NPC_BASE_ID: u32 = 1;

@@ -64,6 +64,7 @@ pub enum ActionType {
     QueryEnemy = 123,
     OpenDialog = 126,
     LogainCompeleted = 130,
+    LeaveMap = 132,
     GroundJump = 133,
     /// [134]
     /// Data1 = EntityId,
@@ -184,7 +185,6 @@ impl PacketProcess for MsgAction {
             },
             ActionType::LogainCompeleted => {
                 // Login Completed
-                dbg!(self);
             },
             ActionType::GroundJump => {
                 let new_x = self.data1.lo();

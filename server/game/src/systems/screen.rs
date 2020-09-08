@@ -1,6 +1,7 @@
 use crate::{
     entities::BaseEntity,
     packets::{ActionType, MsgAction},
+    utils::LoHi,
     world::Character,
     ActorState, Error,
 };
@@ -75,21 +76,24 @@ impl Screen {
     }
 
     pub async fn delete_character(&self, id: u32) -> Result<bool, Error> {
-        let deleted = self.characters.remove(&id).is_some();
+        let deleted = self.characters.remove(&id);
         let me = self.owner.character().await?;
-        if deleted {
+        if let Some((_, other)) = deleted {
+            let location = u32::constract(other.y(), other.x());
             self.owner
                 .send(MsgAction::new(
-                    id as u32,
-                    0,
-                    0,
-                    0,
-                    ActionType::RemoveEntity,
+                    id,
+                    other.map_id(),
+                    location,
+                    other.direction() as u16,
+                    ActionType::LeaveMap,
                 ))
                 .await?;
             debug!("Deleted #{} from #{}", id, me.id());
+            Ok(true)
+        } else {
+            Ok(false)
         }
-        Ok(true)
     }
 
     /// This method removes the owner from all observers. It makes use of the
@@ -98,8 +102,14 @@ impl Screen {
     pub async fn remove_from_observers(&self) -> Result<(), Error> {
         let me = self.owner.character().await?;
         for observer in self.characters.iter() {
+            debug!("Found Observer #{}", observer.id());
             let observer_screen = observer.owner().screen().await?;
             observer_screen.delete_character(me.id()).await?;
+            debug!(
+                "#{} Removed from Observer #{} Screen",
+                me.id(),
+                observer.id()
+            );
         }
         Ok(())
     }

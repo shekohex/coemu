@@ -38,18 +38,18 @@ impl PacketProcess for MsgConnect {
         let maybe_character = db::Character::from_account(id).await?;
         match maybe_character {
             Some(character) => {
-                let me = Character::new(actor.clone(), character.clone());
+                let me = Character::new(actor.clone(), character);
                 actor.set_character(me.clone()).await?;
                 state
                     .maps()
-                    .get(&(character.map_id as u32))
+                    .get(&me.map_id())
                     .ok_or_else(|| MsgTalk::login_invalid().error_packet())?
-                    .insert_character(me)
+                    .insert_character(me.clone())
                     .await?;
                 let screen = Screen::new(actor.clone());
                 actor.set_screen(screen).await?;
                 actor.send(MsgTalk::login_ok()).await?;
-                let msg = MsgUserInfo::from(character);
+                let msg = MsgUserInfo::from(me);
                 actor.send(msg).await?;
             },
             None => {
