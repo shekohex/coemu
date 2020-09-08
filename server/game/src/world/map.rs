@@ -136,11 +136,12 @@ impl Map {
     /// in between the player and the jumping destination.
     pub async fn sample_elevation(
         &self,
-        distance: u32,
-        start: (u32, u32),
-        delta: (u32, u32),
+        start: (u16, u16),
+        end: (u16, u16),
         elevation: u16,
     ) -> bool {
+        let distance = tq_math::get_distance(start, end) as u16;
+        let delta = tq_math::delta(start, end);
         let floor = self.floor.read().await;
         for i in 0..distance {
             let x = start.0 + ((i * delta.0) / distance);

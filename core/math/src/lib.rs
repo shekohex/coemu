@@ -9,14 +9,19 @@ pub const MAX_DIFFERENCE_IN_ELEVATION: u16 = 210;
 /// This function returns true if an object is within the bounds of another
 /// object's screen.
 pub fn in_screen(p1: (u16, u16), p2: (u16, u16)) -> bool {
+    let (delta_x, delta_y) = delta(p1, p2);
+    delta_x <= SCREEN_DISTANCE && delta_y <= SCREEN_DISTANCE
+}
+
+/// This function returns delta (x, y).
+pub fn delta(p1: (u16, u16), p2: (u16, u16)) -> (u16, u16) {
     let x1 = p1.0 as i16;
     let x2 = p2.0 as i16;
     let y1 = p1.1 as i16;
     let y2 = p2.1 as i16;
     let delta_x = (x2 - x1).abs();
     let delta_y = (y2 - y1).abs();
-    let screen_distance = SCREEN_DISTANCE as i16;
-    delta_x <= screen_distance && delta_y <= screen_distance
+    (delta_x as u16, delta_y as u16)
 }
 
 /// This function checks the elevation difference of two tiles.
@@ -26,12 +31,9 @@ pub fn within_elevation(new: u16, initial: u16) -> bool {
 
 /// This function returns the angle for a jump or attack.
 pub fn get_angle(p1: (u16, u16), p2: (u16, u16)) -> f64 {
-    let x1 = p1.0 as i16;
-    let x2 = p2.0 as i16;
-    let y1 = p1.1 as i16;
-    let y2 = p2.1 as i16;
-    let delta_x = (x2 - x1).abs() as f64;
-    let delta_y = (y2 - y1).abs() as f64;
+    let (delta_x, delta_y) = delta(p1, p2);
+    let delta_x = delta_x as f64;
+    let delta_y = delta_y as f64;
     let angle = (delta_y.atan2(delta_x) * RADIAN_TO_DEGREE) + 90.0;
     if angle.is_sign_negative() {
         270.0 + (90.0 - angle.abs())

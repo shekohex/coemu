@@ -259,6 +259,20 @@ impl Floor {
     }
 }
 
+impl Index<(u16, u16)> for Floor {
+    type Output = Tile;
+
+    fn index(&self, index: (u16, u16)) -> &Self::Output {
+        &self[(index.0 as i32, index.1 as i32)]
+    }
+}
+
+impl IndexMut<(u16, u16)> for Floor {
+    fn index_mut(&mut self, index: (u16, u16)) -> &mut Self::Output {
+        &mut self[(index.0 as i32, index.1 as i32)]
+    }
+}
+
 impl Index<(u32, u32)> for Floor {
     type Output = Tile;
 

@@ -100,7 +100,7 @@ impl Character {
         .fetch_one(pool)
         .await?
         .exists
-        .unwrap_or_else(|| true);
+        .unwrap_or(true);
         Ok(taken)
     }
 

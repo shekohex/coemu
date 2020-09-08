@@ -1,5 +1,5 @@
 use super::{MsgTalk, TalkChannel};
-use crate::{systems::TileType, utils, ActorState};
+use crate::{utils, ActorState};
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -219,15 +219,18 @@ impl PacketProcess for MsgAction {
                 }
 
                 let mymap = actor.map().await?;
-                let tile = mymap.tile(new_x, new_y).await?;
-                if tile.access < TileType::Npc {
-                    debug!("Cannot jump on that tile = {:?}. Type ({:?} = {}) < Npc", tile, tile.access, tile.access as u8);
-                    me.kick_back().await?;
-                    return Ok(());
-                }
-
-                if !tq_math::within_elevation(tile.elevation, me.elevation()) {
-                    debug!("Cannot jump that high. new elevation {} but current {} diff > 210", tile.elevation, me.elevation());
+                let within_elevation = mymap
+                    .sample_elevation(
+                        (me.x(), me.y()),
+                        (new_x, new_y),
+                        me.elevation(),
+                    )
+                    .await;
+                if !within_elevation {
+                    debug!(
+                        "Cannot jump that high. new elevation {} diff > 210",
+                        me.elevation()
+                    );
                     me.kick_back().await?;
                     return Ok(());
                 }
