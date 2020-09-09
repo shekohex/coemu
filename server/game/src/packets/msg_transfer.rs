@@ -30,6 +30,8 @@ impl PacketProcess for MsgTransfer {
         let code = fastrand::u32(0..u32::MAX);
         State::global()?
             .login_tokens()
+            .write()
+            .await
             .insert(token, (self.account_id, self.realm_id));
         let mut msg = self.clone();
         msg.token = token;

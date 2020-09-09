@@ -108,6 +108,25 @@ impl Character {
         Ok(())
     }
 
+    pub async fn teleport(
+        &self,
+        map_id: u32,
+        (x, y): (u16, u16),
+    ) -> Result<(), Error> {
+        let location = u32::constract(y, x);
+        let msg = MsgAction::new(
+            self.id(),
+            map_id,
+            location,
+            self.direction() as u16,
+            ActionType::Teleport,
+        );
+        self.owner.send(msg).await?;
+        let mymap = self.owner.map().await?;
+        mymap.insert_character(self.clone()).await?;
+        Ok(())
+    }
+
     pub async fn exchange_spawn_packets(
         &self,
         observer: impl BaseEntity,

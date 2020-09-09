@@ -5,10 +5,9 @@ use crate::{
     Error,
 };
 use async_trait::async_trait;
-use dashmap::DashMap;
 use once_cell::sync::OnceCell;
 use sqlx::postgres::{PgPool, PgPoolOptions};
-use std::{ops::Deref, sync::Arc};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{self, Receiver, Sender},
@@ -21,15 +20,14 @@ use tracing::debug;
 
 static STATE: OnceCell<State> = OnceCell::new();
 
-type LoginTokens = Arc<DashMap<u32, (u32, u32)>>;
-type CreationTokens = Arc<DashMap<u32, (u32, u32)>>;
-type Maps = Arc<DashMap<u32, Map>>;
+type Tokens = Arc<RwLock<HashMap<u32, (u32, u32)>>>;
+type Maps = Arc<RwLock<HashMap<u32, Map>>>;
 type Shared<T> = Arc<RwLock<T>>;
 
 #[derive(Debug, Clone)]
 pub struct State {
-    login_tokens: LoginTokens,
-    creation_tokens: CreationTokens,
+    login_tokens: Tokens,
+    creation_tokens: Tokens,
     maps: Maps,
     pool: PgPool,
 }
@@ -45,9 +43,9 @@ impl State {
             .connect(&dotenv::var("DATABASE_URL")?)
             .await?;
         let state = Self {
-            login_tokens: Arc::new(DashMap::new()),
-            creation_tokens: Arc::new(DashMap::new()),
-            maps: Arc::new(DashMap::new()),
+            login_tokens: Arc::new(RwLock::new(HashMap::new())),
+            creation_tokens: Arc::new(RwLock::new(HashMap::new())),
+            maps: Arc::new(RwLock::new(HashMap::new())),
             pool,
         };
         STATE
@@ -69,9 +67,9 @@ impl State {
     /// Get access to the database pool
     pub fn pool(&self) -> &PgPool { &self.pool }
 
-    pub fn login_tokens(&self) -> &LoginTokens { &self.login_tokens }
+    pub fn login_tokens(&self) -> &Tokens { &self.login_tokens }
 
-    pub fn creation_tokens(&self) -> &CreationTokens { &self.creation_tokens }
+    pub fn creation_tokens(&self) -> &Tokens { &self.creation_tokens }
 
     pub fn maps(&self) -> &Maps { &self.maps }
 
@@ -92,7 +90,8 @@ impl State {
         debug!("Loaded #{} Map From Database", maps.len());
         for map in maps {
             let map = Map::new(map);
-            self.maps.insert(map.id(), map);
+            let mut maps = self.maps.write().await;
+            maps.insert(map.id(), map);
         }
         Ok(())
     }

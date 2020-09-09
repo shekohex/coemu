@@ -266,7 +266,8 @@ impl PacketProcess for MsgAction {
             },
             ActionType::QueryEntity => {
                 let mymap = actor.map().await?;
-                let other = mymap.characters().get(&self.data1);
+                let characters = mymap.characters().read().await;
+                let other = characters.get(&self.data1);
                 if let Some(other) = other {
                     let msg = super::MsgPlayer::from(other.clone());
                     actor.send(msg).await?;

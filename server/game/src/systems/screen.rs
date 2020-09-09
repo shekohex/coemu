@@ -5,11 +5,12 @@ use crate::{
     world::Character,
     ActorState, Error,
 };
-use dashmap::DashMap;
-use std::{fmt::Debug, sync::Arc};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use tokio::sync::RwLock;
 use tq_network::{Actor, PacketEncode};
 use tracing::debug;
 
+type Characters = Arc<RwLock<HashMap<u32, Character>>>;
 /// This struct encapsulates the client's screen system. It handles screen
 /// objects that the player can currently see in the client window as they
 /// enter, move, and leave the screen. It controls the distribution of packets
@@ -18,7 +19,7 @@ use tracing::debug;
 #[derive(Clone, Default, Debug)]
 pub struct Screen {
     owner: Actor<ActorState>,
-    characters: Arc<DashMap<u32, Character>>,
+    characters: Characters,
 }
 
 impl Screen {
@@ -33,13 +34,13 @@ impl Screen {
     pub async fn clear(&self) -> Result<(), Error> {
         debug!("Clearing Screen..");
         let me = self.owner.character().await?;
-        for character in self.characters.iter() {
+        for character in self.characters.read().await.values() {
             let observer = character.owner();
             let observer_screen = observer.screen().await?;
             observer_screen.remove_character(me.id()).await?;
             self.remove_character(character.id()).await?;
         }
-        self.characters.clear();
+        self.characters.write().await.clear();
         Ok(())
     }
 
@@ -49,13 +50,20 @@ impl Screen {
     ) -> Result<bool, Error> {
         let added = self
             .characters
+            .write()
+            .await
             .insert(observer.id(), observer.clone())
             .is_none();
         if added {
             let me = self.owner.character().await?;
             debug!("Added #{} to #{}", observer.id(), me.id());
             let observer_screen = observer.owner().screen().await?;
-            let res = observer_screen.characters.insert(me.id(), me).is_none();
+            let res = observer_screen
+                .characters
+                .write()
+                .await
+                .insert(me.id(), me)
+                .is_none();
             let res = added && res;
             Ok(res)
         } else {
@@ -64,11 +72,18 @@ impl Screen {
     }
 
     pub async fn remove_character(&self, id: u32) -> Result<bool, Error> {
-        if let Some((_, observer_character)) = self.characters.remove(&id) {
+        if let Some(observer_character) =
+            self.characters.write().await.remove(&id)
+        {
             let me = self.owner.character().await?;
             debug!("Removed #{} from #{}", observer_character.id(), me.id());
             let observer_screen = observer_character.owner().screen().await?;
-            let removed = observer_screen.characters.remove(&me.id()).is_some();
+            let removed = observer_screen
+                .characters
+                .write()
+                .await
+                .remove(&me.id())
+                .is_some();
             Ok(removed)
         } else {
             Ok(false)
@@ -76,9 +91,9 @@ impl Screen {
     }
 
     pub async fn delete_character(&self, id: u32) -> Result<bool, Error> {
-        let deleted = self.characters.remove(&id);
+        let deleted = self.characters.write().await.remove(&id);
         let me = self.owner.character().await?;
-        if let Some((_, other)) = deleted {
+        if let Some(other) = deleted {
             let location = u32::constract(other.y(), other.x());
             self.owner
                 .send(MsgAction::new(
@@ -101,7 +116,7 @@ impl Screen {
     /// the owner from each screen within the owner's screen distance.
     pub async fn remove_from_observers(&self) -> Result<(), Error> {
         let me = self.owner.character().await?;
-        for observer in self.characters.iter() {
+        for observer in self.characters.read().await.values() {
             debug!("Found Observer #{}", observer.id());
             let observer_screen = observer.owner().screen().await?;
             observer_screen.delete_character(me.id()).await?;
@@ -116,7 +131,7 @@ impl Screen {
 
     pub async fn refresh_spawn_for_observers(&self) -> Result<(), Error> {
         let me = self.owner.character().await?;
-        for observer in self.characters.iter() {
+        for observer in self.characters.read().await.values() {
             let observer_screen = observer.owner().screen().await?;
             observer_screen.delete_character(me.id()).await?;
             me.send_spawn(&observer.owner()).await?;
@@ -132,7 +147,7 @@ impl Screen {
         // Load Players from the Map
         let mymap = self.owner.map().await?;
         let me = self.owner.character().await?;
-        for observer in mymap.characters().iter() {
+        for observer in mymap.characters().read().await.values() {
             let is_myself = me.id() == observer.id();
             if is_myself {
                 continue;
@@ -160,7 +175,7 @@ impl Screen {
         &self,
         packet: P,
     ) -> Result<(), P::Error> {
-        for observer in self.characters.iter() {
+        for observer in self.characters.read().await.values() {
             observer.owner().send(packet.clone()).await?;
         }
         Ok(())
@@ -181,7 +196,7 @@ impl Screen {
         let mymap = self.owner.map().await?;
         // For each possible observer on the map
         let me = self.owner.character().await?;
-        for observer in mymap.characters().iter() {
+        for observer in mymap.characters().read().await.values() {
             let is_myself = me.id() == observer.id();
             let observer_owner = observer.owner();
             // skip myself

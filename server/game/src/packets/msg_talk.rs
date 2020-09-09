@@ -5,7 +5,7 @@ use crate::{
 use async_trait::async_trait;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
-use tq_network::{Actor, PacketID, PacketProcess};
+use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use tracing::warn;
 
 /// Enumeration for defining the channel text is printed to. Can also print to
@@ -66,7 +66,7 @@ pub enum TalkStyle {
 /// system to a player. Used for all chat systems in the game, including
 /// messages outside of the game world state, such as during character creation
 /// or to tell the client to continue logging in after connect.
-#[derive(Debug, Default, Deserialize, Serialize, PacketID)]
+#[derive(Debug, Default, Deserialize, Serialize, PacketID, Clone)]
 #[packet(id = 1004)]
 pub struct MsgTalk {
     color: u32,
@@ -147,8 +147,8 @@ impl MsgTalk {
         )
     }
 
-    pub fn unknown_cmd(character_id: u32, message: String) -> Self {
-        Self::from_system(character_id, TalkChannel::TopLeft, message)
+    pub fn unknown_cmd(&self, message: String) -> Self {
+        Self::from_system(self.character_id, TalkChannel::TopLeft, message)
     }
 }
 
@@ -171,14 +171,36 @@ impl PacketProcess for MsgTalk {
                     actor.shutdown().await?;
                 },
                 "tele" => {
-                    // TODO(shekohex) implement a teleport command.
+                    let me = actor.character().await?;
+                    let map_id = parts
+                        .next()
+                        .map(|v| v.parse::<u32>())
+                        .ok_or_else(|| {
+                            self.unknown_cmd(String::from("Bad MapId"))
+                                .error_packet()
+                        })??;
+
+                    let x = parts
+                        .next()
+                        .map(|v| v.parse::<u16>())
+                        .ok_or_else(|| {
+                            self.unknown_cmd(String::from("Bad X"))
+                                .error_packet()
+                        })??;
+
+                    let y = parts
+                        .next()
+                        .map(|v| v.parse::<u16>())
+                        .ok_or_else(|| {
+                            self.unknown_cmd(String::from("Bad Y"))
+                                .error_packet()
+                        })??;
+                    me.teleport(map_id, (x, y)).await?;
                 },
                 missing => {
                     warn!("Unknown Command {}", missing);
-                    let p = MsgTalk::unknown_cmd(
-                        self.character_id,
-                        format!("Unkonwn Command {}", missing),
-                    );
+                    let p = self
+                        .unknown_cmd(format!("Unkonwn Command {}", missing));
                     actor.send(p).await?;
                 },
             };

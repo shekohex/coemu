@@ -108,8 +108,9 @@ impl PacketProcess for MsgRegister {
         let state = State::global()?;
         let (id, realm_id) = state
             .creation_tokens()
+            .write()
+            .await
             .remove(&self.token)
-            .map(|(_, account_id)| account_id)
             .ok_or_else(|| MsgTalk::register_invalid().error_packet())?;
 
         if db::Character::name_taken(&self.character_name).await? {
@@ -130,6 +131,8 @@ impl PacketProcess for MsgRegister {
         // Set player map.
         state
             .maps()
+            .read()
+            .await
             .get(&(map_id as u32))
             .ok_or_else(|| MsgTalk::register_invalid().error_packet())?
             .insert_character(me)

@@ -30,8 +30,9 @@ impl PacketProcess for MsgConnect {
         let state = State::global()?;
         let (id, realm_id) = state
             .login_tokens()
+            .write()
+            .await
             .remove(&self.token)
-            .map(|(_, account_id)| account_id)
             .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
         actor.generate_keys(self.code, self.token).await?;
         actor.set_id(id as usize);
@@ -42,6 +43,8 @@ impl PacketProcess for MsgConnect {
                 actor.set_character(me.clone()).await?;
                 state
                     .maps()
+                    .read()
+                    .await
                     .get(&me.map_id())
                     .ok_or_else(|| MsgTalk::login_invalid().error_packet())?
                     .insert_character(me.clone())
@@ -53,7 +56,11 @@ impl PacketProcess for MsgConnect {
                 actor.send(msg).await?;
             },
             None => {
-                state.creation_tokens().insert(self.token, (id, realm_id));
+                state
+                    .creation_tokens()
+                    .write()
+                    .await
+                    .insert(self.token, (id, realm_id));
                 actor.send(MsgTalk::login_new_role()).await?;
             },
         };
