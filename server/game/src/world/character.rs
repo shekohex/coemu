@@ -124,7 +124,9 @@ impl Character {
         let state = State::global()?;
         if let Some(new_map) = state.maps().read().await.get(&map_id) {
             new_map.insert_character(self.clone()).await?;
+            let tile = new_map.tile(x, y).await?;
             self.set_x(x).set_y(y).set_map_id(map_id);
+            self.set_elevation(tile.elevation);
             self.owner.send(msg).await?;
         }
         Ok(())

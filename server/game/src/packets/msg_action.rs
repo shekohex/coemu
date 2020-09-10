@@ -1,5 +1,5 @@
 use super::{MsgTalk, TalkChannel};
-use crate::{utils, ActorState};
+use crate::{utils, ActorState, Error};
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -131,12 +131,171 @@ impl MsgAction {
             action_type: action_type as u16,
         }
     }
+
+    async fn handle_send_location(
+        &self,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        let mut res = self.clone();
+        let character = actor.character().await?;
+        res.data1 = character.map_id();
+        res.data2 = u32::constract(character.y(), character.x());
+        actor.send(res).await?;
+        // TODO(shekohex): send MsgMapInfo
+        Ok(())
+    }
+
+    async fn handle_map_argb(
+        &self,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        let mut res = self.clone();
+        let character = actor.character().await?;
+        res.data1 = 0x00FF_FFFF;
+        res.data2 = u32::constract(character.y(), character.x());
+        actor.send(res).await?;
+        Ok(())
+    }
+
+    async fn handle_leave_booth(
+        &self,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        // Remove Player from Booth.
+        let myscreen = actor.screen().await?;
+        myscreen.clear().await?;
+        myscreen.load_surroundings().await?;
+        Ok(())
+    }
+
+    async fn handle_jump(
+        &self,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        let new_x = self.data1.lo();
+        let new_y = self.data1.hi();
+        let current_x = self.data2.lo();
+        let current_y = self.data2.hi();
+        let me = actor.character().await?;
+        // Starting to validate this jump.
+        if current_x != me.x() || current_y != me.y() {
+            debug!(
+                "Bad Packet Got ({}, {}) but expected ({}, {})",
+                current_x,
+                current_y,
+                me.x(),
+                me.y()
+            );
+            me.kick_back().await?;
+            return Ok(());
+        }
+
+        if !tq_math::in_screen((me.x(), me.y()), (new_x, new_y)) {
+            debug!(
+                "Bad Location ({}, {}) -> ({}, {}) > 18",
+                new_x,
+                new_y,
+                me.x(),
+                me.y()
+            );
+            me.kick_back().await?;
+            return Ok(());
+        }
+
+        let mymap = actor.map().await?;
+        let within_elevation = mymap
+            .sample_elevation((me.x(), me.y()), (new_x, new_y), me.elevation())
+            .await;
+        if !within_elevation {
+            debug!(
+                "Cannot jump that high. new elevation {} diff > 210",
+                me.elevation()
+            );
+            me.kick_back().await?;
+            return Ok(());
+        }
+
+        // I guess everything seems to be valid .. send the jump.
+
+        let direction =
+            tq_math::get_direction_sector((me.x(), me.y()), (new_x, new_y));
+        let tile = mymap.tile(new_x, new_y).await?;
+        me.set_x(new_x)
+            .set_y(new_y)
+            .set_direction(direction)
+            .set_action(100);
+        me.set_elevation(tile.elevation);
+        actor.send(self.clone()).await?;
+        let myscreen = actor.screen().await?;
+        myscreen.send_movement(self.clone()).await?;
+        Ok(())
+    }
+
+    async fn handle_change_facing(
+        &self,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        let current_x = self.data2.lo();
+        let current_y = self.data2.hi();
+        let me = actor.character().await?;
+
+        // Starting to validate this jump.
+        if current_x != me.x() || current_y != me.y() {
+            // Kick Back.
+            me.kick_back().await?;
+            return Ok(());
+        }
+
+        me.set_direction(self.details as u8);
+        actor.send(self.clone()).await?;
+        let myscreen = actor.screen().await?;
+        myscreen.send_message(self.clone()).await?;
+        Ok(())
+    }
+
+    async fn handle_query_entity(
+        &self,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        let mymap = actor.map().await?;
+        let characters = mymap.characters().read().await;
+        let other = characters.get(&self.data1);
+        if let Some(other) = other {
+            let msg = super::MsgPlayer::from(other.clone());
+            actor.send(msg).await?;
+        }
+        Ok(())
+    }
+
+    async fn handle_change_map(
+        &self,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        let portal_x = self.data1.lo();
+        let portal_y = self.data1.hi();
+        let me = actor.character().await?;
+        if !tq_math::in_screen((me.x(), me.y()), (portal_x, portal_y)) {
+            debug!(
+                "Bad Location ({}, {}) -> ({}, {}) > 18",
+                portal_x,
+                portal_y,
+                me.x(),
+                me.y()
+            );
+            me.kick_back().await?;
+            return Ok(());
+        }
+        dbg!(portal_x, portal_y);
+        // TODO teleport to the next map.
+        me.teleport(me.map_id(), (me.prev_x(), me.prev_y())).await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
 impl PacketProcess for MsgAction {
     type ActorState = ActorState;
-    type Error = crate::Error;
+    type Error = Error;
 
     async fn process(
         &self,
@@ -144,138 +303,37 @@ impl PacketProcess for MsgAction {
     ) -> Result<(), Self::Error> {
         let ty = self.action_type.into();
         match ty {
-            ActionType::SendLocation => {
-                let mut res = self.clone();
-                let character = actor.character().await?;
-                res.data1 = character.map_id();
-                res.data2 = u32::constract(character.y(), character.x());
-                actor.send(res).await?;
-                // TODO(shekohex): send MsgMapInfo
-            },
-            ActionType::MapARGB => {
-                let mut res = self.clone();
-                let character = actor.character().await?;
-                res.data1 = 0x00FF_FFFF;
-                res.data2 = u32::constract(character.y(), character.x());
-                actor.send(res).await?;
-            },
-            ActionType::LeaveBooth => {
-                // Remove Player from Booth.
-                let myscreen = actor.screen().await?;
-                myscreen.clear().await?;
-                myscreen.load_surroundings().await?;
-            },
+            ActionType::SendLocation => self.handle_send_location(actor).await,
+            ActionType::MapARGB => self.handle_map_argb(actor).await,
+            ActionType::LeaveBooth => self.handle_leave_booth(actor).await,
             ActionType::SendItems => {
                 // TODO(shekohex): send MsgItemInfo
+                Ok(())
             },
             ActionType::SendAssociates => {
                 // Friends.
                 // TODO(shekohex): send MsgFriend
+                Ok(())
             },
             ActionType::SendProficiencies => {
                 // Skils
                 // TODO(shekohex): send MsgWeaponSkill
+                Ok(())
             },
             ActionType::SendSpells => {
                 // Magic Spells
                 // TODO(shekohex): send MsgMagicInfo
+                Ok(())
             },
             ActionType::ConfirmGuild => {
                 // TODO(shekohex): send MsgSyndicateAttributeInfo
+                Ok(())
             },
-            ActionType::LogainCompeleted => {
-                // Login Completed
-            },
-            ActionType::GroundJump => {
-                let new_x = self.data1.lo();
-                let new_y = self.data1.hi();
-                let current_x = self.data2.lo();
-                let current_y = self.data2.hi();
-                let me = actor.character().await?;
-                // Starting to validate this jump.
-                if current_x != me.x() || current_y != me.y() {
-                    debug!(
-                        "Bad Packet Got ({}, {}) but expected ({}, {})",
-                        current_x,
-                        current_y,
-                        me.x(),
-                        me.y()
-                    );
-                    me.kick_back().await?;
-                    return Ok(());
-                }
-
-                if !tq_math::in_screen((me.x(), me.y()), (new_x, new_y)) {
-                    debug!(
-                        "Bad Location ({}, {}) -> ({}, {}) > 18",
-                        new_x,
-                        new_y,
-                        me.x(),
-                        me.y()
-                    );
-                    me.kick_back().await?;
-                    return Ok(());
-                }
-
-                let mymap = actor.map().await?;
-                let within_elevation = mymap
-                    .sample_elevation(
-                        (me.x(), me.y()),
-                        (new_x, new_y),
-                        me.elevation(),
-                    )
-                    .await;
-                if !within_elevation {
-                    debug!(
-                        "Cannot jump that high. new elevation {} diff > 210",
-                        me.elevation()
-                    );
-                    me.kick_back().await?;
-                    return Ok(());
-                }
-
-                // I guess everything seems to be valid .. send the jump.
-
-                let direction = tq_math::get_direction_sector(
-                    (me.x(), me.y()),
-                    (new_x, new_y),
-                );
-                let tile = mymap.tile(new_x, new_y).await?;
-                me.set_x(new_x)
-                    .set_y(new_y)
-                    .set_direction(direction)
-                    .set_action(100);
-                me.set_elevation(tile.elevation);
-                actor.send(self.clone()).await?;
-                let myscreen = actor.screen().await?;
-                myscreen.send_movement(self.clone()).await?;
-            },
-            ActionType::ChangeFacing => {
-                let current_x = self.data2.lo();
-                let current_y = self.data2.hi();
-                let me = actor.character().await?;
-
-                // Starting to validate this jump.
-                if current_x != me.x() || current_y != me.y() {
-                    // Kick Back.
-                    me.kick_back().await?;
-                    return Ok(());
-                }
-
-                me.set_direction(self.details as u8);
-                actor.send(self.clone()).await?;
-                let myscreen = actor.screen().await?;
-                myscreen.send_message(self.clone()).await?;
-            },
-            ActionType::QueryEntity => {
-                let mymap = actor.map().await?;
-                let characters = mymap.characters().read().await;
-                let other = characters.get(&self.data1);
-                if let Some(other) = other {
-                    let msg = super::MsgPlayer::from(other.clone());
-                    actor.send(msg).await?;
-                }
-            },
+            ActionType::LogainCompeleted => Ok(()),
+            ActionType::GroundJump => self.handle_jump(actor).await,
+            ActionType::ChangeFacing => self.handle_change_facing(actor).await,
+            ActionType::QueryEntity => self.handle_query_entity(actor).await,
+            ActionType::ChangeMap => self.handle_change_map(actor).await,
             _ => {
                 let p = MsgTalk::from_system(
                     self.character_id,
@@ -289,8 +347,8 @@ impl PacketProcess for MsgAction {
                 let res = self.clone();
                 actor.send(res).await?;
                 warn!("Missing Action Type {:?} = {}", ty, self.action_type);
+                Ok(())
             },
-        };
-        Ok(())
+        }
     }
 }
