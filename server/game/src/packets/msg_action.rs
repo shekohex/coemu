@@ -308,25 +308,30 @@ impl PacketProcess for MsgAction {
             ActionType::LeaveBooth => self.handle_leave_booth(actor).await,
             ActionType::SendItems => {
                 // TODO(shekohex): send MsgItemInfo
+                actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::SendAssociates => {
                 // Friends.
                 // TODO(shekohex): send MsgFriend
+                actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::SendProficiencies => {
                 // Skils
                 // TODO(shekohex): send MsgWeaponSkill
+                actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::SendSpells => {
                 // Magic Spells
                 // TODO(shekohex): send MsgMagicInfo
+                actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::ConfirmGuild => {
                 // TODO(shekohex): send MsgSyndicateAttributeInfo
+                actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::LogainCompeleted => Ok(()),

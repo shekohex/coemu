@@ -23,6 +23,7 @@ chrono = { version = "0.4", default-features = false, features = ["std"] }
 fastrand = "1.3"
 encoding = "0.2"
 bitflags = "1.2"
+argh = "0.1"
 
 # Utils
 [dependencies.num_enum]

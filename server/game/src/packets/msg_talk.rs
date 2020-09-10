@@ -1,12 +1,12 @@
 use crate::{
     constants::{ALL_USERS, SYSTEM},
+    systems::commands,
     ActorState,
 };
 use async_trait::async_trait;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
-use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
-use tracing::warn;
+use tq_network::{Actor, PacketID, PacketProcess};
 
 /// Enumeration for defining the channel text is printed to. Can also print to
 /// separate states of the client such as character registration, and can be
@@ -146,10 +146,6 @@ impl MsgTalk {
             crate::constants::NEW_ROLE.to_owned(),
         )
     }
-
-    pub fn unknown_cmd(&self, message: String) -> Self {
-        Self::from_system(self.character_id, TalkChannel::TopLeft, message)
-    }
 }
 
 #[async_trait]
@@ -164,48 +160,9 @@ impl PacketProcess for MsgTalk {
         if self.message.starts_with('$') {
             // Command Message.
             let (_, command) = self.message.split_at(1);
-            let mut parts = command.split_whitespace();
-            let command = parts.next().unwrap_or_default();
-            match command {
-                "dc" => {
-                    actor.shutdown().await?;
-                },
-                "tele" => {
-                    let me = actor.character().await?;
-                    let map_id = parts
-                        .next()
-                        .map(|v| v.parse::<u32>())
-                        .ok_or_else(|| {
-                            self.unknown_cmd(String::from("Bad MapId"))
-                                .error_packet()
-                        })??;
-
-                    let x = parts
-                        .next()
-                        .map(|v| v.parse::<u16>())
-                        .ok_or_else(|| {
-                            self.unknown_cmd(String::from("Bad X"))
-                                .error_packet()
-                        })??;
-
-                    let y = parts
-                        .next()
-                        .map(|v| v.parse::<u16>())
-                        .ok_or_else(|| {
-                            self.unknown_cmd(String::from("Bad Y"))
-                                .error_packet()
-                        })??;
-                    me.teleport(map_id, (x, y)).await?;
-                },
-                missing => {
-                    warn!("Unknown Command {}", missing);
-                    let p = self
-                        .unknown_cmd(format!("Unkonwn Command {}", missing));
-                    actor.send(p).await?;
-                },
-            };
+            let args: Vec<_> = command.split_whitespace().collect();
+            commands::parse_and_execute(&args, actor).await?;
         }
-
         Ok(())
     }
 }

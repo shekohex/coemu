@@ -24,3 +24,6 @@ pub use msg_walk::{MovementType, MsgWalk};
 
 mod msg_player;
 pub use msg_player::MsgPlayer;
+
+mod msg_item_info;
+pub use msg_item_info::*;
