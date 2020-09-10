@@ -22,12 +22,14 @@ static STATE: OnceCell<State> = OnceCell::new();
 
 type Tokens = Arc<RwLock<HashMap<u32, (u32, u32)>>>;
 type Maps = Arc<RwLock<HashMap<u32, Map>>>;
+type Characters = Arc<RwLock<HashMap<u32, Character>>>;
 type Shared<T> = Arc<RwLock<T>>;
 
 #[derive(Debug, Clone)]
 pub struct State {
     login_tokens: Tokens,
     creation_tokens: Tokens,
+    characters: Characters,
     maps: Maps,
     pool: PgPool,
 }
@@ -43,9 +45,10 @@ impl State {
             .connect(&dotenv::var("DATABASE_URL")?)
             .await?;
         let state = Self {
-            login_tokens: Arc::new(RwLock::new(HashMap::new())),
-            creation_tokens: Arc::new(RwLock::new(HashMap::new())),
-            maps: Arc::new(RwLock::new(HashMap::new())),
+            login_tokens: Default::default(),
+            creation_tokens: Default::default(),
+            maps: Default::default(),
+            characters: Default::default(),
             pool,
         };
         STATE
@@ -73,6 +76,22 @@ impl State {
 
     pub fn maps(&self) -> &Maps { &self.maps }
 
+    pub fn characters(&self) -> &Characters { &self.characters }
+
+    /// Cleanup the state, close all connections and updating the database.
+    pub async fn clean_up() -> Result<(), Error> {
+        debug!("Clean up ..");
+        let state = Self::global()?;
+        debug!("Saving Characters data ..");
+        let mut characters = state.characters().write().await;
+        for (_, character) in characters.drain() {
+            character.save().await?;
+        }
+        state.pool().close().await;
+        debug!("Closed Database Connection ..");
+        Ok(())
+    }
+
     /// For Things we should do before sending that we init the state
     async fn post_init() -> Result<(), Error> {
         let state = Self::global()?;
@@ -81,9 +100,7 @@ impl State {
     }
 
     /// This method loads the compressed conquer maps from the flat-file
-    /// database using the mysql database's maps table. If the map does not
-    /// exist, this method will attempt to convert a data map (dmap) file into
-    /// a compressed conquer map file (cmap).
+    /// database using the database's maps table.
     async fn init_maps(&self) -> Result<(), Error> {
         debug!("Loading Maps from Database");
         let maps = db::Map::load_all().await?;
@@ -203,6 +220,9 @@ impl tq_network::ActorState for ActorState {
         let mymap = actor.map().await.map_err(into)?;
         let me = self.character().await.map_err(into)?;
         mymap.remove_character(me.id()).await.map_err(into)?;
+        me.save().await.map_err(into)?;
+        let state = State::global().map_err(into)?;
+        state.characters.write().await.remove(&me.id());
         Ok(())
     }
 }

@@ -49,6 +49,7 @@ impl PacketProcess for MsgConnect {
                     .ok_or_else(|| MsgTalk::login_invalid().error_packet())?
                     .insert_character(me.clone())
                     .await?;
+                state.characters().write().await.insert(me.id(), me.clone());
                 let screen = Screen::new(actor.clone());
                 actor.set_screen(screen).await?;
                 actor.send(MsgTalk::login_ok()).await?;

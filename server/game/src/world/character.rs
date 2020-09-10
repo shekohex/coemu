@@ -140,6 +140,40 @@ impl Character {
         observer.send_spawn(&self.owner).await?;
         Ok(())
     }
+
+    pub async fn save(&self) -> Result<(), Error> {
+        let e = db::Character {
+            character_id: self.inner.character_id,
+            account_id: self.inner.account_id,
+            realm_id: self.inner.realm_id,
+            name: self.name(),
+            mesh: self.mesh() as _,
+            avatar: self.avatar() as _,
+            hair_style: self.hair_style() as _,
+            silver: self.silver() as _,
+            cps: self.cps() as _,
+            current_class: self.current_class() as _,
+            previous_class: self.previous_class() as _,
+            rebirths: self.rebirths() as _,
+            level: self.level() as _,
+            experience: self.experience() as _,
+            map_id: self.map_id() as _,
+            x: self.x() as _,
+            y: self.y() as _,
+            virtue: self.inner.virtue,
+            strength: self.strength() as _,
+            agility: self.agility() as _,
+            vitality: self.vitality() as _,
+            spirit: self.spirit() as _,
+            attribute_points: self.attribute_points() as _,
+            health_points: self.health_points() as _,
+            mana_points: self.mana_points() as _,
+            kill_points: self.kill_points() as _,
+            ..Default::default()
+        };
+        e.update().await?;
+        Ok(())
+    }
 }
 
 #[async_trait]

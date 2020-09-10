@@ -158,4 +158,50 @@ impl Character {
         .await?;
         Ok(result.character_id)
     }
+
+    pub async fn update(self) -> Result<(), Error> {
+        let pool = State::global()?.pool();
+        sqlx::query!(
+            "
+            UPDATE characters
+            SET 
+                name = $2,
+                mesh = $3,
+                avatar = $4,
+                hair_style = $5,
+                silver = $6,
+                current_class = $7,
+                map_id = $8,
+                x = $9, y = $10, 
+                virtue = $11,
+                strength = $12, 
+                agility = $13,
+                vitality = $14,
+                spirit = $15,
+                health_points = $16,
+                mana_points = $17
+            WHERE character_id = $1
+            ",
+            self.character_id,
+            self.name,
+            self.mesh,
+            self.avatar,
+            self.hair_style,
+            self.silver,
+            self.current_class,
+            self.map_id,
+            self.x,
+            self.y,
+            self.virtue,
+            self.strength,
+            self.agility,
+            self.vitality,
+            self.spirit,
+            self.health_points,
+            self.mana_points,
+        )
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
 }

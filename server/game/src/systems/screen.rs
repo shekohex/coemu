@@ -42,6 +42,7 @@ impl Screen {
         }
         drop(characters);
         self.characters.write().await.clear();
+        debug!("Screen is clean!");
         Ok(())
     }
 

@@ -109,5 +109,7 @@ Copyright 2020 Shady Khalifa (@shekohex)
             info!("Rpc Server is Suhtting Down..");
         }
     };
+    State::clean_up().await?;
+    info!("Shutdown.");
     Ok(())
 }

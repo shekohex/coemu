@@ -128,6 +128,7 @@ impl PacketProcess for MsgRegister {
         let map_id = character.map_id;
         let me = Character::new(actor.clone(), character);
         actor.set_character(me.clone()).await?;
+        state.characters().write().await.insert(me.id(), me.clone());
         // Set player map.
         state
             .maps()
