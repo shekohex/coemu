@@ -1,6 +1,5 @@
 use crate::{
     constants::{WALK_XCOORDS, WALK_YCOORDS},
-    entities::BaseEntity,
     systems::TileType,
     ActorState, Error,
 };
@@ -46,8 +45,8 @@ impl PacketProcess for MsgWalk {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let direction = (self.direction % 8) as usize;
-        let character = actor.character().await?;
-        let current_location = (character.x(), character.y());
+        let me = actor.character().await?;
+        let current_location = (me.x(), me.y());
         let offset = (
             (WALK_XCOORDS[direction] as u16),
             (WALK_YCOORDS[direction] as u16),
@@ -59,18 +58,13 @@ impl PacketProcess for MsgWalk {
         if (tile.access as u8 > TileType::Npc as u8) {
             // The packet is valid. Assign character data:
             // Send the movement back to the message server and client:
-            actor
-                .character()
-                .await?
-                .entity()
-                .set_x(x)
-                .set_y(y)
-                .set_direction(direction as u8);
+            me.set_x(x).set_y(y).set_direction(direction as u8);
+            me.set_elevation(tile.elevation);
             actor.send(self.clone()).await?;
             let myscreen = actor.screen().await?;
             myscreen.send_movement(self.clone()).await?;
         } else {
-            // TODO(@shekohex): teleport the client back to old position
+            me.kick_back().await?;
         }
         Ok(())
     }

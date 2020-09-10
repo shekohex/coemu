@@ -26,7 +26,9 @@ pub fn delta(p1: (u16, u16), p2: (u16, u16)) -> (u16, u16) {
 
 /// This function checks the elevation difference of two tiles.
 pub fn within_elevation(new: u16, initial: u16) -> bool {
-    new - initial <= MAX_DIFFERENCE_IN_ELEVATION
+    let new = new as i16;
+    let initial = initial as i16;
+    new - initial <= MAX_DIFFERENCE_IN_ELEVATION as i16
 }
 
 /// This function returns the angle for a jump or attack.

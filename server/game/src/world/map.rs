@@ -86,18 +86,14 @@ impl Map {
         &self,
         character: Character,
     ) -> Result<(), Error> {
+        let old_map = character.owner().map().await?;
+        // Remove the client from the previous map
+        old_map.remove_character(character.id()).await?;
+        drop(old_map);
+
         // if the map is not loaded in memory, load it.
         if !self.loaded().await {
             self.load().await?;
-        }
-        {
-            // Remove the client from the previous map
-            character
-                .owner()
-                .map()
-                .await?
-                .remove_character(character.id())
-                .await?;
         }
         // Add the player to the current map
         let added = self
@@ -120,10 +116,12 @@ impl Map {
     /// If the screen of the character still exists, it will remove the
     /// character from each observer's screen.
     pub async fn remove_character(&self, id: u32) -> Result<(), Error> {
-        if let Some(character) = self.characters.write().await.remove(&id) {
+        let mut characters = self.characters.write().await;
+        if let Some(character) = characters.remove(&id) {
             let screen = character.owner().screen().await?;
             screen.remove_from_observers().await?;
         }
+        drop(characters);
         // No One in this map?
         if self.characters.read().await.is_empty() {
             // Unload the map from the wrold.

@@ -192,7 +192,6 @@ impl PacketProcess for MsgAction {
                 let current_x = self.data2.lo();
                 let current_y = self.data2.hi();
                 let me = actor.character().await?;
-
                 // Starting to validate this jump.
                 if current_x != me.x() || current_y != me.y() {
                     debug!(
@@ -241,10 +240,12 @@ impl PacketProcess for MsgAction {
                     (me.x(), me.y()),
                     (new_x, new_y),
                 );
+                let tile = mymap.tile(new_x, new_y).await?;
                 me.set_x(new_x)
                     .set_y(new_y)
                     .set_direction(direction)
                     .set_action(100);
+                me.set_elevation(tile.elevation);
                 actor.send(self.clone()).await?;
                 let myscreen = actor.screen().await?;
                 myscreen.send_movement(self.clone()).await?;
@@ -257,6 +258,8 @@ impl PacketProcess for MsgAction {
                 // Starting to validate this jump.
                 if current_x != me.x() || current_y != me.y() {
                     // Kick Back.
+                    me.kick_back().await?;
+                    return Ok(());
                 }
 
                 me.set_direction(self.details as u8);

@@ -238,11 +238,16 @@ impl Floor {
         trace!("Can we save {}? {}", self.path.display(), can_save);
         if can_save {
             let mut buffer = BytesMut::new();
-            buffer.put_i32_le(self.boundaries.width);
-            buffer.put_i32_le(self.boundaries.height);
-            for c in &self.coordinates {
-                buffer.put_u8(c.access as u8);
-                buffer.put_u16_le(c.elevation);
+            let width = self.boundaries.width;
+            let height = self.boundaries.height;
+            buffer.put_i32_le(width);
+            buffer.put_i32_le(height);
+            for y in 0..height {
+                for x in 0..width {
+                    let tile = self[(x, y)];
+                    buffer.put_u8(tile.access as u8);
+                    buffer.put_u16_le(tile.elevation);
+                }
             }
             let data_path = PathBuf::from(env::var("DATA_LOCATION")?);
             let map_path = data_path.join("Maps").join(&self.path);

@@ -34,12 +34,13 @@ impl Screen {
     pub async fn clear(&self) -> Result<(), Error> {
         debug!("Clearing Screen..");
         let me = self.owner.character().await?;
-        for character in self.characters.read().await.values() {
+        let characters = self.characters.read().await;
+        for character in characters.values() {
             let observer = character.owner();
             let observer_screen = observer.screen().await?;
             observer_screen.remove_character(me.id()).await?;
-            self.remove_character(character.id()).await?;
         }
+        drop(characters);
         self.characters.write().await.clear();
         Ok(())
     }

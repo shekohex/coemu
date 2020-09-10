@@ -3,7 +3,7 @@ use crate::{
     entities::{BaseEntity, Entity, EntityTypeFlag},
     packets::{ActionType, MsgAction, MsgPlayer},
     utils::LoHi,
-    ActorState, Error,
+    ActorState, Error, State,
 };
 use async_trait::async_trait;
 use std::{
@@ -121,9 +121,12 @@ impl Character {
             self.direction() as u16,
             ActionType::Teleport,
         );
-        self.owner.send(msg).await?;
-        let mymap = self.owner.map().await?;
-        mymap.insert_character(self.clone()).await?;
+        let state = State::global()?;
+        if let Some(new_map) = state.maps().read().await.get(&map_id) {
+            new_map.insert_character(self.clone()).await?;
+            self.set_x(x).set_y(y).set_map_id(map_id);
+            self.owner.send(msg).await?;
+        }
         Ok(())
     }
 
