@@ -1,7 +1,7 @@
 use crate::{
     constants, db,
     entities::{BaseEntity, Entity, EntityTypeFlag},
-    packets::{ActionType, MsgAction, MsgPlayer},
+    packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel},
     utils::LoHi,
     ActorState, Error, State,
 };
@@ -13,7 +13,7 @@ use std::{
         Arc,
     },
 };
-use tq_network::Actor;
+use tq_network::{Actor, IntoErrorPacket};
 
 /// This struct encapsulates the game character for a player. The player
 /// controls the character as the protagonist of the Conquer Online storyline.
@@ -124,7 +124,14 @@ impl Character {
         let state = State::global()?;
         if let Some(new_map) = state.maps().read().await.get(&map_id) {
             new_map.insert_character(self.clone()).await?;
-            let tile = new_map.tile(x, y).await?;
+            let tile = new_map.tile(x, y).await.ok_or_else(|| {
+                MsgTalk::from_system(
+                    self.id(),
+                    TalkChannel::TopLeft,
+                    String::from("Invalid Location"),
+                )
+                .error_packet()
+            })?;
             self.set_x(x).set_y(y).set_map_id(map_id);
             self.set_elevation(tile.elevation);
             self.owner.send(msg).await?;

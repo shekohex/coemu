@@ -1,4 +1,4 @@
-use super::Character;
+use super::{Character, Portal};
 use crate::{
     db,
     entities::BaseEntity,
@@ -6,11 +6,16 @@ use crate::{
     Error,
 };
 use primitives::Point;
-use std::{collections::HashMap, ops::Deref, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Deref,
+    sync::Arc,
+};
 use tokio::sync::RwLock;
 use tracing::debug;
 
 type Characters = Arc<RwLock<HashMap<u32, Character>>>;
+type Portals = Arc<HashSet<Portal>>;
 
 /// This struct encapsulates map information from a compressed map and the
 /// database. It includes the identification of the map, pools and methods for
@@ -27,6 +32,8 @@ pub struct Map {
     revive_point: Arc<Point<u32>>,
     /// defines the map's coordinate tile grid.
     floor: Arc<RwLock<Floor>>,
+    /// Holds all Portals in that map.
+    portals: Portals,
 }
 
 impl Deref for Map {
@@ -36,7 +43,8 @@ impl Deref for Map {
 }
 
 impl Map {
-    pub fn new(inner: db::Map) -> Self {
+    pub fn new(inner: db::Map, portals: Vec<db::Portal>) -> Self {
+        let portals = portals.into_iter().map(Portal::new).collect();
         Self {
             floor: Arc::new(RwLock::new(Floor::new(inner.path.clone()))),
             characters: Arc::new(RwLock::new(HashMap::new())),
@@ -44,6 +52,7 @@ impl Map {
                 inner.revive_point_x as u32,
                 inner.revive_point_y as u32,
             )),
+            portals: Arc::new(portals),
             inner: Arc::new(inner),
         }
     }
@@ -52,9 +61,11 @@ impl Map {
 
     pub fn characters(&self) -> &Characters { &self.characters }
 
-    pub async fn tile(&self, x: u16, y: u16) -> Result<Tile, Error> {
+    pub fn portals(&self) -> &Portals { &self.portals }
+
+    pub async fn tile(&self, x: u16, y: u16) -> Option<Tile> {
         let floor = self.floor.read().await;
-        Ok(floor[(x as u32, y as u32)])
+        floor.tile(x, y)
     }
 
     // This method loads a compressed map from the server's flat file database.
@@ -82,13 +93,10 @@ impl Map {
     /// It does this by removing the player from the previous map, then
     /// adding it to the current map. As the character is added, its map,
     /// current tile, and current elevation are changed.
-    pub async fn insert_character(
-        &self,
-        character: Character,
-    ) -> Result<(), Error> {
-        let old_map = character.owner().map().await?;
+    pub async fn insert_character(&self, me: Character) -> Result<(), Error> {
+        let old_map = me.owner().map().await?;
         // Remove the client from the previous map
-        old_map.remove_character(character.id()).await?;
+        old_map.remove_character(me.id()).await?;
         drop(old_map);
 
         // if the map is not loaded in memory, load it.
@@ -96,19 +104,8 @@ impl Map {
             self.load().await?;
         }
         // Add the player to the current map
-        let added = self
-            .characters
-            .write()
-            .await
-            .insert(character.id(), character.clone())
-            .is_none();
-        character.owner().set_map(self.clone()).await?;
-        if added {
-            let floor = self.floor.read().await;
-            let tile = floor[(character.x() as u32, character.y() as u32)];
-            character.set_elevation(tile.elevation);
-            // TODO(shekohex): Send environment packets.
-        }
+        self.characters.write().await.insert(me.id(), me.clone());
+        me.owner().set_map(self.clone()).await?;
         Ok(())
     }
 

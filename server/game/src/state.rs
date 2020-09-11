@@ -106,7 +106,8 @@ impl State {
         let maps = db::Map::load_all().await?;
         debug!("Loaded #{} Map From Database", maps.len());
         for map in maps {
-            let map = Map::new(map);
+            let portals = db::Portal::by_map(map.map_id).await?;
+            let map = Map::new(map, portals);
             let mut maps = self.maps.write().await;
             maps.insert(map.id(), map);
         }

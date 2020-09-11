@@ -5,3 +5,6 @@ pub use character::Character;
 
 mod map;
 pub use map::Map;
+
+mod portal;
+pub use portal::Portal;

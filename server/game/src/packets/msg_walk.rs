@@ -6,7 +6,9 @@ use crate::{
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use tq_network::{Actor, PacketID, PacketProcess};
+use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
+
+use super::{MsgTalk, TalkChannel};
 
 #[derive(Debug, FromPrimitive, Copy, Clone)]
 #[repr(u8)]
@@ -54,7 +56,14 @@ impl PacketProcess for MsgWalk {
         let x = current_location.0.wrapping_add(offset.0);
         let y = current_location.1.wrapping_add(offset.1);
         let map = actor.map().await?;
-        let tile = map.tile(x, y).await?;
+        let tile = map.tile(x, y).await.ok_or_else(|| {
+            MsgTalk::from_system(
+                me.id(),
+                TalkChannel::TopLeft,
+                String::from("Invalid Location"),
+            )
+            .error_packet()
+        })?;
         if (tile.access as u8 > TileType::Npc as u8) {
             // The packet is valid. Assign character data:
             // Send the movement back to the message server and client:

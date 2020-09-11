@@ -63,3 +63,15 @@ pub fn get_direction_sector(p1: (u16, u16), p2: (u16, u16)) -> u8 {
         direction
     }
 }
+
+/// Check if a Point (px, py) lies inside a circle (x, y, r)
+pub fn in_circle(
+    (center_x, center_y, r): (u16, u16, u16),
+    (px, py): (u16, u16),
+) -> bool {
+    let (center_x, center_y, r) = (center_x as f64, center_y as f64, r as f64);
+    let (px, py) = (px as f64, py as f64);
+    let dist_points = (px - center_x).powi(2) + (py - center_y).powi(2);
+    let r2 = r.powi(2);
+    dist_points < r2
+}

@@ -3,7 +3,7 @@ use crate::{utils, ActorState, Error};
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use tq_network::{Actor, PacketID, PacketProcess};
+use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use tracing::{debug, warn};
 use utils::LoHi;
 #[derive(Debug, FromPrimitive)]
@@ -219,7 +219,14 @@ impl MsgAction {
 
         let direction =
             tq_math::get_direction_sector((me.x(), me.y()), (new_x, new_y));
-        let tile = mymap.tile(new_x, new_y).await?;
+        let tile = mymap.tile(new_x, new_y).await.ok_or_else(|| {
+            MsgTalk::from_system(
+                me.id(),
+                TalkChannel::TopLeft,
+                String::from("Invalid Location"),
+            )
+            .error_packet()
+        })?;
         me.set_x(new_x)
             .set_y(new_y)
             .set_direction(direction)
@@ -286,8 +293,18 @@ impl MsgAction {
             return Ok(());
         }
         dbg!(portal_x, portal_y);
-        // TODO teleport to the next map.
-        me.teleport(me.map_id(), (me.prev_x(), me.prev_y())).await?;
+        let mymap = actor.map().await?;
+        let maybe_portal = mymap.portals().iter().find(|p| {
+            tq_math::in_circle((me.x(), me.y(), 15), (p.from_x(), p.from_y()))
+        });
+        if let Some(portal) = maybe_portal {
+            dbg!(portal);
+            me.teleport(portal.to_map_id(), (portal.to_x(), portal.to_y()))
+                .await?;
+        } else {
+            // TODO
+            me.teleport(me.map_id(), (me.prev_x(), me.prev_y())).await?;
+        }
         Ok(())
     }
 }

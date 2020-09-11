@@ -41,6 +41,11 @@ impl Floor {
 
     pub fn loaded(&self) -> bool { self.loaded }
 
+    pub fn tile(&self, x: u16, y: u16) -> Option<Tile> {
+        let i = (x as i32 * self.boundaries.width) + y as i32;
+        self.coordinates.get(i as usize).cloned()
+    }
+
     /// This method loads a compressed map from the server's flat file database.
     /// If the file does not exist, the server will make an attempt to find
     /// and convert a dmap version of the map into a compressed map file.
