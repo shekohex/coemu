@@ -28,4 +28,22 @@ impl Portal {
         }
         Ok(portals)
     }
+
+    pub async fn fix(&self, x: u16, y: u16) -> Result<(), Error> {
+        let pool = State::global()?.pool();
+        sqlx::query!(
+            "UPDATE portals
+            SET 
+                to_x = $1, to_y = $2
+            WHERE
+                from_map_id = $3 AND to_map_id = $4",
+            x as i16,
+            y as i16,
+            self.from_map_id,
+            self.to_map_id
+        )
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
 }

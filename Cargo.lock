@@ -25,6 +25,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b602bfe940d21c130f3895acd65221e8a61270debe89d628b9cb4e3ccb8569b"
+
+[[package]]
 name = "arc-swap"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1189,6 +1195,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "runestick"
+version = "0.6.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f45fc56d81f3c53ff3ae3120b8ff588019ed75caa3349dafc741145dc66ddf84"
+dependencies = [
+ "anyhow",
+ "futures",
+ "hashbrown",
+ "itoa",
+ "log",
+ "pin-project",
+ "ryu",
+ "serde",
+ "thiserror",
+ "twox-hash",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1209,6 +1233,15 @@ name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
+
+[[package]]
+name = "scripting-modules"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "runestick",
+ "tokio",
+]
 
 [[package]]
 name = "security-framework"
@@ -1662,6 +1695,15 @@ dependencies = [
  "smallvec",
  "thread_local",
  "tracing-core",
+]
+
+[[package]]
+name = "twox-hash"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bfd5b7557925ce778ff9b9ef90e3ade34c524b5ff10e239c69a42d546d2af56"
+dependencies = [
+ "rand",
 ]
 
 [[package]]

@@ -6,6 +6,7 @@ members = [
   "server/*",
   # Utils
   "macros/*",
+  "scripting/*",
   # Cli Tools
   "tools/*",
 ]

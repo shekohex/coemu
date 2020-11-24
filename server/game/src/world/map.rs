@@ -5,6 +5,7 @@ use crate::{
     systems::{Floor, Tile},
     Error,
 };
+use num_enum::FromPrimitive;
 use primitives::Point;
 use std::{
     collections::{HashMap, HashSet},
@@ -154,10 +155,12 @@ impl Map {
     }
 }
 
-#[derive(Debug)]
-#[repr(u16)]
+#[derive(Debug, FromPrimitive)]
+#[repr(u32)]
 #[allow(unused)]
 pub enum Maps {
+    #[num_enum(default)]
+    Unknwon = 0,
     Desert = 1000,
     Newplain = 1002,
     Mine01 = 1003,

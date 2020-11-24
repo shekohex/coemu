@@ -1,9 +1,15 @@
 use crate::{db, utils::LoHi};
-use std::{hash::Hash, sync::Arc};
+use std::{hash::Hash, ops::Deref, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct Portal {
     inner: Arc<db::Portal>,
+}
+
+impl Deref for Portal {
+    type Target = db::Portal;
+
+    fn deref(&self) -> &Self::Target { &self.inner }
 }
 
 impl Portal {

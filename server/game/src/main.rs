@@ -60,7 +60,7 @@ pub enum RpcHandler {
     MsgTransfer,
 }
 
-#[tokio::main(core_threads = 8)]
+#[tokio::main(core_threads = 1)]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv()?;
     tracing_subscriber::fmt::init();

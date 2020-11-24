@@ -295,14 +295,12 @@ impl MsgAction {
         dbg!(portal_x, portal_y);
         let mymap = actor.map().await?;
         let maybe_portal = mymap.portals().iter().find(|p| {
-            tq_math::in_circle((me.x(), me.y(), 15), (p.from_x(), p.from_y()))
+            tq_math::in_circle((me.x(), me.y(), 5), (p.from_x(), p.from_y()))
         });
         if let Some(portal) = maybe_portal {
-            dbg!(portal);
             me.teleport(portal.to_map_id(), (portal.to_x(), portal.to_y()))
                 .await?;
         } else {
-            // TODO
             me.teleport(me.map_id(), (me.prev_x(), me.prev_y())).await?;
         }
         Ok(())
