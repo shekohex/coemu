@@ -1,9 +1,8 @@
-#![feature(try_trait, backtrace)]
-pub use async_trait::async_trait;
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
 use std::error::Error as StdError;
 
+pub use async_trait::async_trait;
 pub use derive_packethandler::PacketHandler;
 pub use derive_packetid::PacketID;
 pub use tq_codec::TQCodec;
@@ -95,7 +94,9 @@ where
 }
 
 impl PacketID for () {
-    fn id() -> u16 { 0 }
+    fn id() -> u16 {
+        0
+    }
 }
 
 pub struct ErrorPacket<T: PacketEncode>(pub T);
@@ -108,12 +109,16 @@ impl<T> IntoErrorPacket<T> for T
 where
     T: PacketEncode,
 {
-    fn error_packet(self) -> ErrorPacket<T> { ErrorPacket(self) }
+    fn error_packet(self) -> ErrorPacket<T> {
+        ErrorPacket(self)
+    }
 }
 
 impl<T> From<T> for ErrorPacket<T>
 where
     T: PacketEncode,
 {
-    fn from(v: T) -> Self { Self(v) }
+    fn from(v: T) -> Self {
+        Self(v)
+    }
 }

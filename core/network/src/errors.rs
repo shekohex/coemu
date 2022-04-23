@@ -1,4 +1,3 @@
-use std::{backtrace::Backtrace, option::NoneError};
 use thiserror::Error;
 use tokio::sync::mpsc::error::SendError;
 
@@ -14,23 +13,10 @@ pub enum Error {
     IO(#[from] std::io::Error),
     #[error("{}", _0)]
     Other(String),
-    #[error("NullError")]
-    NullError {
-        e: NoneError,
-        #[backtrace]
-        backtrace: Backtrace,
-    },
 }
 
 impl<T> From<SendError<T>> for Error {
-    fn from(_: SendError<T>) -> Self { Self::SendError }
-}
-
-impl From<NoneError> for Error {
-    fn from(e: NoneError) -> Self {
-        Error::NullError {
-            e,
-            backtrace: Backtrace::capture(),
-        }
+    fn from(_: SendError<T>) -> Self {
+        Self::SendError
     }
 }

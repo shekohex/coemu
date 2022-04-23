@@ -68,28 +68,21 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
 }
 
 fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
-    let vars: Vec<_> = e
-        .variants
-        .into_iter()
-        .filter(|v| v.fields.is_empty())
-        .collect();
-    let arms = vars.into_iter().map(|v| {
+    let vars = e.variants.into_iter().filter(|v| v.fields.is_empty());
+    let if_stms = vars.into_iter().map(|v| {
         let ident = v.ident;
         quote! {
-            _ if id == #ident::id() => {
+            if id == #ident::id() {
                 let msg = <#ident as tq_network::PacketDecode>::decode(&bytes)?;
                 tracing::debug!("{:?}", msg);
                 msg.process(actor).await?;
-            },
+                return Ok(());
+            }
         }
     });
     let tokens = quote! {
-        match id {
-            #(#arms)*
-            _ => {
-                tracing::warn!("Got Unknown Packet, id = {}", id);
-            }
-        };
+            #(#if_stms)*
+            tracing::warn!(%id, "Got Unknown Packet");
     };
     Ok(tokens)
 }

@@ -3,10 +3,9 @@ members = [
   # Core Libs
   "core/*",
   # Servers
-  "server/*",
+  # "server/*",
   # Utils
   "macros/*",
-  "scripting/*",
   # Cli Tools
   "tools/*",
 ]

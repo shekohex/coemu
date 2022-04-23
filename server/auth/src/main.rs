@@ -5,7 +5,6 @@
 //! will be transferred to the message server of their choice.
 
 use tq_network::{PacketHandler, Server, TQCipher};
-use tracing::info;
 
 mod errors;
 use errors::Error;
@@ -24,12 +23,12 @@ struct AuthServer;
 impl Server for AuthServer {
     type ActorState = ();
     type Cipher = TQCipher;
-    type PacketHandler = Handler;
+    type PacketHandler = AuthServerHandler;
 }
 
 #[derive(Debug, PacketHandler)]
 #[handle(state = ())]
-pub enum Handler {
+pub enum AuthServerHandler {
     MsgAccount,
     MsgConnect,
 }
@@ -48,27 +47,27 @@ async fn main() -> Result<(), Error> {
  \____/ \___/ \____/|_| |_| |_| \__,_|
                                       
                                        
-Copyright 2020 Shady Khalifa (@shekohex)
+Copyright 2020-2022 Shady Khalifa (@shekohex)
      All Rights Reserved.
  "#
     );
-    info!("Starting Auth Server");
-    info!("Initializing server...");
+    tracing::info!("Starting Auth Server");
+    tracing::info!("Initializing server...");
     let auth_port = env::var("AUTH_PORT")?;
     let ctrlc = tokio::signal::ctrl_c();
     let server = AuthServer::run(format!("0.0.0.0:{}", auth_port));
 
-    info!("Initializing State ..");
+    tracing::info!("Initializing State ..");
     State::init().await?;
 
-    info!("Auth Server will be available on {}", auth_port);
+    tracing::info!("Auth Server will be available on {auth_port}");
 
     tokio::select! {
         _ = ctrlc => {
-            info!("Got Ctrl+C Signal!");
+            tracing::info!("Got Ctrl+C Signal!");
         }
         _ = server => {
-            info!("Server Is Shutting Down..");
+            tracing::info!("Server Is Shutting Down..");
         }
     };
     Ok(())

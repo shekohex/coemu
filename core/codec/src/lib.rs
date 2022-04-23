@@ -1,7 +1,7 @@
 //! crate that contians a [`TQCodec`] that wraps any [`AsyncRead`] +
 //! [`AsyncWrite`] and Outputs a Stream-like [`TQDecoder`] of `(u16, Bytes)`
-//! where the `u16`{ title: (), ascii: (), width: (), group: (), chunk: ()}s the
-//! PacketID and Bytes is the Body of the Packet. It also implements Sink-like
+//! where the `u16`s the are the PacketID and Bytes is the Body of the Packet.
+//! It also implements Sink-like
 //! [`TQEncoder`] where you could write `(u16, Bytes)` to it.
 //!
 //! Basiclly, Client Packets are length-prefixed bytes, where the First 2
@@ -27,15 +27,12 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::{
-    io::{
-        split, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf,
-        WriteHalf,
-    },
-    stream::Stream,
+use tokio::io::{
+    split, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf,
+    WriteHalf,
 };
+use tokio_stream::Stream;
 use tq_crypto::Cipher;
-use tracing::{instrument, trace, warn};
 
 /// A simple State Machine for Decoding the Stream.
 #[derive(Debug, Clone, Copy)]
@@ -89,12 +86,12 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
         }
     }
 
-    #[instrument(skip(self))]
+    #[tracing::instrument(skip(self))]
     fn decode_head(&mut self) -> io::Result<Option<(usize, u16)>> {
-        trace!("buf len {} bytes", self.buf.len());
+        tracing::trace!(buf_len = %self.buf.len(), "buffer bytes");
         if self.buf.len() < 4 {
             // Not enough data
-            trace!("no enough data");
+            tracing::trace!("no enough data");
             return Ok(None);
         }
         let (n, packet_type) = {
@@ -108,9 +105,9 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
             let n = len.as_ref().get_u16_le();
             // get type
             let packet_id = ty.as_ref().get_u16_le();
-            trace!("len {}, id {}", n, packet_id);
+            tracing::trace!(%n, %packet_id, "decoded head");
             if n > 2048 {
-                trace!("Frame too big!");
+                tracing::warn!(%n, %packet_id, "Frame too big!");
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "Frame Too Big",
@@ -127,22 +124,26 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
         Ok(Some((n - 4, packet_type)))
     }
 
-    #[instrument(skip(self))]
+    #[tracing::instrument(skip(self))]
     fn decode_data(&mut self, n: usize) -> io::Result<Option<BytesMut>> {
-        trace!("buf len {}, len {}", self.buf.len(), n);
+        tracing::trace!(
+            data_len = %n,
+            current_buf_len = %self.buf.len(),
+            "decoding data"
+        );
+
         // At this point, the buffer has already had the required capacity
         // reserved. All there is to do is read.
 
         if self.buf.len() < n {
-            trace!("Buffer too small");
+            tracing::trace!("Buffer too small, skipping");
             return Ok(None);
         }
         let buf = &mut self.buf.split_to(n);
         let mut data = BytesMut::with_capacity(n);
         data.resize(n, 0);
         // Decrypt the data
-        trace!("Decrypt Buffer");
-        self.cipher.decrypt(&buf, &mut data);
+        self.cipher.decrypt(buf, &mut data);
         Ok(Some(data))
     }
 }
@@ -160,28 +161,25 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
     /// Send Item to the Underlaying Socket.
     ///
     /// Items (u16, Bytes) got Encoded and Encrypted and sent to socket.
-    #[instrument(skip(self, item))]
+    #[tracing::instrument(skip(self, item))]
     pub async fn send(&mut self, item: (u16, Bytes)) -> Result<(), io::Error> {
-        trace!("Encoding Packet ({})", item.0);
         let buf = self.encode_data(item.0, item.1)?;
-        trace!("Packet ({}) Encoded", item.0);
         self.buffer(&buf);
-        trace!("Packet ({}) Buffered", item.0);
         self.flush().await?;
-        trace!("Packet ({}) Flushed", item.0);
         Ok(())
     }
 
     /// Close The Socket .. No More IO.
-    #[instrument(skip(self))]
+    #[tracing::instrument(skip(self))]
     pub async fn close(&mut self) -> Result<(), io::Error> {
-        trace!("Sutting down socket");
+        tracing::trace!("Sutting down socket");
         self.wrt.shutdown().await?;
         Ok(())
     }
 
-    #[instrument(skip(self, body))]
+    #[tracing::instrument(skip(self, body))]
     fn encode_data(&self, packet_id: u16, body: Bytes) -> io::Result<Bytes> {
+        tracing::trace!(%packet_id, "encoding packet");
         let n = body.len() + 4;
         let mut result = BytesMut::with_capacity(n);
         result.put_u16_le(n as u16); // packet length (0) -> (2)
@@ -192,16 +190,13 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
             title: false,
             ..Default::default()
         };
-        trace!(
-            "\nServer -> Client ID({}) Length({})\n{:?}",
-            packet_id,
-            n,
+        tracing::trace!(
+            "\nServer -> Client ID({packet_id}) Length({n})\n{:?}",
             full_packet.as_ref().hex_conf(config)
         );
         let mut encrypted_data = BytesMut::with_capacity(n);
         encrypted_data.resize(n, 0);
         // encrypt data
-        trace!("Encrypt data");
         self.cipher.encrypt(&full_packet, &mut encrypted_data);
         Ok(encrypted_data.freeze())
     }
@@ -210,7 +205,7 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
     ///
     /// This writes the packet to an internal buffer. Calls to `flush` will
     /// attempt to flush this buffer to the socket.
-    #[instrument(skip(self, buf))]
+    #[tracing::instrument(skip(self, buf))]
     fn buffer(&mut self, buf: &[u8]) {
         // Ensure the buffer has capacity. Ideally this would not be unbounded,
         // but to keep the example simple, we will not limit this.
@@ -220,21 +215,23 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
         //
         // The `put` function is from the `BufMut` trait.
         self.buf.put(buf);
-        trace!("{} bytes got buffered and ready to be sent", buf.len());
+        tracing::trace!(
+            buf_len = %buf.len(),
+            "bytes got buffered and ready to be sent",
+        );
     }
 
     /// Flush the write buffer to the socket
-    #[instrument(skip(self))]
+    #[tracing::instrument(skip(self))]
     async fn flush(&mut self) -> Result<(), io::Error> {
-        trace!("flushing data into stream");
+        tracing::trace!("flushing data into stream");
         // As long as there is buffered data to write, try to write it.
         let n = self.buf.len();
         while self.buf.has_remaining() {
             let n = self.wrt.write_buf(&mut self.buf).await?;
-            trace!("written {} bytes", n);
+            tracing::trace!("written {} bytes", n);
         }
         self.wrt.flush().await?;
-        trace!("flushed {} bytes", n);
         Ok(())
     }
 }
@@ -246,7 +243,9 @@ pub struct TQCodec<S: AsyncRead + AsyncWrite, C: Cipher + Clone> {
 }
 
 impl<S: AsyncRead + AsyncWrite, C: Cipher + Clone> TQCodec<S, C> {
-    pub fn new(stream: S, cipher: C) -> Self { Self { stream, cipher } }
+    pub fn new(stream: S, cipher: C) -> Self {
+        Self { stream, cipher }
+    }
 
     pub fn split(self) -> (TQEncoder<S, C>, TQDecoder<S, C>) {
         let (rdr, wrt) = split(self.stream);
@@ -278,7 +277,7 @@ where
     ) -> Poll<Option<Self::Item>> {
         // First, read any new data that might have been received off the socket
         let sock_closed = self.fill_read_buf(cx)?.is_ready();
-        trace!("Socket Close? {}", sock_closed);
+        tracing::trace!("Socket Close? {}", sock_closed);
         let (n, packet_id) = match self.state {
             DecodeState::Head => match self.decode_head()? {
                 Some((n, packet_id)) => {
@@ -303,10 +302,9 @@ where
                 title: false,
                 ..Default::default()
             };
-            trace!(
-                "\nClient -> Server ID({}) Length({})\n{:?}",
-                packet_id,
-                n + 4,
+            let packet_len = n + 4;
+            tracing::trace!(
+                "\nClient -> Server ID({packet_id}) Length({packet_len})\n{:?}",
                 data.as_ref().hex_conf(config)
             );
             // Update the decode state
@@ -316,7 +314,7 @@ where
         }
 
         if sock_closed {
-            warn!("Socket Closed, end of stream!");
+            tracing::warn!("Socket Closed, end of stream!");
             Poll::Ready(None)
         } else {
             Poll::Pending

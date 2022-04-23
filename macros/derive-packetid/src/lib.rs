@@ -7,7 +7,6 @@ use syn::{
 
 #[derive(Debug)]
 struct Args {
-    ident: String,
     id: LitInt,
 }
 
@@ -28,10 +27,7 @@ impl Parse for Args {
             let e = syn::Error::new(ident.span(), "Expected u16");
             return Err(e);
         };
-        let args = Self {
-            ident: ident.to_string(),
-            id,
-        };
+        let args = Self { id };
         Ok(args)
     }
 }

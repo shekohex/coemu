@@ -81,7 +81,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         let val_encoded =
-            ASCII.encode(&v, EncoderTrap::Ignore).expect("Never Panic!");
+            ASCII.encode(v, EncoderTrap::Ignore).expect("Never Panic!");
         self.serialize_bytes(&val_encoded)?;
         Ok(())
     }
@@ -92,7 +92,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(())
     }
 
-    fn serialize_none(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 
     fn serialize_some<T: Serialize + ?Sized>(
         self,
@@ -101,7 +103,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         value.serialize(self)
     }
 
-    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 
     fn serialize_unit_struct(
         self,
@@ -209,7 +213,9 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 }
 
 impl<'a> ser::SerializeStruct for &'a mut Serializer {
@@ -224,7 +230,9 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 }
 
 impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
@@ -239,7 +247,9 @@ impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 }
 
 /// Serialize `T` into `BytesMut`.

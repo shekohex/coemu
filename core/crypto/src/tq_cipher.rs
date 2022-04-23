@@ -12,6 +12,7 @@
 //! [3]: https://www.forum.darkfoxdeveloper.com/conquerwiki/doku.php?id=conqueronlineserverasymmetriccipher
 use crate::Cipher;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use once_cell::sync::OnceCell;
 use std::{
     fmt,
     sync::{
@@ -19,7 +20,6 @@ use std::{
         Arc, Mutex,
     },
 };
-
 const K: usize = 256;
 
 const KEY1: [u8; K] = [
@@ -84,8 +84,8 @@ const KEY2: [u8; K] = [
 /// use, otherwise.
 #[derive(Clone)]
 pub struct TQCipher {
-    key3: Arc<Mutex<BytesMut>>,
-    key4: Arc<Mutex<BytesMut>>,
+    key3: Arc<OnceCell<Bytes>>,
+    key4: Arc<OnceCell<Bytes>>,
     use_alt_key: Arc<AtomicBool>,
     decrypt_counter: Arc<AtomicI64>,
     encrypt_counter: Arc<AtomicI64>,
@@ -100,8 +100,8 @@ impl TQCipher {
     /// writes.
     pub fn new() -> Self {
         TQCipher {
-            key3: Arc::new(Mutex::new(BytesMut::with_capacity(K))),
-            key4: Arc::new(Mutex::new(BytesMut::with_capacity(K))),
+            key3: Arc::new(OnceCell::new()),
+            key4: Arc::new(OnceCell::new()),
             use_alt_key: Arc::new(AtomicBool::new(false)),
             decrypt_counter: Arc::new(AtomicI64::new(0)),
             encrypt_counter: Arc::new(AtomicI64::new(0)),
@@ -120,7 +120,9 @@ impl fmt::Debug for TQCipher {
 }
 
 impl Default for TQCipher {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Cipher for TQCipher {
@@ -134,14 +136,20 @@ impl Cipher for TQCipher {
         const C: usize = K / 4;
         let mut key1 = Bytes::from_static(&KEY1);
         let mut key2 = Bytes::from_static(&KEY2);
-        let mut key3 = self.key3.lock().expect("Key3 Lock Error!");
-        let mut key4 = self.key4.lock().expect("Key4 Lock Error!");
+        let mut key3 = BytesMut::with_capacity(C);
+        let mut key4 = BytesMut::with_capacity(C);
         for _ in 0..C {
             let k1 = key1.get_u32_le();
             let k2 = key2.get_u32_le();
             key3.put_u32_le(tmp1 ^ k1);
             key4.put_u32_le(tmp2 ^ k2);
         }
+        self.key3
+            .set(key3.freeze())
+            .expect("Keys already generated once!");
+        self.key4
+            .set(key4.freeze())
+            .expect("Keys already generated once!");
         self.encrypt_counter.store(0, Ordering::Relaxed);
         self.use_alt_key.store(true, Ordering::Relaxed);
     }
@@ -152,8 +160,8 @@ impl Cipher for TQCipher {
     #[inline(always)]
     fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
         assert_eq!(src.len(), dst.len());
-        let key3 = self.key3.lock().expect("Key3 Lock Error!");
-        let key4 = self.key4.lock().expect("Key4 Lock Error!");
+        let key3 = self.key3.get().expect("Keys not generated!");
+        let key4 = self.key4.get().expect("Keys not generated!");
         for i in 0..src.len() {
             dst[i] = src[i] ^ 0xAB;
             dst[i] = dst[i] << 4 | dst[i] >> 4;
