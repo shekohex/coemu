@@ -30,13 +30,13 @@ jobs:
       - name: Run cargo build
         uses: actions-rs/cargo@v1
         env:
-          SQLX_OFFLINE: true
+          DATABASE_URL: file::memory:?cache=shared
         with:
           command: build
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         env:
-          SQLX_OFFLINE: true
+          DATA_URL: file::memory:?cache=shared
         with:
           command: test
