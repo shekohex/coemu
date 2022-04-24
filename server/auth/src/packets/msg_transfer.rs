@@ -1,7 +1,8 @@
 use super::{AccountCredentials, RejectionCode};
 use crate::{db, Error};
 use serde::{Deserialize, Serialize};
-use tokio::{net::TcpStream, stream::StreamExt};
+use tokio::net::TcpStream;
+use tokio_stream::StreamExt;
 use tq_network::{
     Actor, IntoErrorPacket, NopCipher, PacketDecode, PacketEncode, PacketID,
     TQCodec,
@@ -38,12 +39,9 @@ impl MsgTransfer {
             },
         };
         // Try to connect to that realm first.
-        let stream = TcpStream::connect(format!(
-            "{}:{}",
-            realm.rpc_ip_address.ip(),
-            realm.rpc_port
-        ))
-        .await;
+        let ip = realm.rpc_ip_address.as_str();
+        let port = realm.rpc_port;
+        let stream = TcpStream::connect(format!("{ip}:{port}")).await;
         let stream = match stream {
             Ok(s) => s,
             Err(e) => {
@@ -84,7 +82,7 @@ impl MsgTransfer {
         Ok(AccountCredentials {
             token: res.token,
             code: res.code,
-            server_ip: realm.game_ip_address.ip().to_string(),
+            server_ip: realm.game_ip_address,
             server_port: realm.game_port as u32,
         })
     }

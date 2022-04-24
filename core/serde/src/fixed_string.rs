@@ -1,8 +1,10 @@
 //! A Fixed Length String, used in Binary Packets
 use core::fmt;
-use encoding::{all::ASCII, DecoderTrap, EncoderTrap, Encoding};
+use encoding::all::ASCII;
+use encoding::{DecoderTrap, EncoderTrap, Encoding};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{marker::PhantomData, ops::Deref};
+use std::marker::PhantomData;
+use std::ops::Deref;
 use tq_crypto::{Cipher, TQRC5};
 
 /// A Marker Trait for a Fixed Length String.

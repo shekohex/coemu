@@ -2,7 +2,8 @@
 
 use crate::TQSerdeError;
 use bytes::Buf;
-use encoding::{all::ASCII, DecoderTrap, Encoding};
+use encoding::all::ASCII;
+use encoding::{DecoderTrap, Encoding};
 use serde::de::{self, Deserialize, DeserializeSeed, SeqAccess, Visitor};
 use std::io::Cursor;
 

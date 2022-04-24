@@ -7,7 +7,6 @@
 
 use async_trait::async_trait;
 use tq_network::{NopCipher, PacketHandler, Server, TQCipher};
-use tracing::info;
 
 mod constants;
 mod db;
@@ -60,10 +59,13 @@ pub enum RpcHandler {
     MsgTransfer,
 }
 
-#[tokio::main(core_threads = 1)]
+#[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv()?;
-    tracing_subscriber::fmt::init();
+    let log_verbosity = env::var("LOG_VERBOSITY")
+        .map(|s| s.parse::<i32>().unwrap_or(2))
+        .unwrap_or(2);
+    setup_logger(log_verbosity)?;
     println!(
         r#"
  _____         _____                  
@@ -78,8 +80,8 @@ Copyright 2020 Shady Khalifa (@shekohex)
      All Rights Reserved.
  "#
     );
-    info!("Starting Game Server");
-    info!("Initializing server...");
+    tracing::info!("Starting Game Server");
+    tracing::info!("Initializing server...");
 
     let game_port = env::var("GAME_PORT")?;
     let rpc_port = env::var("GAME_RPC_PORT")?;
@@ -92,24 +94,45 @@ Copyright 2020 Shady Khalifa (@shekohex)
     let rpc_server = RpcServer::run(format!("0.0.0.0:{}", rpc_port));
     let rpc_server = tokio::spawn(rpc_server);
 
-    info!("Initializing State ..");
+    tracing::info!("Initializing State ..");
     State::init().await?;
 
-    info!("Game Server will be available on {}", game_port);
-    info!("RPC Server will be available on {}", rpc_port);
+    tracing::info!("Game Server will be available on {}", game_port);
+    tracing::info!("RPC Server will be available on {}", rpc_port);
 
     tokio::select! {
         _ = ctrlc => {
-            info!("Got Ctrl+C Signal!");
+            tracing::info!("Got Ctrl+C Signal!");
         }
         _ = server => {
-            info!("Server Is Shutting Down..");
+            tracing::info!("Server Is Shutting Down..");
         }
         _ = rpc_server => {
-            info!("Rpc Server is Suhtting Down..");
+            tracing::info!("Rpc Server is Suhtting Down..");
         }
     };
     State::clean_up().await?;
-    info!("Shutdown.");
+    tracing::info!("Shutdown.");
+    Ok(())
+}
+
+fn setup_logger(verbosity: i32) -> Result<(), Error> {
+    use tracing::Level;
+    let log_level = match verbosity {
+        0 => Level::ERROR,
+        1 => Level::WARN,
+        2 => Level::INFO,
+        3 => Level::DEBUG,
+        _ => Level::TRACE,
+    };
+
+    let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+        .add_directive(format!("game_server={}", log_level).parse().unwrap());
+    let logger = tracing_subscriber::fmt()
+        .pretty()
+        .with_target(true)
+        .with_max_level(log_level)
+        .with_env_filter(env_filter);
+    logger.init();
     Ok(())
 }

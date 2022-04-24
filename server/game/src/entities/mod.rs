@@ -2,10 +2,8 @@ use crate::{ActorState, Error};
 use async_trait::async_trait;
 use bitflags::bitflags;
 use primitives::AtomicLocation;
-use std::sync::{
-    atomic::{AtomicU16, AtomicU32, AtomicU64, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicU16, AtomicU32, AtomicU64, Ordering};
+use std::sync::Arc;
 use tq_network::Actor;
 mod floor_item;
 pub use floor_item::{FloorItem, Item};
@@ -119,14 +117,14 @@ impl Entity {
 
     pub fn set_flags(&self, flags: Flags) -> &Self {
         self.flags.store(flags.bits, Ordering::Relaxed);
-        &self
+        self
     }
 
     pub fn mesh(&self) -> u32 { self.mesh.load(Ordering::Relaxed) }
 
     pub fn set_mesh(&self, value: u32) -> &Self {
         self.mesh.store(value, Ordering::Relaxed);
-        &self
+        self
     }
 
     pub fn map_id(&self) -> u32 { self.map_id.load(Ordering::Relaxed) }
@@ -135,7 +133,7 @@ impl Entity {
         let prev_map_id = self.map_id();
         self.prev_map_id.store(prev_map_id, Ordering::Relaxed);
         self.map_id.store(value, Ordering::Relaxed);
-        &self
+        self
     }
 
     pub fn x(&self) -> u16 { self.location.x.load(Ordering::Relaxed) }
@@ -144,7 +142,7 @@ impl Entity {
         let x = self.x();
         self.prev_location.x.store(x, Ordering::Relaxed);
         self.location.x.store(value, Ordering::Relaxed);
-        &self
+        self
     }
 
     pub fn y(&self) -> u16 { self.location.y.load(Ordering::Relaxed) }
@@ -153,7 +151,7 @@ impl Entity {
         let y = self.y();
         self.prev_location.y.store(y, Ordering::Relaxed);
         self.location.y.store(value, Ordering::Relaxed);
-        &self
+        self
     }
 
     pub fn direction(&self) -> u8 {
@@ -166,21 +164,21 @@ impl Entity {
             .direction
             .store(direction, Ordering::Relaxed);
         self.location.direction.store(value, Ordering::Relaxed);
-        &self
+        self
     }
 
     pub fn level(&self) -> u16 { self.level.load(Ordering::Relaxed) }
 
     pub fn set_level(&self, value: u16) -> &Self {
         self.level.store(value, Ordering::Relaxed);
-        &self
+        self
     }
 
     pub fn action(&self) -> u16 { self.action.load(Ordering::Relaxed) }
 
     pub fn set_action(&self, action: u16) -> &Self {
         self.action.store(action, Ordering::Relaxed);
-        &self
+        self
     }
 
     pub fn prev_map_id(&self) -> u32 {

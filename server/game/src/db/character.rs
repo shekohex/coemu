@@ -1,12 +1,11 @@
 use crate::{Error, State};
-use chrono::{DateTime, Utc};
 
 /// This struct encapsulates the game character for a player. The player
 /// controls the character as the protagonist of the Conquer Online storyline.
 /// The character is the persona of the player who controls it. The persona can
 /// be altered using different avatars, hairstyles, and body types. The player
 /// also controls the character's professions and abilities.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Character {
     pub character_id: i32,
     pub account_id: i32,
@@ -34,44 +33,9 @@ pub struct Character {
     pub health_points: i16,
     pub mana_points: i16,
     pub kill_points: i16,
-    pub created_at: DateTime<Utc>,
 }
 
-impl Default for Character {
-    fn default() -> Self {
-        Self {
-            character_id: Default::default(),
-            account_id: Default::default(),
-            realm_id: Default::default(),
-            name: Default::default(),
-            mesh: Default::default(),
-            avatar: Default::default(),
-            hair_style: Default::default(),
-            silver: Default::default(),
-            cps: Default::default(),
-            current_class: Default::default(),
-            previous_class: Default::default(),
-            rebirths: Default::default(),
-            level: Default::default(),
-            experience: Default::default(),
-            map_id: Default::default(),
-            x: Default::default(),
-            y: Default::default(),
-            virtue: Default::default(),
-            strength: Default::default(),
-            agility: Default::default(),
-            vitality: Default::default(),
-            spirit: Default::default(),
-            attribute_points: Default::default(),
-            health_points: Default::default(),
-            mana_points: Default::default(),
-            kill_points: Default::default(),
-            created_at: Utc::now(),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct Location {
     pub map_id: i32,
     pub x: i16,
@@ -81,11 +45,10 @@ pub struct Location {
 impl Character {
     pub async fn from_account(id: u32) -> Result<Option<Self>, Error> {
         let pool = State::global()?.pool();
-        let maybe_character = sqlx::query_as!(
-            Self,
-            "SELECT * FROM characters WHERE account_id = $1",
-            id as i32
+        let maybe_character = sqlx::query_as::<_, Self>(
+            "SELECT * FROM characters WHERE account_id = ?;",
         )
+        .bind(id)
         .fetch_optional(pool)
         .await?;
         Ok(maybe_character)
@@ -93,24 +56,26 @@ impl Character {
 
     pub async fn name_taken(name: &str) -> Result<bool, Error> {
         let pool = State::global()?.pool();
-        let taken = sqlx::query!(
-            "SELECT EXISTS (SELECT character_id FROM characters WHERE name = $1)",
-            name
+        let result = sqlx::query_as::<_, (i32,)>(
+            "SELECT EXISTS (SELECT 1 FROM characters WHERE name = ? LIMIT 1);",
         )
-        .fetch_one(pool)
-        .await?
-        .exists
-        .unwrap_or(true);
-        Ok(taken)
+        .bind(name)
+        .fetch_optional(pool)
+        .await?;
+        match result {
+            Some((1,)) => Ok(true),
+            Some((0,)) => Ok(false),
+            // This should never happen.
+            _ => Ok(false),
+        }
     }
 
     pub async fn by_id(id: i32) -> Result<Self, Error> {
         let pool = State::global()?.pool();
-        let c = sqlx::query_as!(
-            Self,
-            "SELECT * FROM characters WHERE character_id = $1",
-            id
+        let c = sqlx::query_as::<_, Self>(
+            "SELECT * FROM characters WHERE character_id = ?;",
         )
+        .bind(id)
         .fetch_one(pool)
         .await?;
         Ok(c)
@@ -118,7 +83,7 @@ impl Character {
 
     pub async fn save(self) -> Result<i32, Error> {
         let pool = State::global()?.pool();
-        let result = sqlx::query!(
+        let (id,) = sqlx::query_as::<_, (i32,)>(
             "
             INSERT INTO characters
                 (
@@ -129,77 +94,77 @@ impl Character {
                 )
             VALUES 
                 (
-                    $1, $2, $3, $4, $5, $6,
-                    $7, $8, $9, $10, $11, $12,
-                    $13, $14, $15, $16, $17, $18
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?
                 )
-            RETURNING character_id
+            RETURNING character_id;
             ",
-            self.account_id,
-            self.realm_id,
-            self.name,
-            self.mesh,
-            self.avatar,
-            self.hair_style,
-            self.silver,
-            self.current_class,
-            self.map_id,
-            self.x,
-            self.y,
-            self.virtue,
-            self.strength,
-            self.agility,
-            self.vitality,
-            self.spirit,
-            self.health_points,
-            self.mana_points,
         )
+        .bind(self.account_id)
+        .bind(self.realm_id)
+        .bind(self.name)
+        .bind(self.mesh)
+        .bind(self.avatar)
+        .bind(self.hair_style)
+        .bind(self.silver)
+        .bind(self.current_class)
+        .bind(self.map_id)
+        .bind(self.x)
+        .bind(self.y)
+        .bind(self.virtue)
+        .bind(self.strength)
+        .bind(self.agility)
+        .bind(self.vitality)
+        .bind(self.spirit)
+        .bind(self.health_points)
+        .bind(self.mana_points)
         .fetch_one(pool)
         .await?;
-        Ok(result.character_id)
+        Ok(id)
     }
 
     pub async fn update(self) -> Result<(), Error> {
         let pool = State::global()?.pool();
-        sqlx::query!(
+        sqlx::query(
             "
             UPDATE characters
             SET 
-                name = $2,
-                mesh = $3,
-                avatar = $4,
-                hair_style = $5,
-                silver = $6,
-                current_class = $7,
-                map_id = $8,
-                x = $9, y = $10, 
-                virtue = $11,
-                strength = $12, 
-                agility = $13,
-                vitality = $14,
-                spirit = $15,
-                health_points = $16,
-                mana_points = $17
-            WHERE character_id = $1
+                name = ?,
+                mesh = ?,
+                avatar = ?,
+                hair_style = ?,
+                silver = ?,
+                current_class = ?,
+                map_id = ?,
+                x = ?, y = ?, 
+                virtue = ?,
+                strength = ?, 
+                agility = ?,
+                vitality = ?,
+                spirit = ?,
+                health_points = ?,
+                mana_points = ?
+            WHERE character_id = ?;
             ",
-            self.character_id,
-            self.name,
-            self.mesh,
-            self.avatar,
-            self.hair_style,
-            self.silver,
-            self.current_class,
-            self.map_id,
-            self.x,
-            self.y,
-            self.virtue,
-            self.strength,
-            self.agility,
-            self.vitality,
-            self.spirit,
-            self.health_points,
-            self.mana_points,
         )
+        .bind(self.name)
+        .bind(self.mesh)
+        .bind(self.avatar)
+        .bind(self.hair_style)
+        .bind(self.silver)
+        .bind(self.current_class)
+        .bind(self.map_id)
+        .bind(self.x)
+        .bind(self.y)
+        .bind(self.virtue)
+        .bind(self.strength)
+        .bind(self.agility)
+        .bind(self.vitality)
+        .bind(self.spirit)
+        .bind(self.health_points)
+        .bind(self.mana_points)
+        .bind(self.character_id)
         .execute(pool)
         .await?;
         Ok(())

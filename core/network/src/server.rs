@@ -1,10 +1,11 @@
-use crate::{actor::Message, Actor, ActorState, Error, PacketHandler};
+use crate::actor::Message;
+use crate::{Actor, ActorState, Error, PacketHandler};
 use async_trait::async_trait;
-use std::{fmt::Debug, net::SocketAddr, ops::Deref};
-use tokio::{
-    net::{TcpListener, TcpStream, ToSocketAddrs},
-    sync::mpsc,
-};
+use std::fmt::Debug;
+use std::net::SocketAddr;
+use std::ops::Deref;
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::{ReceiverStream, TcpListenerStream};
 use tokio_stream::StreamExt;
 use tq_codec::{TQCodec, TQEncoder};

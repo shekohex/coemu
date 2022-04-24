@@ -1,17 +1,12 @@
 use super::{Character, Portal};
-use crate::{
-    db,
-    entities::BaseEntity,
-    systems::{Floor, Tile},
-    Error,
-};
+use crate::entities::BaseEntity;
+use crate::systems::{Floor, Tile};
+use crate::{db, Error};
 use num_enum::FromPrimitive;
 use primitives::Point;
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Deref,
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
+use std::ops::Deref;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::debug;
 
@@ -30,6 +25,7 @@ pub struct Map {
     /// Holds client information for each player on the map.
     characters: Characters,
     /// where should the player get revived on this map
+    #[allow(dead_code)]
     revive_point: Arc<Point<u32>>,
     /// defines the map's coordinate tile grid.
     floor: Arc<RwLock<Floor>>,

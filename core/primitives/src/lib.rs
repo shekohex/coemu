@@ -1,8 +1,6 @@
 use num_traits::PrimInt;
-use std::sync::{
-    atomic::{AtomicU16, AtomicU8},
-    Arc,
-};
+use std::sync::atomic::{AtomicU16, AtomicU8};
+use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
 pub struct Size<I: PrimInt> {

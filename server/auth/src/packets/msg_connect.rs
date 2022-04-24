@@ -1,5 +1,4 @@
 use crate::Error;
-use async_trait::async_trait;
 use serde::Deserialize;
 use tq_network::{Actor, PacketID, PacketProcess};
 use tq_serde::String16;
@@ -8,13 +7,14 @@ use tq_serde::String16;
 /// versions of the game client.
 #[derive(Debug, Deserialize, PacketID)]
 #[packet(id = 1052)]
+#[allow(dead_code)]
 pub struct MsgConnect {
     id: u32,
     file_contents: u32,
     file_name: String16,
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl PacketProcess for MsgConnect {
     type ActorState = ();
     type Error = Error;

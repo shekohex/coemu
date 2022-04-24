@@ -1,5 +1,6 @@
 use bytes::Bytes;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::error::Error as StdError;
 
 pub use async_trait::async_trait;
@@ -94,9 +95,7 @@ where
 }
 
 impl PacketID for () {
-    fn id() -> u16 {
-        0
-    }
+    fn id() -> u16 { 0 }
 }
 
 pub struct ErrorPacket<T: PacketEncode>(pub T);
@@ -109,16 +108,12 @@ impl<T> IntoErrorPacket<T> for T
 where
     T: PacketEncode,
 {
-    fn error_packet(self) -> ErrorPacket<T> {
-        ErrorPacket(self)
-    }
+    fn error_packet(self) -> ErrorPacket<T> { ErrorPacket(self) }
 }
 
 impl<T> From<T> for ErrorPacket<T>
 where
     T: PacketEncode,
 {
-    fn from(v: T) -> Self {
-        Self(v)
-    }
+    fn from(v: T) -> Self { Self(v) }
 }

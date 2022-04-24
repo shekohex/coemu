@@ -16,7 +16,5 @@ pub enum Error {
 }
 
 impl<T> From<SendError<T>> for Error {
-    fn from(_: SendError<T>) -> Self {
-        Self::SendError
-    }
+    fn from(_: SendError<T>) -> Self { Self::SendError }
 }

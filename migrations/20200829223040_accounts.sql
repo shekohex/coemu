@@ -1,9 +1,7 @@
 CREATE TABLE IF NOT EXISTS accounts (
-    account_id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    username VARCHAR(16) NOT NULL UNIQUE,
-    password VARCHAR NOT NULL,
-    name VARCHAR(64) DEFAULT NULL,
-    email VARCHAR(64) DEFAULT NULL,
-    ip_address INET DEFAULT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
+    account_id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE CHECK (length(username) <= 16),
+    password TEXT NOT NULL,
+    name TEXT DEFAULT NULL CHECK (length(name) <= 32),
+    email TEXT DEFAULT NULL CHECK (length(email) <= 64)
+);

@@ -1,15 +1,15 @@
 use crate::Error;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use encoding::{all::ASCII, DecoderTrap, Encoding};
+use encoding::all::ASCII;
+use encoding::{DecoderTrap, Encoding};
 use io::{AsyncReadExt, AsyncWriteExt};
 use num_enum::FromPrimitive;
 use primitives::{Point, Size};
-use std::{
-    env,
-    ops::{Index, IndexMut},
-    path::PathBuf,
-};
-use tokio::{fs::File, io};
+use std::env;
+use std::ops::{Index, IndexMut};
+use std::path::PathBuf;
+use tokio::fs::File;
+use tokio::io;
 use tracing::{debug, trace};
 /// This struct encapsulates the coordinate tile grid for a map. It contains
 /// methods for loading the map from a flat binary file and for obtaining

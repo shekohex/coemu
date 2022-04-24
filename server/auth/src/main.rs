@@ -33,10 +33,13 @@ pub enum AuthServerHandler {
     MsgConnect,
 }
 
-#[tokio::main(core_threads = 8)]
+#[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenv::dotenv()?;
-    tracing_subscriber::fmt::init();
+    let log_verbosity = env::var("LOG_VERBOSITY")
+        .map(|s| s.parse::<i32>().unwrap_or(2))
+        .unwrap_or(2);
+    setup_logger(log_verbosity)?;
     println!(
         r#"
  _____         _____                  
@@ -70,5 +73,26 @@ Copyright 2020-2022 Shady Khalifa (@shekohex)
             tracing::info!("Server Is Shutting Down..");
         }
     };
+    Ok(())
+}
+
+fn setup_logger(verbosity: i32) -> Result<(), Error> {
+    use tracing::Level;
+    let log_level = match verbosity {
+        0 => Level::ERROR,
+        1 => Level::WARN,
+        2 => Level::INFO,
+        3 => Level::DEBUG,
+        _ => Level::TRACE,
+    };
+
+    let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+        .add_directive(format!("auth_server={}", log_level).parse().unwrap());
+    let logger = tracing_subscriber::fmt()
+        .pretty()
+        .with_target(true)
+        .with_max_level(log_level)
+        .with_env_filter(env_filter);
+    logger.init();
     Ok(())
 }

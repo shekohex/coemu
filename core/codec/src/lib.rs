@@ -22,11 +22,9 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::future::Future;
 use pretty_hex::{HexConfig, PrettyHex};
-use std::{
-    io,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::io;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tokio::io::{
     split, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf,
     WriteHalf,
@@ -226,7 +224,6 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
     async fn flush(&mut self) -> Result<(), io::Error> {
         tracing::trace!("flushing data into stream");
         // As long as there is buffered data to write, try to write it.
-        let n = self.buf.len();
         while self.buf.has_remaining() {
             let n = self.wrt.write_buf(&mut self.buf).await?;
             tracing::trace!("written {} bytes", n);
@@ -243,9 +240,7 @@ pub struct TQCodec<S: AsyncRead + AsyncWrite, C: Cipher + Clone> {
 }
 
 impl<S: AsyncRead + AsyncWrite, C: Cipher + Clone> TQCodec<S, C> {
-    pub fn new(stream: S, cipher: C) -> Self {
-        Self { stream, cipher }
-    }
+    pub fn new(stream: S, cipher: C) -> Self { Self { stream, cipher } }
 
     pub fn split(self) -> (TQEncoder<S, C>, TQDecoder<S, C>) {
         let (rdr, wrt) = split(self.stream);

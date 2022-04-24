@@ -1,7 +1,7 @@
 use crate::{Error, State};
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Portal {
     pub id: i32,
     pub from_map_id: i32,
@@ -13,35 +13,44 @@ pub struct Portal {
 }
 
 impl Portal {
+    #[tracing::instrument]
     pub async fn by_map(from: i32) -> Result<Vec<Self>, Error> {
         let pool = State::global()?.pool();
         let mut portals = Vec::new();
-        let mut s = sqlx::query_as!(
-            Self,
-            "SELECT * FROM portals WHERE from_map_id = $1",
-            from
+        let mut s = sqlx::query_as::<_, Self>(
+            "SELECT * FROM portals WHERE from_map_id = ?;",
         )
+        .bind(from)
         .fetch(pool);
-        while let Some(portal) = s.next().await {
-            let portal: Self = portal?;
-            portals.push(portal);
+        while let Some(maybe_portal) = s.next().await {
+            match maybe_portal {
+                Ok(portal) => portals.push(portal),
+                Err(error) => {
+                    tracing::error!(
+                        %error,
+                        from_map_id = %from,
+                        "Error while loading a portal"
+                    );
+                },
+            }
         }
         Ok(portals)
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn fix(&self, x: u16, y: u16) -> Result<(), Error> {
         let pool = State::global()?.pool();
-        sqlx::query!(
+        sqlx::query(
             "UPDATE portals
             SET 
-                to_x = $1, to_y = $2
+                to_x = ?, to_y = ?
             WHERE
-                from_map_id = $3 AND to_map_id = $4",
-            x as i16,
-            y as i16,
-            self.from_map_id,
-            self.to_map_id
+                from_map_id = ? AND to_map_id = ?;",
         )
+        .bind(x)
+        .bind(y)
+        .bind(self.from_map_id)
+        .bind(self.to_map_id)
         .execute(pool)
         .await?;
         Ok(())

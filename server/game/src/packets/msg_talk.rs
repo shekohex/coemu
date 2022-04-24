@@ -1,8 +1,6 @@
-use crate::{
-    constants::{ALL_USERS, SYSTEM},
-    systems::commands,
-    ActorState,
-};
+use crate::constants::{ALL_USERS, SYSTEM};
+use crate::systems::commands;
+use crate::ActorState;
 use async_trait::async_trait;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};

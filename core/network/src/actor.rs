@@ -1,14 +1,10 @@
 use crate::{Error, PacketEncode};
 use async_trait::async_trait;
 use bytes::Bytes;
-use std::{
-    hash::Hash,
-    ops::Deref,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-};
+use std::hash::Hash;
+use std::ops::Deref;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::sync::mpsc::{self, Sender};
 use tracing::instrument;
 

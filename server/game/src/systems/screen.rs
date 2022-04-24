@@ -1,11 +1,11 @@
-use crate::{
-    entities::BaseEntity,
-    packets::{ActionType, MsgAction},
-    utils::LoHi,
-    world::Character,
-    ActorState, Error,
-};
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use crate::entities::BaseEntity;
+use crate::packets::{ActionType, MsgAction};
+use crate::utils::LoHi;
+use crate::world::Character;
+use crate::{ActorState, Error};
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tq_network::{Actor, PacketEncode};
 use tracing::debug;

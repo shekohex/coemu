@@ -1,8 +1,6 @@
-use crate::{
-    packets::{MsgTalk, TalkChannel},
-    world::Maps,
-    ActorState, Error,
-};
+use crate::packets::{MsgTalk, TalkChannel};
+use crate::world::Maps;
+use crate::{ActorState, Error};
 use argh::FromArgs;
 use tq_network::Actor;
 

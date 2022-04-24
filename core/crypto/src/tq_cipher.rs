@@ -13,13 +13,9 @@
 use crate::Cipher;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use once_cell::sync::OnceCell;
-use std::{
-    fmt,
-    sync::{
-        atomic::{AtomicBool, AtomicI64, Ordering},
-        Arc, Mutex,
-    },
-};
+use std::fmt;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::Arc;
 const K: usize = 256;
 
 const KEY1: [u8; K] = [
@@ -120,9 +116,7 @@ impl fmt::Debug for TQCipher {
 }
 
 impl Default for TQCipher {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
 }
 
 impl Cipher for TQCipher {

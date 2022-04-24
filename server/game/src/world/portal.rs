@@ -1,5 +1,8 @@
-use crate::{db, utils::LoHi};
-use std::{hash::Hash, ops::Deref, sync::Arc};
+use crate::db;
+use crate::utils::LoHi;
+use std::hash::Hash;
+use std::ops::Deref;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Portal {
@@ -23,12 +26,15 @@ impl Portal {
 
     pub fn id(&self) -> u32 { u32::constract(self.from_y(), self.from_x()) }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn from_map_id(&self) -> u32 { self.inner.from_map_id as u32 }
 
     pub fn to_map_id(&self) -> u32 { self.inner.to_map_id as u32 }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn from_x(&self) -> u16 { self.inner.from_x as u16 }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn from_y(&self) -> u16 { self.inner.from_y as u16 }
 
     pub fn to_x(&self) -> u16 { self.inner.to_x as u16 }

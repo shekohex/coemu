@@ -1,6 +1,7 @@
 use super::MsgTalk;
-use crate::{db, systems::Screen, world::Character, ActorState, Error, State};
-use async_trait::async_trait;
+use crate::systems::Screen;
+use crate::world::Character;
+use crate::{db, ActorState, Error, State};
 use num_enum::TryFromPrimitive;
 use serde::Deserialize;
 use std::convert::TryFrom;
@@ -96,7 +97,7 @@ pub enum BaseClass {
     Taoist = 100,
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl PacketProcess for MsgRegister {
     type ActorState = ActorState;
     type Error = Error;

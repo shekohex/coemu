@@ -1,7 +1,8 @@
 //! Serializer for Binary Packets.
 use crate::TQSerdeError;
 use bytes::{BufMut, BytesMut};
-use encoding::{all::ASCII, EncoderTrap, Encoding};
+use encoding::all::ASCII;
+use encoding::{EncoderTrap, Encoding};
 use serde::ser::{self, Serialize};
 
 #[derive(Debug)]
@@ -92,9 +93,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(())
     }
 
-    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-    }
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
 
     fn serialize_some<T: Serialize + ?Sized>(
         self,
@@ -103,9 +102,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         value.serialize(self)
     }
 
-    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-    }
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
 
     fn serialize_unit_struct(
         self,
@@ -213,9 +210,7 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-    }
+    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
 }
 
 impl<'a> ser::SerializeStruct for &'a mut Serializer {
@@ -230,9 +225,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-    }
+    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
 }
 
 impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
@@ -247,9 +240,7 @@ impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(())
-    }
+    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
 }
 
 /// Serialize `T` into `BytesMut`.

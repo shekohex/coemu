@@ -21,36 +21,29 @@ CoEmu is a Conquer Online server project containing an account server and game s
 2. Use Nightly Rust (it offers speed compile-time).
 
 ```bash
-$ rustup default nightly
+rustup default nightly
 ```
 
 3. Clone and Configure
 
 ```bash
-$ git clone https://github.com/shekohex/coemu
-$ cd coemu
-$ cp .env.example .env # edit the env file if you want.
+git clone https://github.com/shekohex/coemu && cd coemu && cp .env.example .env # edit the env file if you want.
 ```
 
 4. Start Database
 
-We are using [Postgres](https://www.postgresql.org/) as Database for storing all of server data and states, and we are using it inside a docker container so it is easy to manage on any system.
+We are using [Sqlite](https://sqlite.org/) as Database for storing all of server data and states.
+
+To make things easy, Install [sqlx-cli](https://github.com/launchbadge/sqlx/tree/master/sqlx-cli) for running Database Migrations.
 
 ```bash
-$ docker-compose up -d postgres
-```
-
-Then Install [sqlx-cli](https://github.com/launchbadge/sqlx/tree/master/sqlx-cli) for running Database Migrations.
-
-```bash
-$ cargo install cargo-sqlx
+$ cargo install sqlx-cli --no-default-features --features rustls,sqlite
 ```
 
 that will take some time, then run
 
 ```bash
-$ sqlx database create
-$ sqlx migrate run
+sqlx migrate run --database-url 'sqlite://data/coemu.db?mode=rwc'
 ```
 
 Good, let's build the servers!

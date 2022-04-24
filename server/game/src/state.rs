@@ -1,20 +1,14 @@
-use crate::{
-    db,
-    systems::Screen,
-    world::{Character, Map},
-    Error,
-};
-use async_trait::async_trait;
+use crate::systems::Screen;
+use crate::world::{Character, Map};
+use crate::{db, Error};
 use once_cell::sync::OnceCell;
-use sqlx::postgres::{PgPool, PgPoolOptions};
-use std::{collections::HashMap, ops::Deref, sync::Arc};
-use tokio::{
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        RwLock,
-    },
-    task,
-};
+use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::sync::Arc;
+use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::RwLock;
+use tokio::task;
 use tq_network::Actor;
 use tracing::debug;
 
@@ -31,18 +25,21 @@ pub struct State {
     creation_tokens: Tokens,
     characters: Characters,
     maps: Maps,
-    pool: PgPool,
+    pool: SqlitePool,
 }
 
 impl State {
     /// Init The State.
     /// Should only get called once.
     pub async fn init() -> Result<(), Error> {
-        let pool = PgPoolOptions::new()
-            .max_connections(8)
+        let data_dir = dotenv::var("DATA_LOCATION")?;
+        let default_db_location =
+            format!("sqlite://{data_dir}/coemu.db?mode=rwc");
+        let db_url = dotenv::var("DATABASE_URL").unwrap_or(default_db_location);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(42)
             .min_connections(4)
-            .test_before_acquire(true)
-            .connect(&dotenv::var("DATABASE_URL")?)
+            .connect(&db_url)
             .await?;
         let state = Self {
             login_tokens: Default::default(),
@@ -60,7 +57,7 @@ impl State {
 
     /// Get access to the global state.
     pub fn global() -> Result<&'static Self, Error> {
-        STATE.get().ok_or_else(|| {
+        STATE.get().ok_or({
             Error::State(
                 "State is uninialized, did you forget to call State::init()!",
             )
@@ -68,7 +65,7 @@ impl State {
     }
 
     /// Get access to the database pool
-    pub fn pool(&self) -> &PgPool { &self.pool }
+    pub fn pool(&self) -> &SqlitePool { &self.pool }
 
     pub fn login_tokens(&self) -> &Tokens { &self.login_tokens }
 
@@ -190,7 +187,7 @@ impl ActorState {
     fn inner(&self) -> InnerActorState { self.inner.clone().unwrap() }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl tq_network::ActorState for ActorState {
     fn init() -> Self {
         let (tx, rx) = mpsc::channel(50);

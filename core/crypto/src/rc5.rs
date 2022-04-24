@@ -89,7 +89,7 @@ impl crate::Cipher for TQRC5 {
         if src.len() % 8 > 0 {
             src_len += 1;
         }
-        dst.copy_from_slice(&src);
+        dst.copy_from_slice(src);
         // Decrypt the buffer
         for word in 0..src_len {
             let mut chunk_a = &dst[8 * word as usize..];

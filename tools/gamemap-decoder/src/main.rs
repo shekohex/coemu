@@ -1,10 +1,9 @@
 use bytes::{Buf, Bytes};
-use encoding::{all::ASCII, DecoderTrap, Encoding};
-use std::{
-    env, fs,
-    io::{BufReader, Read},
-    path::PathBuf,
-};
+use encoding::all::ASCII;
+use encoding::{DecoderTrap, Encoding};
+use std::io::{BufReader, Read};
+use std::path::PathBuf;
+use std::{env, fs};
 
 fn main() -> Result<(), String> {
     dotenv::dotenv().map_err(|e| e.to_string())?;

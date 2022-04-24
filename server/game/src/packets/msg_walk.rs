@@ -1,8 +1,6 @@
-use crate::{
-    constants::{WALK_XCOORDS, WALK_YCOORDS},
-    systems::TileType,
-    ActorState, Error,
-};
+use crate::constants::{WALK_XCOORDS, WALK_YCOORDS};
+use crate::systems::TileType;
+use crate::{ActorState, Error};
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -64,7 +62,7 @@ impl PacketProcess for MsgWalk {
             )
             .error_packet()
         })?;
-        if (tile.access as u8 > TileType::Npc as u8) {
+        if tile.access as u8 > TileType::Npc as u8 {
             // The packet is valid. Assign character data:
             // Send the movement back to the message server and client:
             me.set_x(x).set_y(y).set_direction(direction as u8);

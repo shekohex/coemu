@@ -1,6 +1,7 @@
 use super::{MsgTalk, MsgUserInfo};
-use crate::{db, systems::Screen, world::Character, ActorState, Error, State};
-use async_trait::async_trait;
+use crate::systems::Screen;
+use crate::world::Character;
+use crate::{db, ActorState, Error, State};
 use serde::Deserialize;
 use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use tq_serde::String10;
@@ -10,6 +11,7 @@ use tq_serde::String10;
 /// versions of the game client.
 #[derive(Debug, Default, Deserialize, PacketID)]
 #[packet(id = 1052)]
+#[allow(dead_code)]
 pub struct MsgConnect {
     token: u32,
     code: u32,
@@ -18,7 +20,7 @@ pub struct MsgConnect {
     file_contents: u32,
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl PacketProcess for MsgConnect {
     type ActorState = ActorState;
     type Error = Error;

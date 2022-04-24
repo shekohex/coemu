@@ -1,4 +1,10 @@
-pub fn current_ts() -> u32 { chrono::Utc::now().timestamp() as u32 }
+pub fn current_ts() -> u32 {
+    let start = std::time::SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("Time went backwards");
+    since_the_epoch.as_secs() as u32
+}
 
 pub trait LoHi {
     type Output;

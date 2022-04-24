@@ -1,18 +1,10 @@
-use crate::{
-    constants, db,
-    entities::{BaseEntity, Entity, EntityTypeFlag},
-    packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel},
-    utils::LoHi,
-    ActorState, Error, State,
-};
-use async_trait::async_trait;
-use std::{
-    ops::Deref,
-    sync::{
-        atomic::{AtomicU16, Ordering},
-        Arc,
-    },
-};
+use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
+use crate::packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel};
+use crate::utils::LoHi;
+use crate::{constants, db, ActorState, Error, State};
+use std::ops::Deref;
+use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Arc;
 use tq_network::{Actor, IntoErrorPacket};
 
 /// This struct encapsulates the game character for a player. The player
@@ -176,14 +168,13 @@ impl Character {
             health_points: self.health_points() as _,
             mana_points: self.mana_points() as _,
             kill_points: self.kill_points() as _,
-            ..Default::default()
         };
         e.update().await?;
         Ok(())
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl BaseEntity for Character {
     fn owner(&self) -> Actor<ActorState> { self.owner.clone() }
 
