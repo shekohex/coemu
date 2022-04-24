@@ -69,7 +69,7 @@ $ cargo game
 > Note: This Game is only available for Microsoft Windows OS.
 > So if you willing to use it on Mac or Linux, I highly recommend looking at https://www.playonlinux.com/en/ or use a Windows VM.
 
-This Server Emulator is build for Conquer Online version 5017. you can download this version from [here](https://mega.nz/file/wkMliKaR#Th_9XWrzKbuGX9GzERiTM8TueXo-wambtfaTggpu6m0).
+This Server Emulator is build for Conquer Online version 5017. you can download this version from [here](https://mega.nz/folder/xJQnlSRD#d4oLOGq2LNbKm_k8kYVKJw/file/dMx3jDoC).
 
 ## Documentations
 
