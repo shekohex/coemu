@@ -92,8 +92,8 @@ impl crate::Cipher for TQRC5 {
         dst.copy_from_slice(src);
         // Decrypt the buffer
         for word in 0..src_len {
-            let mut chunk_a = &dst[8 * word as usize..];
-            let mut chunk_b = &dst[(8 * word + 4) as usize..];
+            let mut chunk_a = &dst[8 * word..];
+            let mut chunk_b = &dst[(8 * word + 4)..];
             let mut a = chunk_a.get_u32_le();
             let mut b = chunk_b.get_u32_le();
             let rounds = self.rounds;
@@ -106,13 +106,13 @@ impl crate::Cipher for TQRC5 {
                 a = (a.wrapping_sub(sub[(2 * round) as usize])).rotate_right(b)
                     ^ b;
             }
-            let chunk_a = &mut dst[(8 * word as usize)..];
+            let chunk_a = &mut dst[(8 * word)..];
             let mut wtr_a = vec![];
             wtr_a.put_u32_le(a.wrapping_sub(sub[0]));
             for (i, b) in wtr_a.iter().enumerate() {
                 chunk_a[i] = *b;
             }
-            let chunk_b = &mut dst[(8 * word + 4) as usize..];
+            let chunk_b = &mut dst[(8 * word + 4)..];
             let mut wtr_b = vec![];
             wtr_b.put_u32_le(b.wrapping_sub(sub[1]));
 

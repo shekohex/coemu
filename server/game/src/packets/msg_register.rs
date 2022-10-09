@@ -107,11 +107,10 @@ impl PacketProcess for MsgRegister {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let state = State::global()?;
-        let (id, realm_id) = state
-            .creation_tokens()
-            .write()
-            .await
-            .remove(&self.token)
+        let info = state
+            .token_store()
+            .remove_creation_token(self.token)
+            .await?
             .ok_or_else(|| MsgTalk::register_invalid().error_packet())?;
 
         if db::Character::name_taken(&self.character_name).await? {
@@ -124,11 +123,14 @@ impl PacketProcess for MsgRegister {
         BaseClass::try_from(self.class)
             .map_err(|_| MsgTalk::register_invalid().error_packet())?;
 
-        let character_id = self.build_character(id, realm_id)?.save().await?;
+        let character_id = self
+            .build_character(info.account_id, info.realm_id)?
+            .save()
+            .await?;
         let character = db::Character::by_id(character_id).await?;
         let map_id = character.map_id;
         let me = Character::new(actor.clone(), character);
-        actor.set_character(me.clone()).await?;
+        actor.set_character(me.clone()).await;
         state.characters().write().await.insert(me.id(), me.clone());
         // Set player map.
         state
@@ -140,11 +142,11 @@ impl PacketProcess for MsgRegister {
             .insert_character(me)
             .await?;
         let screen = Screen::new(actor.clone());
-        actor.set_screen(screen).await?;
+        actor.set_screen(screen).await;
 
         tracing::info!(
             "Account #{} Created Character #{} with Name {}",
-            id,
+            info.account_id,
             character_id,
             self.character_name
         );

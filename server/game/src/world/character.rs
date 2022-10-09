@@ -126,6 +126,7 @@ impl Character {
             })?;
             self.set_x(x).set_y(y).set_map_id(map_id);
             self.set_elevation(tile.elevation);
+            new_map.update_region_for(self.clone()).await?;
             self.owner.send(msg).await?;
         }
         Ok(())

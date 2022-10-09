@@ -41,6 +41,8 @@ impl Floor {
 
     pub fn loaded(&self) -> bool { self.loaded }
 
+    pub fn boundaries(&self) -> &Size<i32> { &self.boundaries }
+
     pub fn tile(&self, x: u16, y: u16) -> Option<Tile> {
         let i = (x as i32 * self.boundaries.width) + y as i32;
         self.coordinates.get(i as usize).cloned()

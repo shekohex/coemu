@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use thiserror::Error;
-use tokio::sync::mpsc::error::SendError;
+use tokio::sync::{mpsc, oneshot};
 use tq_network::{ErrorPacket, PacketEncode};
 
 #[derive(Debug, Error)]
@@ -17,8 +17,10 @@ pub enum Error {
     Db(#[from] sqlx::Error),
     #[error("State Error: {}", _0)]
     State(&'static str),
-    #[error("Actor State Send Error!")]
+    #[error("Channel Send Error!")]
     SendError,
+    #[error("Channel Recv Error!")]
+    RecvError,
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
     #[error(transparent)]
@@ -29,8 +31,12 @@ pub enum Error {
     Msg(u16, Bytes),
 }
 
-impl<T> From<SendError<T>> for Error {
-    fn from(_: SendError<T>) -> Self { Self::SendError }
+impl<T> From<mpsc::error::SendError<T>> for Error {
+    fn from(_: mpsc::error::SendError<T>) -> Self { Self::SendError }
+}
+
+impl From<oneshot::error::RecvError> for Error {
+    fn from(_: oneshot::error::RecvError) -> Self { Self::RecvError }
 }
 
 impl<T: PacketEncode> From<ErrorPacket<T>> for Error {

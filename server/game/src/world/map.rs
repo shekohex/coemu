@@ -1,9 +1,9 @@
 use super::{Character, Portal};
 use crate::entities::BaseEntity;
 use crate::systems::{Floor, Tile};
-use crate::{db, Error};
+use crate::{constants, db, Error};
 use num_enum::FromPrimitive;
-use primitives::Point;
+use primitives::{Point, Size};
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -12,6 +12,7 @@ use tracing::debug;
 
 type Characters = Arc<RwLock<HashMap<u32, Character>>>;
 type Portals = Arc<HashSet<Portal>>;
+type MapRegions = Arc<RwLock<Vec<MapRegion>>>;
 
 /// This struct encapsulates map information from a compressed map and the
 /// database. It includes the identification of the map, pools and methods for
@@ -31,6 +32,8 @@ pub struct Map {
     floor: Arc<RwLock<Floor>>,
     /// Holds all Portals in that map.
     portals: Portals,
+    /// Holds all MapRegions in that map.
+    regions: MapRegions,
 }
 
 impl Deref for Map {
@@ -50,6 +53,7 @@ impl Map {
                 inner.revive_point_y as u32,
             )),
             portals: Arc::new(portals),
+            regions: Arc::new(RwLock::new(Vec::new())),
             inner: Arc::new(inner),
         }
     }
@@ -65,6 +69,37 @@ impl Map {
         floor.tile(x, y)
     }
 
+    pub async fn region(&self, x: u16, y: u16) -> Option<MapRegion> {
+        let regions = self.regions.read().await;
+        let region_size = MapRegion::SIZE;
+        let region_x = x as u32 / region_size.width;
+        let region_y = y as u32 / region_size.height;
+        let region_index = region_x * region_size.width + region_y;
+        regions.get(region_index as usize).cloned()
+    }
+
+    /// Get a list of the regions that surround the given point.
+    pub async fn surrunding_regions(&self, x: u16, y: u16) -> Vec<MapRegion> {
+        let regions = self.regions.read().await;
+        let region_size = MapRegion::SIZE;
+        let region_x = x as u32 / region_size.width;
+        let region_y = y as u32 / region_size.height;
+        let region_index = |x, y| x * region_size.width + y;
+        let mut result = Vec::new();
+        for i in 0..constants::WALK_XCOORDS.len() {
+            let view_x = region_x as i32 + constants::WALK_XCOORDS[i] as i32;
+            let view_y = region_y as i32 + constants::WALK_YCOORDS[i] as i32;
+            if view_x.is_negative() || view_y.is_negative() {
+                continue;
+            }
+            let j = region_index(view_x as u32, view_y as u32);
+            if let Some(region) = regions.get(j as usize) {
+                result.push(region.clone());
+            }
+        }
+        result
+    }
+
     // This method loads a compressed map from the server's flat file database.
     // If the file does not exist, the
     /// server will make an attempt to find and convert a dmap version of the
@@ -72,14 +107,38 @@ impl Map {
     /// will be loaded for the server.
     pub async fn load(&self) -> Result<(), Error> {
         debug!("Loading {} into memory", self.id());
-        self.floor.write().await.load().await?;
+        let mut lock = self.floor.write().await;
+        lock.load().await?;
+        let map_size = lock.boundaries();
+        let region_size = MapRegion::SIZE;
+        let mut regions = Vec::new();
+        // ceil division to get the number of regions
+        let height =
+            (map_size.height as f32 / region_size.height as f32).ceil() as u32;
+        let width =
+            (map_size.width as f32 / region_size.width as f32).ceil() as u32;
+        for y in 0..height {
+            for x in 0..width {
+                let region = MapRegion::new(Point::new(x, y));
+                regions.push(region);
+            }
+        }
+        drop(lock);
+        let mut lock = self.regions.write().await;
+        *lock = regions;
+        drop(lock);
         debug!("Map {} Loaded into memory", self.id());
         Ok(())
     }
 
     pub async fn unload(&self) -> Result<(), Error> {
         debug!("Unload {} from memory", self.id());
-        self.floor.write().await.unload();
+        let mut lock = self.floor.write().await;
+        lock.unload();
+        drop(lock);
+        let mut lock = self.regions.write().await;
+        lock.clear();
+        drop(lock);
         debug!("Map {} Unloaded from memory", self.id());
         Ok(())
     }
@@ -91,7 +150,7 @@ impl Map {
     /// adding it to the current map. As the character is added, its map,
     /// current tile, and current elevation are changed.
     pub async fn insert_character(&self, me: Character) -> Result<(), Error> {
-        let old_map = me.owner().map().await?;
+        let old_map = me.owner().map().await;
         // Remove the client from the previous map
         old_map.remove_character(me.id()).await?;
         drop(old_map);
@@ -101,8 +160,34 @@ impl Map {
             self.load().await?;
         }
         // Add the player to the current map
-        self.characters.write().await.insert(me.id(), me.clone());
-        me.owner().set_map(self.clone()).await?;
+        let mut lock = self.characters.write().await;
+        lock.insert(me.id(), me.clone());
+        drop(lock);
+
+        // get the region the character is in and add it to the region
+        me.owner().set_map(self.clone()).await;
+        Ok(())
+    }
+
+    pub async fn update_region_for(&self, me: Character) -> Result<(), Error> {
+        let region = self.region(me.x(), me.y()).await;
+        let old_region = self.region(me.prev_x(), me.prev_y()).await;
+        match (region, old_region) {
+            (Some(region), Some(old_region)) if region != old_region => {
+                region.insert_character(me.clone()).await;
+                old_region.remove_character(me.id()).await;
+            },
+            (Some(_), Some(_)) => {
+                // it is the same region, do nothing
+            },
+            (Some(region), None) => {
+                region.insert_character(me.clone()).await;
+            },
+            (None, Some(old_region)) => {
+                old_region.remove_character(me.id()).await;
+            },
+            (None, None) => {},
+        }
         Ok(())
     }
 
@@ -112,7 +197,7 @@ impl Map {
     pub async fn remove_character(&self, id: u32) -> Result<(), Error> {
         let mut characters = self.characters.write().await;
         if let Some(character) = characters.remove(&id) {
-            let screen = character.owner().screen().await?;
+            let screen = character.owner().screen().await;
             screen.remove_from_observers().await?;
         }
         drop(characters);
@@ -148,6 +233,46 @@ impl Map {
             }
         }
         true
+    }
+}
+
+/// A region or a block is a set of the map which will hold a collection with
+/// all entities in an area. This will help us iterating over a limited
+/// number of entites when trying to process AI and movement. Instead of
+/// iterating a list with thousand entities in the entire map, we'll just
+/// iterate the regions around us.
+#[derive(Debug, Default, Clone)]
+pub struct MapRegion {
+    start_point: Point<u32>,
+    characters: Characters,
+}
+
+impl Eq for MapRegion {}
+impl PartialEq for MapRegion {
+    fn eq(&self, other: &Self) -> bool { self.start_point == other.start_point }
+}
+
+impl MapRegion {
+    /// WIDTH and HEIGHT are the number of tiles in a region.
+    pub const SIZE: Size<u32> = Size::new(18, 18);
+
+    pub fn new(start_point: Point<u32>) -> Self {
+        Self {
+            start_point,
+            characters: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    pub fn characters(&self) -> &Characters { &self.characters }
+
+    pub async fn insert_character(&self, character: Character) {
+        let mut lock = self.characters.write().await;
+        lock.insert(character.id(), character);
+    }
+
+    pub async fn remove_character(&self, id: u32) {
+        let mut lock = self.characters.write().await;
+        lock.remove(&id);
     }
 }
 

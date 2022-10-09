@@ -27,3 +27,6 @@ pub use msg_player::MsgPlayer;
 
 mod msg_item_info;
 pub use msg_item_info::*;
+
+mod msg_data;
+pub use msg_data::MsgData;

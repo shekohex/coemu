@@ -26,16 +26,13 @@ impl PacketProcess for MsgTransfer {
         &self,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
-        let token = fastrand::u32(0..u32::MAX);
-        let code = fastrand::u32(0..u32::MAX);
-        State::global()?
-            .login_tokens()
-            .write()
-            .await
-            .insert(token, (self.account_id, self.realm_id));
+        let generated = State::global()?
+            .token_store()
+            .generate_login_token(self.account_id, self.realm_id)
+            .await?;
         let mut msg = self.clone();
-        msg.token = token;
-        msg.code = code;
+        msg.token = generated.token;
+        msg.code = generated.code;
         actor.send(msg).await?;
         actor.shutdown().await?;
         Ok(())
