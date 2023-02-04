@@ -21,6 +21,6 @@ derive-packetid = { path = "../../macros/derive-packetid" }
 derive-packethandler = { path = "../../macros/derive-packethandler" }
 
 [dependencies.tokio]
-version = "1.17"
+version = "1.18"
 default-features = false
 features = ["rt-multi-thread", "io-util", "net", "sync"]
