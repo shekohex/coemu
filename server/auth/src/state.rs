@@ -31,7 +31,7 @@ impl State {
 
     /// Get access to the global state.
     pub fn global() -> Result<&'static Self, Error> {
-        STATE.get().ok_or({
+        STATE.get().ok_or_else(|| {
             Error::State(
                 "State is uninialized, did you forget to call State::init()!",
             )

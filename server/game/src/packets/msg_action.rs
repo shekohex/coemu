@@ -9,7 +9,7 @@ use utils::LoHi;
 #[derive(Debug, FromPrimitive)]
 #[repr(u16)]
 pub enum ActionType {
-    #[num_enum(default)]
+    #[default]
     Unknown = 0,
     SendLocation = 74,
     SendItems = 75,
@@ -137,7 +137,7 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let mut res = self.clone();
-        let character = actor.character().await?;
+        let character = actor.character().await;
         res.data1 = character.map_id();
         res.data2 = u32::constract(character.y(), character.x());
         actor.send(res).await?;
@@ -150,7 +150,7 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let mut res = self.clone();
-        let character = actor.character().await?;
+        let character = actor.character().await;
         res.data1 = 0x00FF_FFFF;
         res.data2 = u32::constract(character.y(), character.x());
         actor.send(res).await?;
@@ -162,7 +162,7 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         // Remove Player from Booth.
-        let myscreen = actor.screen().await?;
+        let myscreen = actor.screen().await;
         myscreen.clear().await?;
         myscreen.load_surroundings().await?;
         Ok(())
@@ -176,7 +176,7 @@ impl MsgAction {
         let new_y = self.data1.hi();
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
-        let me = actor.character().await?;
+        let me = actor.character().await;
         // Starting to validate this jump.
         if current_x != me.x() || current_y != me.y() {
             debug!(
@@ -202,7 +202,7 @@ impl MsgAction {
             return Ok(());
         }
 
-        let mymap = actor.map().await?;
+        let mymap = actor.map().await;
         let within_elevation = mymap
             .sample_elevation((me.x(), me.y()), (new_x, new_y), me.elevation())
             .await;
@@ -232,8 +232,9 @@ impl MsgAction {
             .set_direction(direction)
             .set_action(100);
         me.set_elevation(tile.elevation);
+        mymap.update_region_for(me.clone()).await?;
         actor.send(self.clone()).await?;
-        let myscreen = actor.screen().await?;
+        let myscreen = actor.screen().await;
         myscreen.send_movement(self.clone()).await?;
         Ok(())
     }
@@ -244,7 +245,7 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
-        let me = actor.character().await?;
+        let me = actor.character().await;
 
         // Starting to validate this jump.
         if current_x != me.x() || current_y != me.y() {
@@ -255,7 +256,7 @@ impl MsgAction {
 
         me.set_direction(self.details as u8);
         actor.send(self.clone()).await?;
-        let myscreen = actor.screen().await?;
+        let myscreen = actor.screen().await;
         myscreen.send_message(self.clone()).await?;
         Ok(())
     }
@@ -264,7 +265,7 @@ impl MsgAction {
         &self,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
-        let mymap = actor.map().await?;
+        let mymap = actor.map().await;
         let characters = mymap.characters().read().await;
         let other = characters.get(&self.data1);
         if let Some(other) = other {
@@ -280,7 +281,7 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let portal_x = self.data1.lo();
         let portal_y = self.data1.hi();
-        let me = actor.character().await?;
+        let me = actor.character().await;
         if !tq_math::in_screen((me.x(), me.y()), (portal_x, portal_y)) {
             debug!(
                 "Bad Location ({}, {}) -> ({}, {}) > 18",
@@ -293,7 +294,7 @@ impl MsgAction {
             return Ok(());
         }
         dbg!(portal_x, portal_y);
-        let mymap = actor.map().await?;
+        let mymap = actor.map().await;
         let maybe_portal = mymap.portals().iter().find(|p| {
             tq_math::in_circle((me.x(), me.y(), 5), (p.from_x(), p.from_y()))
         });

@@ -45,6 +45,7 @@ impl PacketProcess for MsgItem {
         match action {
             ItemActionType::Ping => {
                 actor.send(self.clone()).await?;
+                actor.send(super::MsgData::now()).await?;
             },
             ItemActionType::Unknown => {
                 actor.send(self.clone()).await?;

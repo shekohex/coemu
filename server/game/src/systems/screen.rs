@@ -33,14 +33,6 @@ impl Screen {
 
     pub async fn clear(&self) -> Result<(), Error> {
         debug!("Clearing Screen..");
-        let me = self.owner.character().await?;
-        let characters = self.characters.read().await;
-        for character in characters.values() {
-            let observer = character.owner();
-            let observer_screen = observer.screen().await?;
-            observer_screen.remove_character(me.id()).await?;
-        }
-        drop(characters);
         self.characters.write().await.clear();
         debug!("Screen is clean!");
         Ok(())
@@ -57,9 +49,9 @@ impl Screen {
             .insert(observer.id(), observer.clone())
             .is_none();
         if added {
-            let me = self.owner.character().await?;
+            let me = self.owner.character().await;
             debug!("Added #{} to #{}", observer.id(), me.id());
-            let observer_screen = observer.owner().screen().await?;
+            let observer_screen = observer.owner().screen().await;
             let res = observer_screen
                 .characters
                 .write()
@@ -77,9 +69,9 @@ impl Screen {
         if let Some(observer_character) =
             self.characters.write().await.remove(&id)
         {
-            let me = self.owner.character().await?;
+            let me = self.owner.character().await;
             debug!("Removed #{} from #{}", observer_character.id(), me.id());
-            let observer_screen = observer_character.owner().screen().await?;
+            let observer_screen = observer_character.owner().screen().await;
             let removed = observer_screen
                 .characters
                 .write()
@@ -94,7 +86,7 @@ impl Screen {
 
     pub async fn delete_character(&self, id: u32) -> Result<bool, Error> {
         let deleted = self.characters.write().await.remove(&id);
-        let me = self.owner.character().await?;
+        let me = self.owner.character().await;
         if let Some(other) = deleted {
             let location = u32::constract(other.y(), other.x());
             self.owner
@@ -117,10 +109,10 @@ impl Screen {
     /// delete method (general action subtype packet) to forcefully remove
     /// the owner from each screen within the owner's screen distance.
     pub async fn remove_from_observers(&self) -> Result<(), Error> {
-        let me = self.owner.character().await?;
+        let me = self.owner.character().await;
         for observer in self.characters.read().await.values() {
             debug!("Found Observer #{}", observer.id());
-            let observer_screen = observer.owner().screen().await?;
+            let observer_screen = observer.owner().screen().await;
             observer_screen.delete_character(me.id()).await?;
             debug!(
                 "#{} Removed from Observer #{} Screen",
@@ -132,9 +124,9 @@ impl Screen {
     }
 
     pub async fn refresh_spawn_for_observers(&self) -> Result<(), Error> {
-        let me = self.owner.character().await?;
+        let me = self.owner.character().await;
         for observer in self.characters.read().await.values() {
-            let observer_screen = observer.owner().screen().await?;
+            let observer_screen = observer.owner().screen().await;
             observer_screen.delete_character(me.id()).await?;
             me.send_spawn(&observer.owner()).await?;
         }
@@ -147,8 +139,8 @@ impl Screen {
     /// screen distance).
     pub async fn load_surroundings(&self) -> Result<(), Error> {
         // Load Players from the Map
-        let mymap = self.owner.map().await?;
-        let me = self.owner.character().await?;
+        let mymap = self.owner.map().await;
+        let me = self.owner.character().await;
         for observer in mymap.characters().read().await.values() {
             let is_myself = me.id() == observer.id();
             if is_myself {
@@ -195,9 +187,9 @@ impl Screen {
         &self,
         packet: P,
     ) -> Result<(), Error> {
-        let mymap = self.owner.map().await?;
+        let mymap = self.owner.map().await;
         // For each possible observer on the map
-        let me = self.owner.character().await?;
+        let me = self.owner.character().await;
         for observer in mymap.characters().read().await.values() {
             let is_myself = me.id() == observer.id();
             let observer_owner = observer.owner();
@@ -230,7 +222,7 @@ impl Screen {
                 }
             } else {
                 //  Else, remove the observer and send the last packet.
-                let observer_screen = observer_owner.screen().await?;
+                let observer_screen = observer_owner.screen().await;
                 let removed = observer_screen.remove_character(me.id()).await?;
                 if removed {
                     debug!(
@@ -244,7 +236,7 @@ impl Screen {
                         .await
                         .unwrap_or_default();
                 }
-                let myscreen = self.owner.screen().await?;
+                let myscreen = self.owner.screen().await;
                 let removed = myscreen.remove_character(observer.id()).await?;
                 if removed {
                     debug!(

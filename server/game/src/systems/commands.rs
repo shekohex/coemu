@@ -8,7 +8,7 @@ pub async fn parse_and_execute(
     args: &[&str],
     actor: &Actor<ActorState>,
 ) -> Result<(), Error> {
-    let me = actor.character().await?;
+    let me = actor.character().await;
     let c = match Command::from_args(&["commands"], args) {
         Ok(cmd) => cmd,
         Err(e) => {
@@ -55,7 +55,7 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::FixPortal(fix) => {
-            let mymap = actor.map().await?;
+            let mymap = actor.map().await;
             let maybe_portal = mymap.portals().iter().find(|p| {
                 tq_math::in_circle(
                     (me.x(), me.y(), 10),

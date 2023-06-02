@@ -9,7 +9,7 @@ pub struct Size<I: PrimInt> {
 }
 
 impl<I: PrimInt> Size<I> {
-    pub fn new(width: I, height: I) -> Self { Self { width, height } }
+    pub const fn new(width: I, height: I) -> Self { Self { width, height } }
 
     pub fn area(&self) -> I { self.width * self.height }
 }

@@ -30,40 +30,41 @@ impl PacketProcess for MsgConnect {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let state = State::global()?;
-        let (id, realm_id) = state
-            .login_tokens()
-            .write()
-            .await
-            .remove(&self.token)
+        let info = state
+            .token_store()
+            .remove_login_token(self.token)
+            .await?
             .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
         actor.generate_keys(self.code, self.token).await?;
-        actor.set_id(id as usize);
-        let maybe_character = db::Character::from_account(id).await?;
+        actor.set_id(info.account_id as usize);
+        let maybe_character =
+            db::Character::from_account(info.account_id).await?;
         match maybe_character {
             Some(character) => {
                 let me = Character::new(actor.clone(), character);
-                actor.set_character(me.clone()).await?;
-                state
-                    .maps()
-                    .read()
-                    .await
+                actor.set_character(me.clone()).await;
+                let maps = state.maps().read().await;
+                let mymap = maps
                     .get(&me.map_id())
-                    .ok_or_else(|| MsgTalk::login_invalid().error_packet())?
-                    .insert_character(me.clone())
-                    .await?;
+                    .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
+                actor.set_map(mymap.clone()).await;
+                mymap.insert_character(me.clone()).await?;
                 state.characters().write().await.insert(me.id(), me.clone());
                 let screen = Screen::new(actor.clone());
-                actor.set_screen(screen).await?;
+                actor.set_screen(screen).await;
                 actor.send(MsgTalk::login_ok()).await?;
                 let msg = MsgUserInfo::from(me);
                 actor.send(msg).await?;
             },
             None => {
                 state
-                    .creation_tokens()
-                    .write()
-                    .await
-                    .insert(self.token, (id, realm_id));
+                    .token_store()
+                    .store_creation_token(
+                        self.token,
+                        info.account_id,
+                        info.realm_id,
+                    )
+                    .await?;
                 actor.send(MsgTalk::login_new_role()).await?;
             },
         };
