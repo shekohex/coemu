@@ -124,7 +124,7 @@ After creating the account, you should be able to login and create your characte
 ## Resources
 
 - [Epvp](https://elitepvpers.com/forum/co2-private-server)
-- [ConquerWiki](https://www.forum.darkfoxdeveloper.com/conquerwiki/doku.php?id=start)
+- [ConquerWiki](https://www.conquerwiki.com/doku.php?id=start)
 - [Comet](https://gitlab.com/spirited/comet)
 
 ## Contributing
