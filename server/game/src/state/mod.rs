@@ -31,10 +31,11 @@ impl State {
     /// Init The State.
     /// Should only get called once.
     pub async fn init() -> Result<(), Error> {
-        let data_dir = dotenv::var("DATA_LOCATION")?;
+        let data_dir = dotenvy::var("DATA_LOCATION")?;
         let default_db_location =
             format!("sqlite://{data_dir}/coemu.db?mode=rwc");
-        let db_url = dotenv::var("DATABASE_URL").unwrap_or(default_db_location);
+        let db_url =
+            dotenvy::var("DATABASE_URL").unwrap_or(default_db_location);
         let pool = SqlitePoolOptions::new()
             .max_connections(42)
             .min_connections(4)

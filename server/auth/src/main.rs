@@ -35,7 +35,7 @@ pub enum AuthServerHandler {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    dotenv::dotenv()?;
+    dotenvy::dotenv()?;
     let log_verbosity = env::var("LOG_VERBOSITY")
         .map(|s| s.parse::<i32>().unwrap_or(2))
         .unwrap_or(2);

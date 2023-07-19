@@ -15,14 +15,15 @@ tq-math.workspace = true
 primitives.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
-dotenv.workspace = true
+dotenvy.workspace = true
 once_cell.workspace = true
-encoding = "0.2"
-bitflags = "1.2"
-argh = "0.1"
 tokio-stream.workspace = true
 rand.workspace = true
 chrono.workspace = true
+
+encoding = "0.2"
+bitflags = "1.2"
+argh = "0.1"
 
 # Utils
 num_enum = { workspace = true, default-features = false }

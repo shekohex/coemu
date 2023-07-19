@@ -12,7 +12,7 @@ tq-network.workspace = true
 tq-serde.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
-dotenv.workspace = true
+dotenvy.workspace = true
 once_cell.workspace = true
 num_enum = { workspace = true, default-features = false }
 tokio-stream.workspace = true
