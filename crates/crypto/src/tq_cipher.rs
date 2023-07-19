@@ -12,6 +12,7 @@
 //! [3]: https://www.forum.darkfoxdeveloper.com/conquerwiki/doku.php?id=conqueronlineserverasymmetriccipher
 use crate::Cipher;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use parking_lot::RwLock;
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
@@ -81,8 +82,8 @@ const KEY2: [u8; K] = [
 /// use, otherwise.
 #[derive(Clone)]
 pub struct TQCipher {
-    key3: Bytes,
-    key4: Bytes,
+    key3: Arc<RwLock<Bytes>>,
+    key4: Arc<RwLock<Bytes>>,
     use_alt_key: Arc<AtomicBool>,
     decrypt_counter: Arc<AtomicI64>,
     encrypt_counter: Arc<AtomicI64>,
@@ -97,8 +98,8 @@ impl TQCipher {
     /// writes.
     pub fn new() -> Self {
         TQCipher {
-            key3: Bytes::new(),
-            key4: Bytes::new(),
+            key3: Arc::new(RwLock::new(Bytes::new())),
+            key4: Arc::new(RwLock::new(Bytes::new())),
             use_alt_key: Arc::new(AtomicBool::new(false)),
             decrypt_counter: Arc::new(AtomicI64::new(0)),
             encrypt_counter: Arc::new(AtomicI64::new(0)),
@@ -129,25 +130,16 @@ impl Cipher for TQCipher {
         let tmp2 = tmp1.wrapping_mul(tmp1);
         let mut key1 = Bytes::from_static(&KEY1);
         let mut key2 = Bytes::from_static(&KEY2);
-        let mut key3 = BytesMut::with_capacity(C);
-        let mut key4 = BytesMut::with_capacity(C);
+        let mut m_key3 = BytesMut::with_capacity(C);
+        let mut m_key4 = BytesMut::with_capacity(C);
         for _ in 0..C {
             let k1 = key1.get_u32_le();
             let k2 = key2.get_u32_le();
-            key3.put_u32_le(tmp1 ^ k1);
-            key4.put_u32_le(tmp2 ^ k2);
+            m_key3.put_u32_le(tmp1 ^ k1);
+            m_key4.put_u32_le(tmp2 ^ k2);
         }
-        // SAFETY: The keys are generated first before the cipher is used.
-        // Hence, we can safely assume that the keys are not being used
-        // concurrently.
-        unsafe {
-            let key3_bytes = key3.freeze();
-            let key4_bytes = key4.freeze();
-            let key3_ptr = &self.key3 as *const _ as *mut _;
-            let key4_ptr = &self.key4 as *const _ as *mut _;
-            *key3_ptr = key3_bytes;
-            *key4_ptr = key4_bytes;
-        }
+        *self.key3.write() = m_key3.freeze();
+        *self.key4.write() = m_key4.freeze();
         self.encrypt_counter.store(0, Ordering::Relaxed);
         self.use_alt_key.store(true, Ordering::Relaxed);
     }
@@ -158,13 +150,15 @@ impl Cipher for TQCipher {
     #[inline(always)]
     fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
         assert_eq!(src.len(), dst.len());
+        let key3 = self.key3.read();
+        let key4 = self.key4.read();
         for i in 0..src.len() {
             dst[i] = src[i] ^ 0xAB;
             dst[i] = dst[i] << 4 | dst[i] >> 4;
             let decrypt_counter = self.decrypt_counter.load(Ordering::Relaxed);
             if self.use_alt_key.load(Ordering::Relaxed) {
-                dst[i] ^= self.key4[(decrypt_counter >> 8) as usize];
-                dst[i] ^= self.key3[(decrypt_counter & 0xFF) as usize];
+                dst[i] ^= key4[(decrypt_counter >> 8) as usize];
+                dst[i] ^= key3[(decrypt_counter & 0xFF) as usize];
             } else {
                 dst[i] ^= KEY2[(decrypt_counter >> 8) as usize];
                 dst[i] ^= KEY1[(decrypt_counter & 0xFF) as usize];
