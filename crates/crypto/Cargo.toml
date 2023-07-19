@@ -6,3 +6,4 @@ edition.workspace = true
 
 [dependencies]
 bytes.workspace = true
+parking_lot.workspace = true

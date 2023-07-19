@@ -102,8 +102,7 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::JumpBack(_) => {
-            me.teleport(me.prev_map_id(), (me.prev_x(), me.prev_y()))
-                .await?;
+            me.kick_back().await?;
             Ok(())
         },
     }
