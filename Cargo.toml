@@ -35,7 +35,7 @@ bitflags = "1.2"
 argh = "0.1"
 tokio-stream = "0.1.8"
 rand = "0.8"
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 num_enum = { version = "0.5", default-features = false }
 
 [workspace.dependencies.tokio]
@@ -44,7 +44,7 @@ default-features = false
 
 [workspace.dependencies.sqlx]
 default-features = false
-version = "0.6.2"
+version = "0.7.1"
 
 [profile.dev]
 split-debuginfo = 'packed'
