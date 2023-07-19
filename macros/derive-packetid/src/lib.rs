@@ -1,11 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use syn::{
-    parse_macro_input, AttrStyle, DeriveInput, Ident, Lit, LitInt, Token,
-};
+use syn::{parse_macro_input, DeriveInput, Ident, Lit, LitInt, Token};
 
-#[derive(Debug)]
 struct Args {
     id: LitInt,
 }
@@ -39,7 +36,7 @@ fn derive_packet_id(input: DeriveInput) -> syn::Result<TokenStream> {
     let attr = input
         .attrs
         .iter()
-        .find(|a| a.style == AttrStyle::Outer && a.path.is_ident("packet"))
+        .find(|a| a.path.is_ident("packet"))
         .ok_or_else( ||
             syn::Error::new(name.span(),"Missing Packet id! please add #[packet(id = ..)] on the struct"),
         )?;

@@ -1,9 +1,7 @@
 [package]
-name = "tq-crypto"
+name = "tq-math"
 version = "0.1.0"
 authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
-edition = "2018"
+edition.workspace = true
 
 [dependencies]
-bytes = "1.1"
-once_cell = "1.4"

@@ -14,8 +14,10 @@ use crate::Cipher;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+
 const K: usize = 256;
+const C: usize = K / 4;
 
 const KEY1: [u8; K] = [
     0x9D, 0x90, 0x83, 0x8A, 0xD1, 0x8C, 0xE7, 0xF6, 0x25, 0x28, 0xEB, 0x82,
@@ -79,8 +81,8 @@ const KEY2: [u8; K] = [
 /// use, otherwise.
 #[derive(Clone)]
 pub struct TQCipher {
-    key3: Arc<RwLock<Bytes>>,
-    key4: Arc<RwLock<Bytes>>,
+    key3: Bytes,
+    key4: Bytes,
     use_alt_key: Arc<AtomicBool>,
     decrypt_counter: Arc<AtomicI64>,
     encrypt_counter: Arc<AtomicI64>,
@@ -95,8 +97,8 @@ impl TQCipher {
     /// writes.
     pub fn new() -> Self {
         TQCipher {
-            key3: Arc::new(RwLock::new(Bytes::new())),
-            key4: Arc::new(RwLock::new(Bytes::new())),
+            key3: Bytes::new(),
+            key4: Bytes::new(),
             use_alt_key: Arc::new(AtomicBool::new(false)),
             decrypt_counter: Arc::new(AtomicI64::new(0)),
             encrypt_counter: Arc::new(AtomicI64::new(0)),
@@ -122,11 +124,10 @@ impl Cipher for TQCipher {
     /// Generates keys for the game server using the player's server access
     /// token as a key derivation variable. Invoked after the first packet
     /// is received on the game server.
-    #[inline(always)]
+    #[inline(never)]
     fn generate_keys(&self, a: u32, b: u32) {
         let tmp1 = (a.wrapping_add(b) ^ 0x4321) ^ a;
         let tmp2 = tmp1.wrapping_mul(tmp1);
-        const C: usize = K / 4;
         let mut key1 = Bytes::from_static(&KEY1);
         let mut key2 = Bytes::from_static(&KEY2);
         let mut key3 = BytesMut::with_capacity(C);
@@ -137,12 +138,17 @@ impl Cipher for TQCipher {
             key3.put_u32_le(tmp1 ^ k1);
             key4.put_u32_le(tmp2 ^ k2);
         }
-        let mut lock = self.key3.write().unwrap();
-        *lock = key3.freeze();
-        drop(lock);
-        let mut lock = self.key4.write().unwrap();
-        *lock = key4.freeze();
-        drop(lock);
+        // SAFETY: The keys are generated first before the cipher is used.
+        // Hence, we can safely assume that the keys are not being used
+        // concurrently.
+        unsafe {
+            let key3_bytes = key3.freeze();
+            let key4_bytes = key4.freeze();
+            let key3_ptr = &self.key3 as *const _ as *mut _;
+            let key4_ptr = &self.key4 as *const _ as *mut _;
+            *key3_ptr = key3_bytes;
+            *key4_ptr = key4_bytes;
+        }
         self.encrypt_counter.store(0, Ordering::Relaxed);
         self.use_alt_key.store(true, Ordering::Relaxed);
     }
@@ -153,15 +159,13 @@ impl Cipher for TQCipher {
     #[inline(always)]
     fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
         assert_eq!(src.len(), dst.len());
-        let key3 = self.key3.read().expect("Keys3 are being generated!");
-        let key4 = self.key4.read().expect("Keys4 are being generated!");
         for i in 0..src.len() {
             dst[i] = src[i] ^ 0xAB;
             dst[i] = dst[i] << 4 | dst[i] >> 4;
             let decrypt_counter = self.decrypt_counter.load(Ordering::Relaxed);
             if self.use_alt_key.load(Ordering::Relaxed) {
-                dst[i] ^= key4[(decrypt_counter >> 8) as usize];
-                dst[i] ^= key3[(decrypt_counter & 0xFF) as usize];
+                dst[i] ^= self.key4[(decrypt_counter >> 8) as usize];
+                dst[i] ^= self.key3[(decrypt_counter & 0xFF) as usize];
             } else {
                 dst[i] ^= KEY2[(decrypt_counter >> 8) as usize];
                 dst[i] ^= KEY1[(decrypt_counter & 0xFF) as usize];
@@ -194,6 +198,7 @@ mod tests {
     #[test]
     fn test_tq_cipher() {
         let tq_cipher = TQCipher::new();
+        tq_cipher.generate_keys(0x1234, 0x5678);
         let buffer = [
             0x22, 0x00, 0x1F, 0x04, 0x61, 0xFF, 0xC3, 0xA6, 0x3A, 0x6D, 0xD3,
             0x90, 0x31, 0x39, 0x32, 0x2E, 0x31, 0x36, 0x38, 0x2E, 0x31, 0x2E,

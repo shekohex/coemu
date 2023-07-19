@@ -3,6 +3,7 @@ use crate::systems::Screen;
 use crate::world::Character;
 use crate::{db, ActorState, Error, State};
 use num_enum::TryFromPrimitive;
+use rand::{Rng, SeedableRng};
 use serde::Deserialize;
 use std::convert::TryFrom;
 use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
@@ -26,16 +27,18 @@ impl MsgRegister {
         realm_id: u32,
     ) -> Result<db::Character, Error> {
         // Some Math for rand characher.
+        let mut rng = rand::rngs::StdRng::from_entropy();
 
         let avatar = match self.mesh {
             // For Male
-            m if m < 1005 => fastrand::i16(1..49),
+            m if m < 1005 => rng.gen_range(1..49),
+
             // For Females
-            _ => fastrand::i16(201..249),
+            _ => rng.gen_range(201..249),
         };
 
-        let hair_style = fastrand::i16(3..9) * 100
-            + crate::constants::HAIR_STYLES[fastrand::usize(0..12)];
+        let hair_style = rng.gen_range(3..9) * 100
+            + crate::constants::HAIR_STYLES[rng.gen_range(0..12)];
         let strength = match self.class {
             // Taoist
             100 => 2,

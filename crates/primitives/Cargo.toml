@@ -1,7 +1,8 @@
 [package]
-name = "tq-math"
+name = "primitives"
 version = "0.1.0"
 authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
-edition = "2018"
+edition.workspace = true
 
 [dependencies]
+num-traits = "0.2"
