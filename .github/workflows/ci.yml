@@ -1,4 +1,15 @@
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - README.md
+      - CHANGELOG.md
+      - .gitignore
+      - .github/**
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, closed]
+  workflow_dispatch:
 
 name: CI
 
@@ -17,15 +28,10 @@ jobs:
           toolchain: nightly
           override: true
 
-      - name: Cache Cargo
-        uses: actions/cache@v2
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: "rust"
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1
