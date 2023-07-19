@@ -124,7 +124,6 @@ impl Cipher for TQCipher {
     /// Generates keys for the game server using the player's server access
     /// token as a key derivation variable. Invoked after the first packet
     /// is received on the game server.
-    #[inline(never)]
     fn generate_keys(&self, a: u32, b: u32) {
         let tmp1 = (a.wrapping_add(b) ^ 0x4321) ^ a;
         let tmp2 = tmp1.wrapping_mul(tmp1);
