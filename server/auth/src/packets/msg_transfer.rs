@@ -59,7 +59,7 @@ impl MsgTransfer {
         stream: TcpStream,
     ) -> Result<AccountCredentials, Error> {
         let (mut encoder, mut decoder) =
-            TQCodec::new(stream, NopCipher::default()).split();
+            TQCodec::new(stream, NopCipher).split();
         let transfer = MsgTransfer {
             account_id: actor.id() as u32,
             realm_id: realm.realm_id as u32,

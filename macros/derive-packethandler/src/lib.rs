@@ -1,12 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use syn::{
-    parse_macro_input, AttrStyle, Data, DataEnum, DeriveInput, Expr, Ident,
-    Token,
-};
+use syn::{parse_macro_input, Data, DataEnum, DeriveInput, Expr, Ident, Token};
 
-#[derive(Debug)]
 struct Args {
     state: Expr,
 }
@@ -40,7 +36,7 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
     let attr = input
         .attrs
         .iter()
-        .find(|a| a.style == AttrStyle::Outer && a.path.is_ident("handle"))
+        .find(|a| a.path.is_ident("handle"))
         .ok_or_else( ||
             syn::Error::new(name.span(),"Missing ActorState! please add #[handle(state = ..)] on the enum"),
         )?;

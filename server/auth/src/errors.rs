@@ -9,7 +9,7 @@ pub enum Error {
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
-    DotEnv(#[from] dotenv::Error),
+    DotEnv(#[from] dotenvy::Error),
     #[error(transparent)]
     Env(#[from] std::env::VarError),
     #[error(transparent)]

@@ -1,7 +1,8 @@
 [workspace]
+package.edition = "2021"
+resolver = "2"
 members = [
-  # Core Libs
-  "core/*",
+  "crates/*",
   # Servers
   "server/*",
   # Utils
@@ -9,3 +10,41 @@ members = [
   # Cli Tools
   "tools/*",
 ]
+
+[workspace.dependencies]
+# Local Dependencies
+primitives = { path = "crates/primitives" }
+tq-network = { path = "crates/network" }
+tq-serde = { path = "crates/serde" }
+tq-math = { path = "crates/math" }
+tq-crypto = { path = "crates/crypto" }
+tq-codec = { path = "crates/codec" }
+derive-packetid = { path = "macros/derive-packetid" }
+derive-packethandler = { path = "macros/derive-packethandler" }
+
+
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+bytes = "1.1"
+async-trait = "0.1"
+tracing = "0.1"
+dotenvy = "0.15"
+once_cell = "1.4"
+encoding = "0.2"
+bitflags = "1.2"
+argh = "0.1"
+tokio-stream = "0.1.8"
+rand = "0.8"
+chrono = "0.4"
+num_enum = { version = "0.5", default-features = false }
+
+[workspace.dependencies.tokio]
+version = "1.21.2"
+default-features = false
+
+[workspace.dependencies.sqlx]
+default-features = false
+version = "0.6.2"
+
+[profile.dev]
+split-debuginfo = 'packed'

@@ -1,0 +1,15 @@
+[package]
+name = "tq-serde"
+version = "0.1.0"
+authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
+edition.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+bytes.workspace = true
+serde.workspace = true
+encoding.workspace = true
+tq-crypto.workspace = true
+
+[dev-dependencies]
+serde = { workspace = true, features = ["derive"] }
