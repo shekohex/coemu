@@ -101,7 +101,7 @@ impl<S: ActorState> Actor<S> {
         packet: P,
     ) -> Result<(), P::Error> {
         let msg = packet.encode()?;
-        self.tx.clone().send(msg.into()).await.map_err(Into::into)?;
+        self.tx.send(msg.into()).await.map_err(Into::into)?;
         Ok(())
     }
 
@@ -112,12 +112,12 @@ impl<S: ActorState> Actor<S> {
         key2: u32,
     ) -> Result<(), Error> {
         let msg = (key1, key2).into();
-        self.tx.clone().send(msg).await?;
+        self.tx.send(msg).await?;
         Ok(())
     }
 
     pub async fn shutdown(&self) -> Result<(), Error> {
-        self.tx.clone().send(Message::Shutdown).await?;
+        self.tx.send(Message::Shutdown).await?;
         Ok(())
     }
 }

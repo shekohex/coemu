@@ -22,7 +22,7 @@ tq-codec = { path = "crates/codec" }
 derive-packetid = { path = "macros/derive-packetid" }
 derive-packethandler = { path = "macros/derive-packethandler" }
 
-
+futures = { version = "0.3", default-features = false }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 bytes = "1.1"

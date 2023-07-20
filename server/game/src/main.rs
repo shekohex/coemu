@@ -88,14 +88,14 @@ Copyright 2020 Shady Khalifa (@shekohex)
 
     let ctrlc = tokio::signal::ctrl_c();
 
+    tracing::info!("Initializing State ..");
+    State::init().await?;
+
     let server = GameServer::run(format!("0.0.0.0:{}", game_port));
     let server = tokio::spawn(server);
 
     let rpc_server = RpcServer::run(format!("0.0.0.0:{}", rpc_port));
     let rpc_server = tokio::spawn(rpc_server);
-
-    tracing::info!("Initializing State ..");
-    State::init().await?;
 
     tracing::info!("Game Server will be available on {}", game_port);
     tracing::info!("RPC Server will be available on {}", rpc_port);
