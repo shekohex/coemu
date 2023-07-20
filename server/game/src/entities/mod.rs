@@ -116,7 +116,7 @@ impl Entity {
     }
 
     pub fn set_flags(&self, flags: Flags) -> &Self {
-        self.flags.store(flags.bits, Ordering::Relaxed);
+        self.flags.store(flags.bits(), Ordering::Relaxed);
         self
     }
 
