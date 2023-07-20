@@ -36,7 +36,7 @@ fn derive_packet_id(input: DeriveInput) -> syn::Result<TokenStream> {
     let attr = input
         .attrs
         .iter()
-        .find(|a| a.path.is_ident("packet"))
+        .find(|a| a.path().is_ident("packet"))
         .ok_or_else( ||
             syn::Error::new(name.span(),"Missing Packet id! please add #[packet(id = ..)] on the struct"),
         )?;
