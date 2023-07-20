@@ -112,7 +112,7 @@ name = "auth-server"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "bcrypt 0.13.0",
+ "bcrypt",
  "bytes",
  "dotenvy",
  "num_enum",
@@ -166,18 +166,6 @@ name = "base64ct"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
-
-[[package]]
-name = "bcrypt"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fe4fef31efb0f76133ae8e3576a88e58edb7cfc5584c81c758c349ba46b43fc"
-dependencies = [
- "base64 0.13.1",
- "blowfish",
- "getrandom",
- "zeroize",
-]
 
 [[package]]
 name = "bcrypt"
@@ -680,7 +668,7 @@ checksum = "b6c80984affa11d98d1b88b66ac8853f143217b399d3c74116778ff8fdb4ed2e"
 name = "hash-pwd"
 version = "0.1.0"
 dependencies = [
- "bcrypt 0.12.1",
+ "bcrypt",
 ]
 
 [[package]]
