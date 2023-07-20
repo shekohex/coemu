@@ -36,7 +36,7 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
     let attr = input
         .attrs
         .iter()
-        .find(|a| a.path.is_ident("handle"))
+        .find(|a| a.path().is_ident("handle"))
         .ok_or_else( ||
             syn::Error::new(name.span(),"Missing ActorState! please add #[handle(state = ..)] on the enum"),
         )?;
