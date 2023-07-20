@@ -5,4 +5,4 @@ authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition = "2018"
 
 [dependencies]
-bcrypt = "0.12"
+bcrypt = "0.13"
