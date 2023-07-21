@@ -152,10 +152,12 @@ impl Cipher for TQCipher {
         assert_eq!(src.len(), dst.len());
         let key3 = self.key3.read();
         let key4 = self.key4.read();
+        let mut decrypt_counter = self
+            .decrypt_counter
+            .fetch_add(src.len() as i64, Ordering::Relaxed);
         for i in 0..src.len() {
             dst[i] = src[i] ^ 0xAB;
             dst[i] = dst[i] << 4 | dst[i] >> 4;
-            let decrypt_counter = self.decrypt_counter.load(Ordering::Relaxed);
             if self.use_alt_key.load(Ordering::Relaxed) {
                 dst[i] ^= key4[(decrypt_counter >> 8) as usize];
                 dst[i] ^= key3[(decrypt_counter & 0xFF) as usize];
@@ -163,7 +165,7 @@ impl Cipher for TQCipher {
                 dst[i] ^= KEY2[(decrypt_counter >> 8) as usize];
                 dst[i] ^= KEY1[(decrypt_counter & 0xFF) as usize];
             }
-            self.decrypt_counter.fetch_add(1, Ordering::Relaxed);
+            decrypt_counter += 1;
         }
     }
 
@@ -173,13 +175,15 @@ impl Cipher for TQCipher {
     #[inline(always)]
     fn encrypt(&self, src: &[u8], dst: &mut [u8]) {
         assert_eq!(src.len(), dst.len());
+        let mut encrypt_counter = self
+            .encrypt_counter
+            .fetch_add(src.len() as i64, Ordering::Relaxed);
         for i in 0..src.len() {
-            let encrypt_counter = self.encrypt_counter.load(Ordering::Relaxed);
             dst[i] = src[i] ^ 0xAB;
             dst[i] = dst[i] << 4 | dst[i] >> 4;
             dst[i] ^= KEY2[(encrypt_counter >> 8) as usize];
             dst[i] ^= KEY1[(encrypt_counter & 0xFF) as usize];
-            self.encrypt_counter.fetch_add(1, Ordering::Relaxed);
+            encrypt_counter += 1;
         }
     }
 }
