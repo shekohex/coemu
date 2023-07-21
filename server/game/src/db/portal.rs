@@ -1,4 +1,5 @@
-use crate::{Error, State};
+use crate::Error;
+use sqlx::SqlitePool;
 use tokio_stream::StreamExt;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
@@ -14,8 +15,10 @@ pub struct Portal {
 
 impl Portal {
     #[tracing::instrument]
-    pub async fn by_map(from: i32) -> Result<Vec<Self>, Error> {
-        let pool = State::global()?.pool();
+    pub async fn by_map(
+        pool: &SqlitePool,
+        from: i32,
+    ) -> Result<Vec<Self>, Error> {
         let mut portals = Vec::new();
         let mut s = sqlx::query_as::<_, Self>(
             "SELECT * FROM portals WHERE from_map_id = ?;",
@@ -38,8 +41,12 @@ impl Portal {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn fix(&self, x: u16, y: u16) -> Result<(), Error> {
-        let pool = State::global()?.pool();
+    pub async fn fix(
+        &self,
+        pool: &SqlitePool,
+        x: u16,
+        y: u16,
+    ) -> Result<(), Error> {
         sqlx::query(
             "UPDATE portals
             SET 

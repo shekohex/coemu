@@ -21,12 +21,14 @@ pub struct MsgTransfer {
 impl PacketProcess for MsgTransfer {
     type ActorState = ();
     type Error = Error;
+    type State = State;
 
     async fn process(
         &self,
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
-        let generated = State::global()?
+        let generated = state
             .token_store()
             .generate_login_token(self.account_id, self.realm_id)
             .await?;

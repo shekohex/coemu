@@ -27,7 +27,7 @@ impl Server for AuthServer {
 }
 
 #[derive(Debug, PacketHandler)]
-#[handle(state = ())]
+#[handle(state = State, actor_state = ())]
 pub enum AuthServerHandler {
     MsgAccount,
     MsgConnect,
@@ -55,13 +55,12 @@ Copyright 2020-2022 Shady Khalifa (@shekohex)
  "#
     );
     tracing::info!("Starting Auth Server");
+    tracing::info!("Initializing State ..");
+    let state = State::init().await?;
     tracing::info!("Initializing server...");
     let auth_port = env::var("AUTH_PORT")?;
     let ctrlc = tokio::signal::ctrl_c();
-    let server = AuthServer::run(format!("0.0.0.0:{}", auth_port));
-
-    tracing::info!("Initializing State ..");
-    State::init().await?;
+    let server = AuthServer::run(format!("0.0.0.0:{}", auth_port), state);
 
     tracing::info!("Auth Server will be available on {auth_port}");
 

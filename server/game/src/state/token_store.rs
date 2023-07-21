@@ -174,8 +174,19 @@ impl TokenStore {
     }
 }
 
+impl Default for TokenStore {
+    fn default() -> Self { Self::new() }
+}
+
 impl Drop for TokenStore {
-    fn drop(&mut self) { self.worker_handle.abort(); }
+    fn drop(&mut self) {
+        // Before dropping the TokenStore, check if we are the last reference to
+        // the worker handle. If we are, then we can abort the worker
+        // task.
+        if Arc::strong_count(&self.worker_handle) == 1 {
+            self.worker_handle.abort();
+        }
+    }
 }
 
 impl TokenStoreWorker {

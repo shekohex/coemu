@@ -1,4 +1,6 @@
-use crate::{Error, State};
+use sqlx::SqlitePool;
+
+use crate::Error;
 
 /// Realms are configured instances of the game server. This struct defines
 /// routing details for authenticated clients to be redirected to. Redirection
@@ -14,8 +16,10 @@ pub struct Realm {
 }
 
 impl Realm {
-    pub async fn by_name(name: &str) -> Result<Option<Self>, Error> {
-        let pool = State::global()?.pool();
+    pub async fn by_name(
+        pool: &SqlitePool,
+        name: &str,
+    ) -> Result<Option<Self>, Error> {
         let realm =
             sqlx::query_as::<_, Self>("SELECT * FROM realms WHERE name = ?;")
                 .bind(name)

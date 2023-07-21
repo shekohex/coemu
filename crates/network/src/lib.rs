@@ -26,12 +26,14 @@ pub trait PacketID {
 pub trait PacketProcess {
     type Error: StdError;
     type ActorState: ActorState;
+    type State: Send + Sync;
     /// Process can be invoked by a packet after decode has been called to
     /// structure packet fields and properties. For the server
     /// implementations, this is called in the packet handler after the
     /// message has been dequeued from the server's PacketProcessor
     async fn process(
         &self,
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error>;
 }
@@ -62,8 +64,10 @@ pub trait PacketDecode {
 pub trait PacketHandler {
     type Error: StdError + PacketEncode + Send + Sync;
     type ActorState: ActorState;
+    type State: Clone + Send + Sync + 'static;
     async fn handle(
         packet: (u16, Bytes),
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error>;
 }

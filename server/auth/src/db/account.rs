@@ -1,5 +1,6 @@
 use crate::packets::RejectionCode;
-use crate::{Error, State};
+use crate::Error;
+use sqlx::SqlitePool;
 use tq_network::IntoErrorPacket;
 
 /// Account information for a registered player. The account server uses this
@@ -16,10 +17,10 @@ pub struct Account {
 
 impl Account {
     pub async fn auth(
+        pool: &SqlitePool,
         username: &str,
         password: &str,
     ) -> Result<Account, Error> {
-        let pool = State::global()?.pool();
         let maybe_account = sqlx::query_as::<_, Self>(
             "SELECT * FROM accounts WHERE username = ?;",
         )

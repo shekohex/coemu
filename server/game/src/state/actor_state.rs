@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use futures::TryFutureExt;
 use tokio::sync::RwLock;
 use tq_network::Actor;
 
 use crate::systems::Screen;
 use crate::world::{Character, Map};
-use crate::Error;
 
 use super::Shared;
 
@@ -41,13 +41,12 @@ impl tq_network::ActorState for ActorState {
         &self,
         actor: &Actor<Self>,
     ) -> Result<(), tq_network::Error> {
-        let into = |e: Error| tq_network::Error::Other(e.to_string());
         let mymap = actor.map().await;
         let me = self.character().await;
-        mymap.remove_character(me.id()).await.map_err(into)?;
-        me.save().await.map_err(into)?;
-        let state = super::State::global().map_err(into)?;
-        state.characters.write().await.remove(&me.id());
+        mymap
+            .remove_character(me.id())
+            .map_err(|e| tq_network::Error::Other(e.to_string()))
+            .await?;
         Ok(())
     }
 }

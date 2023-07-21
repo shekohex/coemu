@@ -24,12 +24,13 @@ pub struct MsgConnect {
 impl PacketProcess for MsgConnect {
     type ActorState = ActorState;
     type Error = Error;
+    type State = State;
 
     async fn process(
         &self,
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
-        let state = State::global()?;
         let info = state
             .token_store()
             .remove_login_token(self.token)
@@ -38,7 +39,7 @@ impl PacketProcess for MsgConnect {
         actor.generate_keys(self.code, self.token).await?;
         actor.set_id(info.account_id as usize);
         let maybe_character =
-            db::Character::from_account(info.account_id).await?;
+            db::Character::from_account(state.pool(), info.account_id).await?;
         match maybe_character {
             Some(character) => {
                 let me = Character::new(actor.clone(), character);

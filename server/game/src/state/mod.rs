@@ -1,6 +1,5 @@
 use crate::world::{Character, Map};
 use crate::{db, Error};
-use once_cell::sync::OnceCell;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,9 +10,6 @@ mod actor_state;
 mod token_store;
 
 pub use actor_state::ActorState;
-
-/// Global state for the game server.
-static STATE: OnceCell<State> = OnceCell::new();
 
 type Maps = Arc<RwLock<HashMap<u32, Map>>>;
 type Characters = Arc<RwLock<HashMap<u32, Character>>>;
@@ -30,7 +26,7 @@ pub struct State {
 impl State {
     /// Init The State.
     /// Should only get called once.
-    pub async fn init() -> Result<(), Error> {
+    pub async fn init() -> Result<Self, Error> {
         let data_dir = dotenvy::var("DATA_LOCATION")?;
         let default_db_location =
             format!("sqlite://{data_dir}/coemu.db?mode=rwc");
@@ -47,20 +43,8 @@ impl State {
             characters: Default::default(),
             pool,
         };
-        STATE
-            .set(state)
-            .map_err(|_| Error::State("Failed to init the state."))?;
-        Self::post_init().await?;
-        Ok(())
-    }
-
-    /// Get access to the global state.
-    pub fn global() -> Result<&'static Self, Error> {
-        STATE.get().ok_or_else(|| {
-            Error::State(
-                "State is uninialized, did you forget to call State::init()!",
-            )
-        })
+        state.post_init().await?;
+        Ok(state)
     }
 
     /// Get access to the database pool
@@ -73,23 +57,21 @@ impl State {
     pub fn characters(&self) -> &Characters { &self.characters }
 
     /// Cleanup the state, close all connections and updating the database.
-    pub async fn clean_up() -> Result<(), Error> {
+    pub async fn clean_up(self) -> Result<(), Error> {
         debug!("Clean up ..");
-        let state = Self::global()?;
         debug!("Saving Characters data ..");
-        let mut characters = state.characters().write().await;
+        let mut characters = self.characters().write().await;
         for (_, character) in characters.drain() {
-            character.save().await?;
+            character.save(&self).await?;
         }
-        state.pool().close().await;
+        self.pool().close().await;
         debug!("Closed Database Connection ..");
         Ok(())
     }
 
     /// For Things we should do before sending that we init the state
-    async fn post_init() -> Result<(), Error> {
-        let state = Self::global()?;
-        state.init_maps().await?;
+    async fn post_init(&self) -> Result<(), Error> {
+        self.init_maps().await?;
         Ok(())
     }
 
@@ -97,11 +79,11 @@ impl State {
     /// database using the database's maps table.
     async fn init_maps(&self) -> Result<(), Error> {
         debug!("Loading Maps from Database");
-        let maps = db::Map::load_all().await?;
+        let maps = db::Map::load_all(&self.pool).await?;
         debug!("Loaded #{} Map From Database", maps.len());
         let mut lock = self.maps.write().await;
         for map in maps {
-            let portals = db::Portal::by_map(map.map_id).await?;
+            let portals = db::Portal::by_map(&self.pool, map.map_id).await?;
             let map = Map::new(map, portals);
             lock.insert(map.id(), map);
         }

@@ -5,8 +5,9 @@ use argh::FromArgs;
 use tq_network::Actor;
 
 pub async fn parse_and_execute(
-    args: &[&str],
+    state: &crate::State,
     actor: &Actor<ActorState>,
+    args: &[&str],
 ) -> Result<(), Error> {
     let me = actor.character().await;
     let c = match Command::from_args(&["commands"], args) {
@@ -35,7 +36,7 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::Teleport(info) => {
-            me.teleport(info.map_id, (info.x, info.y)).await
+            me.teleport(state, info.map_id, (info.x, info.y)).await
         },
         SubCommands::Which(which) => {
             if which.map {
@@ -63,7 +64,7 @@ pub async fn parse_and_execute(
                 )
             });
             if let Some(portal) = maybe_portal {
-                portal.fix(me.x(), me.y()).await?;
+                portal.fix(state.pool(), me.x(), me.y()).await?;
                 actor
                     .send(MsgTalk::from_system(
                         me.id(),
@@ -85,6 +86,7 @@ pub async fn parse_and_execute(
                 let maybe_portal = mymap.portals().iter().nth(pos as usize);
                 if let Some(portal) = maybe_portal {
                     me.teleport(
+                        state,
                         portal.from_map_id(),
                         (portal.from_x() - 5, portal.from_y() - 5),
                     )

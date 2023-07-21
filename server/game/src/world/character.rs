@@ -1,7 +1,7 @@
 use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
 use crate::packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel};
 use crate::utils::LoHi;
-use crate::{constants, db, ActorState, Error, State};
+use crate::{constants, db, ActorState, Error};
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
@@ -102,6 +102,7 @@ impl Character {
 
     pub async fn teleport(
         &self,
+        state: &crate::State,
         map_id: u32,
         (x, y): (u16, u16),
     ) -> Result<(), Error> {
@@ -113,7 +114,6 @@ impl Character {
             self.direction() as u16,
             ActionType::Teleport,
         );
-        let state = State::global()?;
         if let Some(new_map) = state.maps().read().await.get(&map_id) {
             new_map.insert_character(self.clone()).await?;
             let tile = new_map.tile(x, y).await.ok_or_else(|| {
@@ -141,7 +141,7 @@ impl Character {
         Ok(())
     }
 
-    pub async fn save(&self) -> Result<(), Error> {
+    pub async fn save(&self, state: &crate::State) -> Result<(), Error> {
         let e = db::Character {
             character_id: self.inner.character_id,
             account_id: self.inner.account_id,
@@ -170,7 +170,7 @@ impl Character {
             mana_points: self.mana_points() as _,
             kill_points: self.kill_points() as _,
         };
-        e.update().await?;
+        e.update(state.pool()).await?;
         Ok(())
     }
 }

@@ -1,3 +1,4 @@
+use crate::state::State;
 use crate::{ActorState, Error};
 use chrono::{Datelike, Timelike};
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -48,9 +49,11 @@ impl MsgData {
 impl PacketProcess for MsgData {
     type ActorState = ActorState;
     type Error = Error;
+    type State = State;
 
     async fn process(
         &self,
+        _state: &Self::State,
         _actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         Ok(())

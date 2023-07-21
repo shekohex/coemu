@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tq_math::SCREEN_DISTANCE;
 use tracing::debug;
 
 type Characters = Arc<RwLock<HashMap<u32, Character>>>;
@@ -254,7 +255,8 @@ impl PartialEq for MapRegion {
 
 impl MapRegion {
     /// WIDTH and HEIGHT are the number of tiles in a region.
-    pub const SIZE: Size<u32> = Size::new(18, 18);
+    pub const SIZE: Size<u32> =
+        Size::new(SCREEN_DISTANCE as _, SCREEN_DISTANCE as _);
 
     pub fn new(start_point: Point<u32>) -> Self {
         Self {

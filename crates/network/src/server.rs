@@ -19,25 +19,35 @@ pub trait Server: Sized + Send + Sync {
 
     /// Get Called once a Stream Got Connected, Returing Error here will stop
     /// the stream task and disconnect them from the server.
-    #[tracing::instrument]
-    async fn on_connected(addr: SocketAddr) -> Result<(), Error> {
+    #[tracing::instrument(skip(state))]
+    async fn on_connected(
+        state: &<Self::PacketHandler as PacketHandler>::State,
+        addr: SocketAddr,
+    ) -> Result<(), Error> {
         let _ = addr;
+        let _ = state;
         Ok(())
     }
 
     /// Get Called right before ending the connection with that client.
     /// good chance to clean up anything related to that actor.
+    #[tracing::instrument(skip(state, actor))]
     async fn on_disconnected(
+        state: &<Self::PacketHandler as PacketHandler>::State,
         actor: Actor<Self::ActorState>,
     ) -> Result<(), Error> {
+        let _ = state;
         ActorState::dispose(actor.deref(), &actor).await?;
         Ok(())
     }
 
     /// Runs the server and listen on the configured Address for new
     /// Connections.
-    #[tracing::instrument]
-    async fn run<A>(addr: A) -> Result<(), Error>
+    #[tracing::instrument(skip(state))]
+    async fn run<A>(
+        addr: A,
+        state: <Self::PacketHandler as PacketHandler>::State,
+    ) -> Result<(), Error>
     where
         A: Debug + ToSocketAddrs + Send + Sync,
     {
@@ -46,6 +56,7 @@ pub trait Server: Sized + Send + Sync {
         tracing::trace!("Starting Server main loop");
         tracing::info!("Server is Ready for New Connections.");
         while let Some(stream) = incoming.next().await {
+            let state = state.clone();
             let stream = match stream {
                 Ok(s) => {
                     tracing::debug!("Got Connection from {}", s.peer_addr()?);
@@ -64,8 +75,8 @@ pub trait Server: Sized + Send + Sync {
             };
             tokio::spawn(async move {
                 tracing::trace!("Calling on_connected lifetime hook");
-                Self::on_connected(stream.peer_addr()?).await?;
-                if let Err(e) = handle_stream::<Self>(stream).await {
+                Self::on_connected(&state, stream.peer_addr()?).await?;
+                if let Err(e) = handle_stream::<Self>(stream, state).await {
                     tracing::error!("{}", e);
                 }
                 tracing::debug!("Task Ended.");
@@ -76,8 +87,11 @@ pub trait Server: Sized + Send + Sync {
     }
 }
 
-#[tracing::instrument(skip(stream))]
-async fn handle_stream<S: Server>(stream: TcpStream) -> Result<(), Error> {
+#[tracing::instrument(skip(stream, state))]
+async fn handle_stream<S: Server>(
+    stream: TcpStream,
+    state: <S::PacketHandler as PacketHandler>::State,
+) -> Result<(), Error> {
     let (tx, rx) = mpsc::channel(50);
     let actor = Actor::new(tx);
     let cipher = S::Cipher::default();
@@ -87,7 +101,10 @@ async fn handle_stream<S: Server>(stream: TcpStream) -> Result<(), Error> {
 
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
-        if let Err(err) = S::PacketHandler::handle((id, bytes), &actor).await {
+        if let Err(err) =
+            S::PacketHandler::handle((id, bytes), &state, &actor).await
+        {
+            tracing::error!("Error while handling packet: {err}");
             let result = actor
                 .send(err)
                 .await
@@ -99,7 +116,7 @@ async fn handle_stream<S: Server>(stream: TcpStream) -> Result<(), Error> {
     }
     tracing::trace!("Calling on_disconnected lifetime hook");
     message_task.abort();
-    S::on_disconnected(actor).await?;
+    S::on_disconnected(&state, actor).await?;
     tracing::debug!("Socket Closed, stopping task.");
     Ok(())
 }

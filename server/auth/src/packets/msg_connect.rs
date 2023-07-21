@@ -1,3 +1,4 @@
+use crate::state::State;
 use crate::Error;
 use serde::Deserialize;
 use tq_network::{Actor, PacketID, PacketProcess};
@@ -18,9 +19,11 @@ pub struct MsgConnect {
 impl PacketProcess for MsgConnect {
     type ActorState = ();
     type Error = Error;
+    type State = State;
 
     async fn process(
         &self,
+        _state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         actor.shutdown().await?;

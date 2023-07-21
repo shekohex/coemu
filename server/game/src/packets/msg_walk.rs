@@ -1,4 +1,5 @@
 use crate::constants::{WALK_XCOORDS, WALK_YCOORDS};
+use crate::state::State;
 use crate::systems::TileType;
 use crate::{ActorState, Error};
 use async_trait::async_trait;
@@ -35,6 +36,7 @@ pub struct MsgWalk {
 impl PacketProcess for MsgWalk {
     type ActorState = ActorState;
     type Error = Error;
+    type State = State;
 
     /// processes a character movement for the actor. It checks if
     /// the movement is valid, then distributes it to observing players. if
@@ -42,6 +44,7 @@ impl PacketProcess for MsgWalk {
     /// will be teleported back to the character's original position.
     async fn process(
         &self,
+        _state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let direction = (self.direction % 8) as usize;

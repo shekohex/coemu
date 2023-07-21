@@ -1,4 +1,6 @@
-use crate::{Error, State};
+use sqlx::SqlitePool;
+
+use crate::Error;
 
 /// This struct encapsulates the game character for a player. The player
 /// controls the character as the protagonist of the Conquer Online storyline.
@@ -43,8 +45,10 @@ pub struct Location {
 }
 
 impl Character {
-    pub async fn from_account(id: u32) -> Result<Option<Self>, Error> {
-        let pool = State::global()?.pool();
+    pub async fn from_account(
+        pool: &SqlitePool,
+        id: u32,
+    ) -> Result<Option<Self>, Error> {
         let maybe_character = sqlx::query_as::<_, Self>(
             "SELECT * FROM characters WHERE account_id = ?;",
         )
@@ -54,8 +58,10 @@ impl Character {
         Ok(maybe_character)
     }
 
-    pub async fn name_taken(name: &str) -> Result<bool, Error> {
-        let pool = State::global()?.pool();
+    pub async fn name_taken(
+        pool: &SqlitePool,
+        name: &str,
+    ) -> Result<bool, Error> {
         let result = sqlx::query_as::<_, (i32,)>(
             "SELECT EXISTS (SELECT 1 FROM characters WHERE name = ? LIMIT 1);",
         )
@@ -70,8 +76,7 @@ impl Character {
         }
     }
 
-    pub async fn by_id(id: i32) -> Result<Self, Error> {
-        let pool = State::global()?.pool();
+    pub async fn by_id(pool: &SqlitePool, id: i32) -> Result<Self, Error> {
         let c = sqlx::query_as::<_, Self>(
             "SELECT * FROM characters WHERE character_id = ?;",
         )
@@ -81,8 +86,7 @@ impl Character {
         Ok(c)
     }
 
-    pub async fn save(self) -> Result<i32, Error> {
-        let pool = State::global()?.pool();
+    pub async fn save(self, pool: &SqlitePool) -> Result<i32, Error> {
         let (id,) = sqlx::query_as::<_, (i32,)>(
             "
             INSERT INTO characters
@@ -124,8 +128,7 @@ impl Character {
         Ok(id)
     }
 
-    pub async fn update(self) -> Result<(), Error> {
-        let pool = State::global()?.pool();
+    pub async fn update(self, pool: &SqlitePool) -> Result<(), Error> {
         sqlx::query(
             "
             UPDATE characters

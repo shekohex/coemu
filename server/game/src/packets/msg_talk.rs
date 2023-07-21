@@ -1,4 +1,5 @@
 use crate::constants::{ALL_USERS, SYSTEM};
+use crate::state::State;
 use crate::systems::commands;
 use crate::ActorState;
 use async_trait::async_trait;
@@ -150,16 +151,18 @@ impl MsgTalk {
 impl PacketProcess for MsgTalk {
     type ActorState = ActorState;
     type Error = crate::Error;
+    type State = State;
 
     async fn process(
         &self,
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         if self.message.starts_with('$') {
             // Command Message.
             let (_, command) = self.message.split_at(1);
             let args: Vec<_> = command.split_whitespace().collect();
-            commands::parse_and_execute(&args, actor).await?;
+            commands::parse_and_execute(state, actor, &args).await?;
         }
         Ok(())
     }

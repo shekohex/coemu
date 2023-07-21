@@ -24,10 +24,11 @@ pub struct MsgTransfer {
 
 impl MsgTransfer {
     pub async fn handle(
+        state: &crate::State,
         actor: &Actor<()>,
         realm: &str,
     ) -> Result<AccountCredentials, Error> {
-        let maybe_realm = db::Realm::by_name(realm).await?;
+        let maybe_realm = db::Realm::by_name(state.pool(), realm).await?;
         // Check if there is a realm with that name
         let realm = match maybe_realm {
             Some(realm) => realm,

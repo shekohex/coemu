@@ -1,8 +1,5 @@
 use crate::Error;
-use once_cell::sync::OnceCell;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
-
-static STATE: OnceCell<State> = OnceCell::new();
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -12,7 +9,7 @@ pub struct State {
 impl State {
     /// Init The State.
     /// Should only get called once.
-    pub async fn init() -> Result<(), Error> {
+    pub async fn init() -> Result<Self, Error> {
         let data_dir = dotenvy::var("DATA_LOCATION")?;
         let default_db_location =
             format!("sqlite://{data_dir}/coemu.db?mode=rwc");
@@ -24,19 +21,7 @@ impl State {
             .connect(&db_url)
             .await?;
         let state = Self { pool };
-        STATE
-            .set(state)
-            .map_err(|_| Error::State("Failed to init the state."))?;
-        Ok(())
-    }
-
-    /// Get access to the global state.
-    pub fn global() -> Result<&'static Self, Error> {
-        STATE.get().ok_or_else(|| {
-            Error::State(
-                "State is uninialized, did you forget to call State::init()!",
-            )
-        })
+        Ok(state)
     }
 
     /// Get access to the database pool

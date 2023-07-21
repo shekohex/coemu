@@ -1,4 +1,5 @@
 use super::{MsgTalk, TalkChannel};
+use crate::state::State;
 use crate::{utils, ActorState, Error};
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
@@ -277,6 +278,7 @@ impl MsgAction {
 
     async fn handle_change_map(
         &self,
+        state: &State,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let portal_x = self.data1.lo();
@@ -299,10 +301,15 @@ impl MsgAction {
             tq_math::in_circle((me.x(), me.y(), 5), (p.from_x(), p.from_y()))
         });
         if let Some(portal) = maybe_portal {
-            me.teleport(portal.to_map_id(), (portal.to_x(), portal.to_y()))
-                .await?;
+            me.teleport(
+                state,
+                portal.to_map_id(),
+                (portal.to_x(), portal.to_y()),
+            )
+            .await?;
         } else {
-            me.teleport(me.map_id(), (me.prev_x(), me.prev_y())).await?;
+            me.teleport(state, me.map_id(), (me.prev_x(), me.prev_y()))
+                .await?;
         }
         Ok(())
     }
@@ -312,9 +319,11 @@ impl MsgAction {
 impl PacketProcess for MsgAction {
     type ActorState = ActorState;
     type Error = Error;
+    type State = State;
 
     async fn process(
         &self,
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let ty = self.action_type.into();
@@ -354,7 +363,7 @@ impl PacketProcess for MsgAction {
             ActionType::GroundJump => self.handle_jump(actor).await,
             ActionType::ChangeFacing => self.handle_change_facing(actor).await,
             ActionType::QueryEntity => self.handle_query_entity(actor).await,
-            ActionType::ChangeMap => self.handle_change_map(actor).await,
+            ActionType::ChangeMap => self.handle_change_map(state, actor).await,
             _ => {
                 let p = MsgTalk::from_system(
                     self.character_id,

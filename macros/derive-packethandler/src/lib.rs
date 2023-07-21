@@ -4,21 +4,61 @@ use syn::parse::{Parse, ParseStream};
 use syn::{parse_macro_input, Data, DataEnum, DeriveInput, Expr, Ident, Token};
 
 struct Args {
+    actor_state: Expr,
     state: Expr,
 }
 
 impl Parse for Args {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let ident: Ident = input.parse()?;
-        let _: Token!(=) = input.parse()?;
-        let state: Expr = input.parse()?;
-        if ident != "state" {
-            return Err(syn::Error::new(
-                ident.span(),
-                format!("expected `state` but got {}", ident),
-            ));
-        }
-        let args = Self { state };
+        let ident1: Ident = input.parse().map_err(|e| {
+            syn::Error::new(
+                e.span(),
+                "expected `state` or `actor_state` but got nothing",
+            )
+        })?;
+        let _: Token!(=) = input
+            .parse()
+            .map_err(|e| syn::Error::new(e.span(), format!("expected `=`")))?;
+        let ident1_value: Expr = input.parse().map_err(|e| {
+            syn::Error::new(e.span(), format!("expected `Expr`"))
+        })?;
+        let _: Token!(,) = input
+            .parse()
+            .map_err(|e| syn::Error::new(e.span(), format!("expected `,`")))?;
+        let ident2: Ident = input.parse().map_err(|e| {
+            syn::Error::new(
+                e.span(),
+                "expected `state` or `actor_state` but got nothing",
+            )
+        })?;
+        let _: Token!(=) = input
+            .parse()
+            .map_err(|e| syn::Error::new(e.span(), format!("expected `=`")))?;
+        let ident2_value: Expr = input.parse().map_err(|e| {
+            syn::Error::new(e.span(), format!("expected `Expr`"))
+        })?;
+        let (state, actor_state) = match (ident1, ident2) {
+            (ident1, ident2)
+                if ident1 == "state" && ident2 == "actor_state" =>
+            {
+                (ident1_value, ident2_value)
+            },
+            (ident1, ident2)
+                if ident1 == "actor_state" && ident2 == "state" =>
+            {
+                (ident2_value, ident1_value)
+            },
+            (v1, v2) => {
+                return Err(syn::Error::new(
+                    input.span(),
+                    format!(
+                    "expected `state` or `actor_state` but got {v1} and {v2}",
+                ),
+                ))
+            },
+        };
+
+        let args = Self { state, actor_state };
         Ok(args)
     }
 }
@@ -38,10 +78,11 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
         .iter()
         .find(|a| a.path().is_ident("handle"))
         .ok_or_else( ||
-            syn::Error::new(name.span(),"Missing ActorState! please add #[handle(state = ..)] on the enum"),
+            syn::Error::new(name.span(),"Missing ActorState! please add #[handle(state = .., actor_state = ...)] on the enum"),
         )?;
     let args: Args = attr.parse_args()?;
     let state = args.state;
+    let actor_state = args.actor_state;
     let generics = input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     // Build the output, possibly using quasi-quotation
@@ -49,9 +90,11 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
         #[async_trait::async_trait]
         impl #impl_generics tq_network::PacketHandler for #name #ty_generics #where_clause {
             type Error = crate::Error;
-            type ActorState = #state;
+            type ActorState = #actor_state;
+            type State = #state;
              async fn handle(
                  (id, bytes): (u16, bytes::Bytes),
+                 state: &Self::State,
                  actor: &tq_network::Actor<Self::ActorState>,
                 ) -> Result<(), Self::Error> {
                     use tq_network::{PacketID, PacketProcess};
@@ -71,7 +114,7 @@ fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
             if id == #ident::id() {
                 let msg = <#ident as tq_network::PacketDecode>::decode(&bytes)?;
                 tracing::debug!("{:?}", msg);
-                msg.process(actor).await?;
+                msg.process(state, actor).await?;
                 return Ok(());
             }
         }

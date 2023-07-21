@@ -1,4 +1,5 @@
 use super::{MsgConnectEx, MsgTransfer};
+use crate::state::State;
 use crate::{db, Error};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -21,14 +22,18 @@ pub struct MsgAccount {
 impl PacketProcess for MsgAccount {
     type ActorState = ();
     type Error = Error;
+    type State = State;
 
     async fn process(
         &self,
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
-        let account = db::Account::auth(&self.username, &self.password).await?;
+        let pool = state.pool();
+        let account =
+            db::Account::auth(pool, &self.username, &self.password).await?;
         actor.set_id(account.account_id as usize);
-        let res = MsgTransfer::handle(actor, &self.realm).await?;
+        let res = MsgTransfer::handle(state, actor, &self.realm).await?;
         let res = MsgConnectEx::forword_connection(res);
         actor.send(res).await?;
         Ok(())

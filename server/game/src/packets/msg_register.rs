@@ -104,19 +104,21 @@ pub enum BaseClass {
 impl PacketProcess for MsgRegister {
     type ActorState = ActorState;
     type Error = Error;
+    type State = State;
 
     async fn process(
         &self,
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
-        let state = State::global()?;
         let info = state
             .token_store()
             .remove_creation_token(self.token)
             .await?
             .ok_or_else(|| MsgTalk::register_invalid().error_packet())?;
 
-        if db::Character::name_taken(&self.character_name).await? {
+        if db::Character::name_taken(state.pool(), &self.character_name).await?
+        {
             return Err(MsgTalk::register_name_taken().error_packet().into());
         }
 
@@ -128,9 +130,10 @@ impl PacketProcess for MsgRegister {
 
         let character_id = self
             .build_character(info.account_id, info.realm_id)?
-            .save()
+            .save(state.pool())
             .await?;
-        let character = db::Character::by_id(character_id).await?;
+        let character =
+            db::Character::by_id(state.pool(), character_id).await?;
         let map_id = character.map_id;
         let me = Character::new(actor.clone(), character);
         actor.set_character(me.clone()).await;

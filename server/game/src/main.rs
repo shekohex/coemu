@@ -6,7 +6,10 @@
 //! server as well.
 
 use async_trait::async_trait;
-use tq_network::{NopCipher, PacketHandler, Server, TQCipher};
+use futures::TryFutureExt;
+use tq_network::{
+    Actor, ActorState as _, NopCipher, PacketHandler, Server, TQCipher,
+};
 
 mod constants;
 mod db;
@@ -32,6 +35,23 @@ impl Server for GameServer {
     type ActorState = ActorState;
     type Cipher = TQCipher;
     type PacketHandler = Handler;
+
+    /// Get Called right before ending the connection with that client.
+    /// good chance to clean up anything related to that actor.
+    #[tracing::instrument(skip(state, actor))]
+    async fn on_disconnected(
+        state: &<Self::PacketHandler as PacketHandler>::State,
+        actor: Actor<Self::ActorState>,
+    ) -> Result<(), tq_network::Error> {
+        let _ = state;
+        let me = actor.character().await;
+        me.save(state)
+            .map_err(|e| tq_network::Error::Other(e.to_string()))
+            .await?;
+        ActorState::dispose(&actor, &actor).await?;
+        state.characters().write().await.remove(&me.id());
+        Ok(())
+    }
 }
 
 struct RpcServer;
@@ -43,7 +63,7 @@ impl Server for RpcServer {
 }
 
 #[derive(Copy, Clone, PacketHandler)]
-#[handle(state = ActorState)]
+#[handle(state = State, actor_state = ActorState)]
 pub enum Handler {
     MsgConnect,
     MsgRegister,
@@ -54,7 +74,7 @@ pub enum Handler {
 }
 
 #[derive(Copy, Clone, PacketHandler)]
-#[handle(state = ())]
+#[handle(state = State, actor_state = ())]
 pub enum RpcHandler {
     MsgTransfer,
 }
@@ -89,12 +109,14 @@ Copyright 2020 Shady Khalifa (@shekohex)
     let ctrlc = tokio::signal::ctrl_c();
 
     tracing::info!("Initializing State ..");
-    State::init().await?;
+    let state = State::init().await?;
 
-    let server = GameServer::run(format!("0.0.0.0:{}", game_port));
+    let server =
+        GameServer::run(format!("0.0.0.0:{}", game_port), state.clone());
     let server = tokio::spawn(server);
 
-    let rpc_server = RpcServer::run(format!("0.0.0.0:{}", rpc_port));
+    let rpc_server =
+        RpcServer::run(format!("0.0.0.0:{}", rpc_port), state.clone());
     let rpc_server = tokio::spawn(rpc_server);
 
     tracing::info!("Game Server will be available on {}", game_port);
@@ -111,7 +133,7 @@ Copyright 2020 Shady Khalifa (@shekohex)
             tracing::info!("Rpc Server is Suhtting Down..");
         }
     };
-    State::clean_up().await?;
+    state.clean_up().await?;
     tracing::info!("Shutdown.");
     Ok(())
 }
