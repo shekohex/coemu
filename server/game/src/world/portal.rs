@@ -1,4 +1,3 @@
-use crate::db;
 use crate::utils::LoHi;
 use std::hash::Hash;
 use std::ops::Deref;
@@ -6,17 +5,17 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Portal {
-    inner: Arc<db::Portal>,
+    inner: Arc<tq_db::portal::Portal>,
 }
 
 impl Deref for Portal {
-    type Target = db::Portal;
+    type Target = tq_db::portal::Portal;
 
     fn deref(&self) -> &Self::Target { &self.inner }
 }
 
 impl Portal {
-    pub fn new(inner: db::Portal) -> Self {
+    pub fn new(inner: tq_db::portal::Portal) -> Self {
         Self {
             inner: Arc::new(inner),
         }
@@ -58,7 +57,7 @@ impl Hash for Portal {
 impl From<(u16, u16)> for Portal {
     fn from((x, y): (u16, u16)) -> Self {
         Self {
-            inner: Arc::new(db::Portal {
+            inner: Arc::new(tq_db::portal::Portal {
                 from_x: x as i16,
                 from_y: y as i16,
                 ..Default::default()

@@ -1,5 +1,5 @@
 use crate::world::{Character, Map};
-use crate::{db, Error};
+use crate::Error;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -79,11 +79,12 @@ impl State {
     /// database using the database's maps table.
     async fn init_maps(&self) -> Result<(), Error> {
         debug!("Loading Maps from Database");
-        let maps = db::Map::load_all(&self.pool).await?;
+        let maps = tq_db::map::Map::load_all(&self.pool).await?;
         debug!("Loaded #{} Map From Database", maps.len());
         let mut lock = self.maps.write().await;
         for map in maps {
-            let portals = db::Portal::by_map(&self.pool, map.map_id).await?;
+            let portals =
+                tq_db::portal::Portal::by_map(&self.pool, map.map_id).await?;
             let map = Map::new(map, portals);
             lock.insert(map.id(), map);
         }

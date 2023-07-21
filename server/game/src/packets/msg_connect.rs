@@ -1,7 +1,7 @@
 use super::{MsgTalk, MsgUserInfo};
 use crate::systems::Screen;
 use crate::world::Character;
-use crate::{db, ActorState, Error, State};
+use crate::{ActorState, Error, State};
 use serde::Deserialize;
 use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use tq_serde::String10;
@@ -38,8 +38,11 @@ impl PacketProcess for MsgConnect {
             .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
         actor.generate_keys(self.code, self.token).await?;
         actor.set_id(info.account_id as usize);
-        let maybe_character =
-            db::Character::from_account(state.pool(), info.account_id).await?;
+        let maybe_character = tq_db::character::Character::from_account(
+            state.pool(),
+            info.account_id,
+        )
+        .await?;
         match maybe_character {
             Some(character) => {
                 let me = Character::new(actor.clone(), character);

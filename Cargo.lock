@@ -636,6 +636,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tq-db",
  "tq-math",
  "tq-network",
  "tq-serde",
@@ -1940,6 +1941,8 @@ dependencies = [
  "bcrypt",
  "sqlx",
  "thiserror",
+ "tokio-stream",
+ "tracing",
 ]
 
 [[package]]

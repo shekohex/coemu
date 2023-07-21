@@ -1,6 +1,7 @@
 use crate::Error;
 use sqlx::SqlitePool;
 use tokio_stream::StreamExt;
+
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Map {
     pub map_id: i32,

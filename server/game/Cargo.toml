@@ -12,6 +12,7 @@ bytes.workspace = true
 tq-network.workspace = true
 tq-serde.workspace = true
 tq-math.workspace = true
+tq-db.workspace = true
 primitives.workspace = true
 async-trait.workspace = true
 tracing.workspace = true

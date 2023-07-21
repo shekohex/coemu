@@ -1,7 +1,7 @@
 use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
 use crate::packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel};
 use crate::utils::LoHi;
-use crate::{constants, db, ActorState, Error};
+use crate::{constants, ActorState, Error};
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
@@ -14,7 +14,7 @@ use tq_network::{Actor, IntoErrorPacket};
 /// also controls the character's professions and abilities.
 #[derive(Debug, Clone, Default)]
 pub struct Character {
-    inner: Arc<db::Character>,
+    inner: Arc<tq_db::character::Character>,
     entity: Entity,
     owner: Actor<ActorState>,
     elevation: Arc<AtomicU16>,
@@ -27,7 +27,10 @@ impl Deref for Character {
 }
 
 impl Character {
-    pub fn new(owner: Actor<ActorState>, inner: db::Character) -> Self {
+    pub fn new(
+        owner: Actor<ActorState>,
+        inner: tq_db::character::Character,
+    ) -> Self {
         let entity = Entity::new(
             inner.character_id as u32 + constants::CHARACTER_BASE_ID,
             inner.name.clone(),
@@ -142,7 +145,7 @@ impl Character {
     }
 
     pub async fn save(&self, state: &crate::State) -> Result<(), Error> {
-        let e = db::Character {
+        let e = tq_db::character::Character {
             character_id: self.inner.character_id,
             account_id: self.inner.account_id,
             realm_id: self.inner.realm_id,

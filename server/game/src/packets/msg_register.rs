@@ -1,7 +1,7 @@
 use super::MsgTalk;
 use crate::systems::Screen;
 use crate::world::Character;
-use crate::{db, ActorState, Error, State};
+use crate::{ActorState, Error, State};
 use num_enum::TryFromPrimitive;
 use rand::{Rng, SeedableRng};
 use serde::Deserialize;
@@ -25,7 +25,7 @@ impl MsgRegister {
         &self,
         account_id: u32,
         realm_id: u32,
-    ) -> Result<db::Character, Error> {
+    ) -> Result<tq_db::character::Character, Error> {
         // Some Math for rand characher.
         let mut rng = rand::rngs::StdRng::from_entropy();
 
@@ -56,7 +56,7 @@ impl MsgRegister {
             (strength * 3) + (agility * 3) + (spirit * 3) + (vitality * 24);
         let mana_points = spirit * 5;
 
-        let c = db::Character {
+        let c = tq_db::character::Character {
             account_id: account_id as i32,
             realm_id: realm_id as i32,
             name: self.character_name.to_string(),
@@ -117,7 +117,11 @@ impl PacketProcess for MsgRegister {
             .await?
             .ok_or_else(|| MsgTalk::register_invalid().error_packet())?;
 
-        if db::Character::name_taken(state.pool(), &self.character_name).await?
+        if tq_db::character::Character::name_taken(
+            state.pool(),
+            &self.character_name,
+        )
+        .await?
         {
             return Err(MsgTalk::register_name_taken().error_packet().into());
         }
@@ -133,7 +137,8 @@ impl PacketProcess for MsgRegister {
             .save(state.pool())
             .await?;
         let character =
-            db::Character::by_id(state.pool(), character_id).await?;
+            tq_db::character::Character::by_id(state.pool(), character_id)
+                .await?;
         let map_id = character.map_id;
         let me = Character::new(actor.clone(), character);
         actor.set_character(me.clone()).await;

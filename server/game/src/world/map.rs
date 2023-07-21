@@ -1,7 +1,7 @@
 use super::{Character, Portal};
 use crate::entities::BaseEntity;
 use crate::systems::{Floor, Tile};
-use crate::{constants, db, Error};
+use crate::{constants, Error};
 use num_enum::FromPrimitive;
 use primitives::{Point, Size};
 use std::collections::{HashMap, HashSet};
@@ -23,7 +23,7 @@ type MapRegions = Arc<RwLock<Vec<MapRegion>>>;
 #[derive(Debug, Default, Clone)]
 pub struct Map {
     /// The Inner map loaded from the database
-    inner: Arc<db::Map>,
+    inner: Arc<tq_db::map::Map>,
     /// Holds client information for each player on the map.
     characters: Characters,
     /// where should the player get revived on this map
@@ -38,13 +38,16 @@ pub struct Map {
 }
 
 impl Deref for Map {
-    type Target = db::Map;
+    type Target = tq_db::map::Map;
 
     fn deref(&self) -> &Self::Target { &self.inner }
 }
 
 impl Map {
-    pub fn new(inner: db::Map, portals: Vec<db::Portal>) -> Self {
+    pub fn new(
+        inner: tq_db::map::Map,
+        portals: Vec<tq_db::portal::Portal>,
+    ) -> Self {
         let portals = portals.into_iter().map(Portal::new).collect();
         Self {
             floor: Arc::new(RwLock::new(Floor::new(inner.path.clone()))),
