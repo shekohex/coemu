@@ -1,8 +1,10 @@
 use super::{MsgConnectEx, MsgTransfer};
+use crate::packets::RejectionCode;
 use crate::state::State;
-use crate::{db, Error};
+use crate::Error;
 use async_trait::async_trait;
 use serde::Deserialize;
+use tq_db::account::Account;
 use tq_network::{Actor, PacketID, PacketProcess};
 use tq_serde::{String16, TQPassword};
 
@@ -30,8 +32,25 @@ impl PacketProcess for MsgAccount {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let pool = state.pool();
-        let account =
-            db::Account::auth(pool, &self.username, &self.password).await?;
+        let maybe_accont =
+            Account::auth(pool, &self.username, &self.password).await;
+        let account = match maybe_accont {
+            Ok(account) => account,
+            Err(e) => {
+                let res = match e {
+                    tq_db::Error::InvalidPassword
+                    | tq_db::Error::AccountNotFound => {
+                        RejectionCode::InvalidPassword.packet()
+                    },
+                    _ => {
+                        tracing::error!("Error authenticating account: {e}");
+                        RejectionCode::TryAgainLater.packet()
+                    },
+                };
+                actor.send(res).await?;
+                return Ok(());
+            },
+        };
         actor.set_id(account.account_id as usize);
         let res = MsgTransfer::handle(state, actor, &self.realm).await?;
         let res = MsgConnectEx::forword_connection(res);

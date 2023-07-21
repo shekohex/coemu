@@ -16,8 +16,6 @@ mod packets;
 use packets::{MsgAccount, MsgConnect};
 use std::env;
 
-mod db;
-
 struct AuthServer;
 
 impl Server for AuthServer {

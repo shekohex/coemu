@@ -19,6 +19,8 @@ tq-serde = { path = "crates/serde" }
 tq-math = { path = "crates/math" }
 tq-crypto = { path = "crates/crypto" }
 tq-codec = { path = "crates/codec" }
+tq-db = { path = "crates/db" }
+
 derive-packetid = { path = "macros/derive-packetid" }
 derive-packethandler = { path = "macros/derive-packethandler" }
 

@@ -1,7 +1,5 @@
-use crate::packets::RejectionCode;
 use crate::Error;
 use sqlx::SqlitePool;
-use tq_network::IntoErrorPacket;
 
 /// Account information for a registered player. The account server uses this
 /// information to authenticate the player on login. Passwords are hashed using
@@ -33,16 +31,10 @@ impl Account {
                 if matched {
                     Ok(account)
                 } else {
-                    Err(RejectionCode::InvalidPassword
-                        .packet()
-                        .error_packet()
-                        .into())
+                    Err(Error::InvalidPassword)
                 }
             },
-            None => Err(RejectionCode::InvalidPassword
-                .packet()
-                .error_packet()
-                .into()),
+            None => Err(Error::AccountNotFound),
         }
     }
 }

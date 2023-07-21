@@ -13,9 +13,9 @@ pub enum Error {
     #[error(transparent)]
     Env(#[from] std::env::VarError),
     #[error(transparent)]
-    Db(#[from] sqlx::Error),
+    Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
-    Bcrypt(#[from] bcrypt::BcryptError),
+    Db(#[from] tq_db::Error),
     #[error("State Error: {}", _0)]
     State(&'static str),
     #[error("{}", _0)]

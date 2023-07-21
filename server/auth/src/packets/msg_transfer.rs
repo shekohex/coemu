@@ -1,8 +1,9 @@
 use super::{AccountCredentials, RejectionCode};
-use crate::{db, Error};
+use crate::Error;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
+use tq_db::realm::Realm;
 use tq_network::{
     Actor, IntoErrorPacket, NopCipher, PacketDecode, PacketEncode, PacketID,
     TQCodec,
@@ -28,7 +29,7 @@ impl MsgTransfer {
         actor: &Actor<()>,
         realm: &str,
     ) -> Result<AccountCredentials, Error> {
-        let maybe_realm = db::Realm::by_name(state.pool(), realm).await?;
+        let maybe_realm = Realm::by_name(state.pool(), realm).await?;
         // Check if there is a realm with that name
         let realm = match maybe_realm {
             Some(realm) => realm,
@@ -56,7 +57,7 @@ impl MsgTransfer {
 
     async fn transfer(
         actor: &Actor<()>,
-        realm: db::Realm,
+        realm: Realm,
         stream: TcpStream,
     ) -> Result<AccountCredentials, Error> {
         let (mut encoder, mut decoder) =

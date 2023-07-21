@@ -112,7 +112,6 @@ name = "auth-server"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "bcrypt",
  "bytes",
  "dotenvy",
  "num_enum",
@@ -122,6 +121,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tq-db",
  "tq-network",
  "tq-serde",
  "tracing",
@@ -1931,6 +1931,15 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "parking_lot",
+]
+
+[[package]]
+name = "tq-db"
+version = "0.1.0"
+dependencies = [
+ "bcrypt",
+ "sqlx",
+ "thiserror",
 ]
 
 [[package]]
