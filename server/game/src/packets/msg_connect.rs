@@ -2,22 +2,22 @@ use super::{MsgTalk, MsgUserInfo};
 use crate::systems::Screen;
 use crate::world::Character;
 use crate::{ActorState, Error, State};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use tq_serde::String10;
 
 /// Message containing a connection request to the game server. Contains the
 /// player's access token from the Account server, and the patch and language
 /// versions of the game client.
-#[derive(Debug, Default, Deserialize, PacketID)]
+#[derive(Debug, Default, Serialize, Deserialize, PacketID)]
 #[packet(id = 1052)]
 #[allow(dead_code)]
 pub struct MsgConnect {
-    token: u32,
-    code: u32,
-    build_version: u16,
-    language: String10,
-    file_contents: u32,
+    pub token: u32,
+    pub code: u32,
+    pub build_version: u16,
+    pub language: String10,
+    pub file_contents: u32,
 }
 
 #[async_trait::async_trait]

@@ -24,6 +24,10 @@ tq-db = { path = "crates/db" }
 derive-packetid = { path = "macros/derive-packetid" }
 derive-packethandler = { path = "macros/derive-packethandler" }
 
+# Servers & Libs
+auth = { path = "server/auth" }
+game = { path = "server/game" }
+
 futures = { version = "0.3", default-features = false }
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }

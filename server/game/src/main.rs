@@ -7,25 +7,13 @@
 
 use async_trait::async_trait;
 use futures::TryFutureExt;
+use std::env;
 use tq_network::{
     Actor, ActorState as _, NopCipher, PacketHandler, Server, TQCipher,
 };
 
-mod constants;
-mod entities;
-mod systems;
-mod utils;
-mod world;
-
-mod state;
-use state::{ActorState, State};
-
-mod errors;
-use errors::Error;
-
-mod packets;
-use packets::*;
-use std::env;
+use game::packets::*;
+use game::{ActorState, Error, State};
 
 struct GameServer;
 
@@ -148,6 +136,11 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
     };
 
     let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+        .add_directive(format!("tq_db={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_serde={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_crypto={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_network={}", log_level).parse().unwrap())
         .add_directive(format!("game_server={}", log_level).parse().unwrap());
     let logger = tracing_subscriber::fmt()
         .pretty()

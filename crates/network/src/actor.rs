@@ -1,6 +1,7 @@
 use crate::{Error, PacketEncode};
 use async_trait::async_trait;
 use bytes::Bytes;
+use futures::TryFutureExt;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -101,7 +102,7 @@ impl<S: ActorState> Actor<S> {
         packet: P,
     ) -> Result<(), P::Error> {
         let msg = packet.encode()?;
-        self.tx.send(msg.into()).await.map_err(Into::into)?;
+        self.tx.send(msg.into()).map_err(Into::into).await?;
         Ok(())
     }
 

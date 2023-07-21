@@ -1,9 +1,17 @@
 [package]
-name = "game-server"
+name = "game"
 version = "0.1.0"
 authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition.workspace = true
 
+
+[[bin]]
+name = "game-server"
+path = "src/main.rs"
+
+[lib]
+name = "game"
+path = "src/lib.rs"
 
 [dependencies]
 thiserror.workspace = true

@@ -1,30 +1,25 @@
 [package]
-name = "auth"
+name = "benchbot"
 version = "0.1.0"
-authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition.workspace = true
 
-[[bin]]
-name = "auth-server"
-path = "src/main.rs"
-
-[lib]
-name = "auth"
-path = "src/lib.rs"
 
 [dependencies]
-thiserror.workspace = true
-serde.workspace = true
-bytes.workspace = true
-tq-network.workspace = true
-tq-serde.workspace = true
-tq-db.workspace = true
-async-trait.workspace = true
-tracing.workspace = true
 dotenvy.workspace = true
-once_cell.workspace = true
-num_enum = { workspace = true, default-features = false }
+thiserror.workspace = true
+tracing.workspace = true
+futures.workspace = true
 tokio-stream.workspace = true
+
+tq-codec.workspace = true
+tq-crypto.workspace = true
+tq-network.workspace = true
+tq-db.workspace = true
+auth.workspace = true
+game.workspace = true
+
+pretty-hex = "0.3"
+
 
 [dependencies.tracing-subscriber]
 version = "0.3"

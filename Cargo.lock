@@ -108,7 +108,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "auth-server"
+name = "auth"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -177,6 +177,27 @@ dependencies = [
  "blowfish",
  "getrandom",
  "zeroize",
+]
+
+[[package]]
+name = "benchbot"
+version = "0.1.0"
+dependencies = [
+ "auth",
+ "dotenvy",
+ "futures",
+ "game",
+ "pretty-hex",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tq-codec",
+ "tq-crypto",
+ "tq-db",
+ "tq-network",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -616,7 +637,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "game-server"
+name = "game"
 version = "0.1.0"
 dependencies = [
  "argh",
@@ -1957,6 +1978,7 @@ dependencies = [
  "bytes",
  "derive-packethandler",
  "derive-packetid",
+ "futures",
  "serde",
  "thiserror",
  "tokio",

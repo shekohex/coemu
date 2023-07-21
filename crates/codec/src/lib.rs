@@ -190,7 +190,7 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
         };
         tracing::trace!(
             "\nServer -> Client ID({packet_id}) Length({n})\n{:?}",
-            full_packet.as_ref().hex_conf(config)
+            body.as_ref().hex_conf(config)
         );
         let mut encrypted_data = BytesMut::with_capacity(n);
         encrypted_data.resize(n, 0);

@@ -122,7 +122,9 @@ impl crate::Cipher for TQRC5 {
         }
     }
 
-    fn encrypt(&self, _src: &[u8], _dst: &mut [u8]) {}
+    fn encrypt(&self, _src: &[u8], _dst: &mut [u8]) {
+        unimplemented!("RC5 encryption is not implemented")
+    }
 }
 
 #[cfg(test)]

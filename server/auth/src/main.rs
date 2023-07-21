@@ -4,17 +4,11 @@
 //! correct with the database. If the combination is correct, the client
 //! will be transferred to the message server of their choice.
 
+use std::env;
 use tq_network::{PacketHandler, Server, TQCipher};
 
-mod errors;
-use errors::Error;
-
-mod state;
-use state::State;
-
-mod packets;
-use packets::{MsgAccount, MsgConnect};
-use std::env;
+use auth::packets::{MsgAccount, MsgConnect};
+use auth::{Error, State};
 
 struct AuthServer;
 
@@ -84,6 +78,11 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
     };
 
     let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+        .add_directive(format!("tq_db={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_serde={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_crypto={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_network={}", log_level).parse().unwrap())
         .add_directive(format!("auth_server={}", log_level).parse().unwrap());
     let logger = tracing_subscriber::fmt()
         .pretty()
