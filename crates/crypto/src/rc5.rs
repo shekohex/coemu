@@ -81,7 +81,7 @@ impl Default for TQRC5 {
 }
 
 impl crate::Cipher for TQRC5 {
-    fn generate_keys(&self, _key1: u32, _key2: u32) {}
+    fn generate_keys(&self, _seed: u64) {}
 
     fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
         // Pad the buffer

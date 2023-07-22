@@ -18,9 +18,7 @@ pub struct MsgTransfer {
     pub account_id: u32,
     pub realm_id: u32,
     #[serde(skip_serializing)]
-    pub token: u32,
-    #[serde(skip_serializing)]
-    pub code: u32,
+    pub token: u64,
 }
 
 impl MsgTransfer {
@@ -83,7 +81,6 @@ impl MsgTransfer {
         };
         Ok(AccountCredentials {
             token: res.token,
-            code: res.code,
             server_ip: realm.game_ip_address,
             server_port: realm.game_port as u32,
         })

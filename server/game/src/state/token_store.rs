@@ -11,7 +11,7 @@ enum RequestPayload {
         realm_id: u32,
     },
     RemoveLoginToken {
-        token: u32,
+        token: u64,
     },
     StoreCreationToken {
         token: u32,
@@ -32,7 +32,7 @@ struct Request {
 #[derive(Debug, Clone)]
 enum Response {
     Ok,
-    LoginToken { token: u32, code: u32 },
+    LoginToken { token: u64 },
     LoginTokenRemoved { value: Option<LoginToken> },
     CreationTokenRemoved { value: Option<CreationToken> },
 }
@@ -44,7 +44,7 @@ pub struct TokenStore {
 }
 
 struct TokenStoreWorker {
-    login_tokens: HashMap<u32, LoginToken>,
+    login_tokens: HashMap<u64, LoginToken>,
     creation_tokens: HashMap<u32, CreationToken>,
     from_controller: mpsc::Receiver<Request>,
 }
@@ -53,7 +53,6 @@ struct TokenStoreWorker {
 pub struct LoginToken {
     pub account_id: u32,
     pub realm_id: u32,
-    pub code: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -64,8 +63,7 @@ pub struct CreationToken {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GeneratedLoginToken {
-    pub token: u32,
-    pub code: u32,
+    pub token: u64,
 }
 
 impl TokenStore {
@@ -104,9 +102,7 @@ impl TokenStore {
         self.to_worker.send(request).await?;
         let response = rx.await?;
         match response {
-            Response::LoginToken { token, code } => {
-                Ok(GeneratedLoginToken { token, code })
-            },
+            Response::LoginToken { token } => Ok(GeneratedLoginToken { token }),
             _ => unreachable!("invalid response"),
         }
     }
@@ -114,7 +110,7 @@ impl TokenStore {
     /// Remove a Login Token.
     pub async fn remove_login_token(
         &self,
-        token: u32,
+        token: u64,
     ) -> Result<Option<LoginToken>, crate::Error> {
         let (tx, rx) = oneshot::channel();
         let request = Request {
@@ -197,17 +193,15 @@ impl TokenStoreWorker {
                     account_id,
                     realm_id,
                 } => {
-                    let code = rand::random();
                     let token = rand::random();
                     self.login_tokens.insert(
                         token,
                         LoginToken {
                             account_id,
                             realm_id,
-                            code,
                         },
                     );
-                    Response::LoginToken { token, code }
+                    Response::LoginToken { token }
                 },
                 RequestPayload::RemoveLoginToken { token } => {
                     let value = self.login_tokens.remove(&token);

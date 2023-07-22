@@ -131,8 +131,8 @@ async fn handle_msg<C: Cipher>(
     let mut rx_stream = ReceiverStream::new(rx);
     while let Some(msg) = rx_stream.next().await {
         match msg {
-            GenerateKeys(key1, key2) => {
-                cipher.generate_keys(key1, key2);
+            GenerateKeys(seed) => {
+                cipher.generate_keys(seed);
             },
             Packet(id, bytes) => {
                 encoder.send((id, bytes)).await?;

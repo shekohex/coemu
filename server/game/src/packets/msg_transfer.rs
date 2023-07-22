@@ -12,9 +12,7 @@ pub struct MsgTransfer {
     account_id: u32,
     realm_id: u32,
     #[serde(skip_deserializing)]
-    token: u32,
-    #[serde(skip_deserializing)]
-    code: u32,
+    token: u64,
 }
 
 #[async_trait]
@@ -34,7 +32,6 @@ impl PacketProcess for MsgTransfer {
             .await?;
         let mut msg = self.clone();
         msg.token = generated.token;
-        msg.code = generated.code;
         actor.send(msg).await?;
         actor.shutdown().await?;
         Ok(())

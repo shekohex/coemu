@@ -8,7 +8,7 @@ use tq_serde::String16;
 #[derive(Debug, IntoPrimitive, Copy, Clone)]
 #[repr(u32)]
 pub enum RejectionCode {
-    ChangingMap = 0,
+    Clear = 0,
     InvalidPassword = 1,
     Ready = 2,
     ServerDown = 10,
@@ -31,8 +31,7 @@ impl RejectionCode {
 #[derive(Debug, Serialize, PacketID)]
 #[packet(id = 1055)]
 pub struct MsgConnectEx {
-    token: u32,
-    code: u32,
+    token: u64,
     game_server_ip: String16,
     game_server_port: u32,
 }
@@ -47,8 +46,7 @@ pub struct MsgConnectRejection {
 
 #[derive(Debug, Clone)]
 pub struct AccountCredentials {
-    pub token: u32,
-    pub code: u32,
+    pub token: u64,
     pub server_ip: String,
     pub server_port: u32,
 }
@@ -69,7 +67,6 @@ impl MsgConnectEx {
     pub fn forword_connection(acc_credentials: AccountCredentials) -> Self {
         MsgConnectEx {
             token: acc_credentials.token,
-            code: acc_credentials.code,
             game_server_ip: acc_credentials.server_ip.into(),
             game_server_port: acc_credentials.server_port,
         }

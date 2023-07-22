@@ -12,6 +12,9 @@ pub use tq_cipher::TQCipher;
 mod nop;
 pub use nop::NopCipher;
 
+mod cq_cipher;
+pub use cq_cipher::CQCipher;
+
 /// Defines generalized methods for ciphers used by
 /// `Server` for encrypting and decrypting
 /// data to and from the game client.
@@ -19,7 +22,7 @@ pub use nop::NopCipher;
 /// seperate states of the game client connection.
 pub trait Cipher: Clone + Default + Send + Sync + Unpin + 'static {
     /// Generates keys using key derivation variables.
-    fn generate_keys(&self, key1: u32, key2: u32);
+    fn generate_keys(&self, seed: u64);
     /// Decrypts data from the client.
     ///
     /// * `src` - Source span that requires decrypting.

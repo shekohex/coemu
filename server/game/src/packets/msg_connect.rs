@@ -13,8 +13,7 @@ use tq_serde::String10;
 #[packet(id = 1052)]
 #[allow(dead_code)]
 pub struct MsgConnect {
-    pub token: u32,
-    pub code: u32,
+    pub token: u64,
     pub build_version: u16,
     pub language: String10,
     pub file_contents: u32,
@@ -36,7 +35,7 @@ impl PacketProcess for MsgConnect {
             .remove_login_token(self.token)
             .await?
             .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
-        actor.generate_keys(self.code, self.token).await?;
+        actor.generate_keys(self.token).await?;
         actor.set_id(info.account_id as usize);
         let maybe_character = tq_db::character::Character::from_account(
             state.pool(),
@@ -64,7 +63,7 @@ impl PacketProcess for MsgConnect {
                 state
                     .token_store()
                     .store_creation_token(
-                        self.token,
+                        self.token as u32,
                         info.account_id,
                         info.realm_id,
                     )

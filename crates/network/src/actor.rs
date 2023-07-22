@@ -11,7 +11,7 @@ use tracing::instrument;
 
 #[derive(Clone, Debug)]
 pub enum Message {
-    GenerateKeys(u32, u32),
+    GenerateKeys(u64),
     Packet(u16, Bytes),
     Shutdown,
 }
@@ -61,10 +61,6 @@ impl From<(u16, Bytes)> for Message {
     fn from((id, bytes): (u16, Bytes)) -> Self { Self::Packet(id, bytes) }
 }
 
-impl From<(u32, u32)> for Message {
-    fn from((key1, key2): (u32, u32)) -> Self { Self::GenerateKeys(key1, key2) }
-}
-
 #[async_trait]
 pub trait ActorState: Send + Sync + Sized + Clone {
     fn init() -> Self;
@@ -107,12 +103,8 @@ impl<S: ActorState> Actor<S> {
     }
 
     #[instrument(skip(self))]
-    pub async fn generate_keys(
-        &self,
-        key1: u32,
-        key2: u32,
-    ) -> Result<(), Error> {
-        let msg = (key1, key2).into();
+    pub async fn generate_keys(&self, seed: u64) -> Result<(), Error> {
+        let msg = Message::GenerateKeys(seed);
         self.tx.send(msg).await?;
         Ok(())
     }

@@ -8,7 +8,7 @@ use pretty_hex::PrettyHex;
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 use tq_codec::TQCodec;
-use tq_crypto::{Cipher, NopCipher, TQCipher};
+use tq_crypto::{CQCipher, Cipher, NopCipher};
 use tq_db::account::Account;
 use tq_db::realm::Realm;
 use tq_network::{PacketDecode, PacketEncode};
@@ -62,14 +62,13 @@ async fn main() -> Result<(), Error> {
     tracing::info!(?realm, "Connected to realm");
     let port = realm.game_port;
     let stream = TcpStream::connect(format!("127.0.0.1:{port}")).await?;
-    let cipher = TQCipher::new();
+    let cipher = CQCipher::new();
     let (mut encoder, mut decoder) =
         TQCodec::new(stream, cipher.clone()).split();
     encoder
         .send(
             game::packets::MsgConnect {
                 token: res.token,
-                code: res.code,
                 build_version: 123,
                 language: String::from("En").into(),
                 file_contents: 10,
@@ -77,8 +76,8 @@ async fn main() -> Result<(), Error> {
             .encode()?,
         )
         .await?;
-    cipher.generate_keys(res.token, res.code);
     tracing::info!("Sent MsgConnect to realm");
+    cipher.generate_keys(res.token);
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
         let config = pretty_hex::HexConfig {
