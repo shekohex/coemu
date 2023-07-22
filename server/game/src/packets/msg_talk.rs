@@ -68,17 +68,17 @@ pub enum TalkStyle {
 #[derive(Debug, Default, Deserialize, Serialize, PacketID, Clone)]
 #[packet(id = 1004)]
 pub struct MsgTalk {
-    color: u32,
-    channel: u16,
-    style: u16,
-    character_id: u32,
-    recipient_mesh: u32,
-    sender_mesh: u32,
-    list_count: u8,
-    sender_name: String,
-    recipient_name: String,
-    suffix: String,
-    message: String,
+    pub color: u32,
+    pub channel: u16,
+    pub style: u16,
+    pub character_id: u32,
+    pub recipient_mesh: u32,
+    pub sender_mesh: u32,
+    pub list_count: u8,
+    pub sender_name: String,
+    pub recipient_name: String,
+    pub suffix: String,
+    pub message: String,
 }
 
 impl MsgTalk {

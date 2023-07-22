@@ -18,4 +18,10 @@ pub enum Error {
     RealmNotFound,
     #[error("Server timed out")]
     ServerTimedOut,
+    #[error("Invalid password")]
+    InvalidPassword,
+    #[error("Character name already taken")]
+    CharacterNameAlreadyTaken,
+    #[error("Token not found")]
+    AccountTokenNotFound,
 }

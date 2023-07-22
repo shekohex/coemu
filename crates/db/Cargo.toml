@@ -9,6 +9,7 @@ bcrypt = "0.13"
 thiserror.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
+futures.workspace = true
 
 # Database
 [dependencies.sqlx]

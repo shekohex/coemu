@@ -102,6 +102,25 @@ impl Serialize for FixedString<L10> {
     }
 }
 
+impl Serialize for FixedString<EncryptedPassword> {
+    fn serialize<S: Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        // FIXME: encrypt password
+        let mut final_string = [0u8; 16];
+        let mut string_encoded = ASCII
+            .encode(&self.inner, EncoderTrap::Ignore)
+            .expect("Never Fail");
+        string_encoded.truncate(16);
+        // Write value to final string
+        for (i, c) in string_encoded.into_iter().enumerate() {
+            final_string[i] = c;
+        }
+        final_string.serialize(serializer)
+    }
+}
+
 impl<'de> Deserialize<'de> for FixedString<L10> {
     fn deserialize<D: Deserializer<'de>>(
         deserializer: D,

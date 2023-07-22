@@ -1,14 +1,14 @@
 use crate::world::Character;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tq_network::PacketID;
 
 /// Message defining character information, used to initialize the client
 /// interface and game state. Character information is loaded from the game
 /// database on login if a character exists.
-#[derive(Debug, Serialize, PacketID)]
+#[derive(Debug, Serialize, Deserialize, PacketID)]
 #[packet(id = 1006)]
 pub struct MsgUserInfo {
-    character_id: u32,
+    pub character_id: u32,
     mesh: u32,
     hair_style: u16,
     silver: u32,
@@ -30,7 +30,7 @@ pub struct MsgUserInfo {
     rebirths: u8,
     show_name: bool,
     list_count: u8,
-    character_name: String,
+    pub character_name: String,
     spouse: String,
 }
 

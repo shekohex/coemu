@@ -1,5 +1,5 @@
 use crate::world::Character;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tq_network::PacketID;
 
 /// This packet is sent to the observing clients on the map
@@ -8,10 +8,10 @@ use tq_network::PacketID;
 /// character spawn information. This class only encapsulates constants related
 /// to writing data to the packet buffer. The character class handles writing to
 /// the packet as data changes.
-#[derive(Debug, Serialize, Clone, PacketID, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, PacketID, Default)]
 #[packet(id = 1014)]
 pub struct MsgPlayer {
-    character_id: i32,
+    pub character_id: i32,
     mesh: i32,
     status_flags: i64,
     syndicate_id: i16,
@@ -26,8 +26,8 @@ pub struct MsgPlayer {
     reserved1: i32,
     health_points: u16,
     level: i16,
-    x: u16,
-    y: u16,
+    pub x: u16,
+    pub y: u16,
     hair_style: i16,
     direction: u8,
     action: u8,
@@ -38,7 +38,7 @@ pub struct MsgPlayer {
     character_id2: i32,
     nobility_position: i32,
     list_count: u8,
-    character_name: String,
+    pub character_name: String,
 }
 
 impl From<Character> for MsgPlayer {

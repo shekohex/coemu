@@ -17,7 +17,7 @@ mod msg_transfer;
 pub use msg_transfer::MsgTransfer;
 
 mod msg_register;
-pub use msg_register::MsgRegister;
+pub use msg_register::{BaseClass, BodyType, MsgRegister};
 
 mod msg_walk;
 pub use msg_walk::{MovementType, MsgWalk};

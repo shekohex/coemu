@@ -1,9 +1,17 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use crate::Error;
+use parking_lot::RwLock;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
+
+type Shared<T> = Arc<RwLock<T>>;
 
 #[derive(Debug, Clone)]
 pub struct State {
     pool: SqlitePool,
+    /// Maps Account ID to Token value
+    tokens: Shared<HashMap<i32, u64>>,
 }
 
 impl State {
@@ -20,10 +28,15 @@ impl State {
             .min_connections(4)
             .connect(&db_url)
             .await?;
-        let state = Self { pool };
+        let state = Self {
+            pool,
+            tokens: Default::default(),
+        };
         Ok(state)
     }
 
     /// Get access to the database pool
     pub fn pool(&self) -> &SqlitePool { &self.pool }
+
+    pub fn tokens(&self) -> &Shared<HashMap<i32, u64>> { &self.tokens }
 }

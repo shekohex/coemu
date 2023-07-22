@@ -2,14 +2,14 @@ use super::MsgTalk;
 use crate::systems::Screen;
 use crate::world::Character;
 use crate::{ActorState, Error, State};
-use num_enum::TryFromPrimitive;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rand::{Rng, SeedableRng};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
 use tq_serde::{String16, TQPassword};
 
-#[derive(Debug, Default, Deserialize, PacketID)]
+#[derive(Debug, Default, Serialize, Deserialize, PacketID)]
 #[packet(id = 1001)]
 pub struct MsgRegister {
     pub username: String16,
@@ -82,7 +82,7 @@ impl MsgRegister {
     }
 }
 
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(u16)]
 pub enum BodyType {
     AgileMale = 1003,
@@ -91,7 +91,7 @@ pub enum BodyType {
     MuscularFemale = 2002,
 }
 
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(u16)]
 pub enum BaseClass {
     Trojan = 10,

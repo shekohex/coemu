@@ -5,7 +5,7 @@ use crate::Error;
 /// Realms are configured instances of the game server. This struct defines
 /// routing details for authenticated clients to be redirected to. Redirection
 /// involves access token leasing, provided by the game server via RPC.
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Clone, Debug, sqlx::FromRow)]
 pub struct Realm {
     pub realm_id: i32,
     pub name: String,

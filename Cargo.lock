@@ -187,6 +187,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "game",
+ "parking_lot",
  "pretty-hex",
  "sqlx",
  "thiserror",
@@ -1960,6 +1961,7 @@ name = "tq-db"
 version = "0.1.0"
 dependencies = [
  "bcrypt",
+ "futures",
  "sqlx",
  "thiserror",
  "tokio-stream",

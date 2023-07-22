@@ -8,4 +8,6 @@ pub enum Error {
     AccountNotFound,
     #[error("Invalid password")]
     InvalidPassword,
+    #[error("Creating account failed")]
+    CreateAccountFailed,
 }
