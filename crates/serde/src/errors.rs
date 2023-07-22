@@ -9,6 +9,8 @@ use thiserror::Error;
 pub enum TQSerdeError {
     #[error("{}", _0)]
     Message(String),
+    #[error("Invalid Boolean Value")]
+    InvalidBool,
     #[error("EOF")]
     Eof,
     #[error("Deserializing Any Not Supported")]

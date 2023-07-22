@@ -22,7 +22,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type SerializeTupleVariant = ser::Impossible<(), Self::Error>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        self.output.put_u8(v as u8);
+        let v = if v { 1u8 } else { 0u8 };
+        self.output.put_u8(v);
         Ok(())
     }
 

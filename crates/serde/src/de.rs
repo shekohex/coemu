@@ -80,7 +80,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_u8(visitor)
+        // 0 = false, 1 = true
+        let value = self.input.get_u8();
+        match value {
+            0 => visitor.visit_bool(false),
+            1 => visitor.visit_bool(true),
+            _ => Err(TQSerdeError::InvalidBool),
+        }
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, TQSerdeError>
