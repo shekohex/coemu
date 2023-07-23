@@ -113,7 +113,7 @@ fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
         quote! {
             if id == #ident::id() {
                 let msg = <#ident as tq_network::PacketDecode>::decode(&bytes)?;
-                tracing::debug!("{:?}", msg);
+                tracing::debug!(target: "cq_msg", "{msg:?}");
                 msg.process(state, actor).await?;
                 return Ok(());
             }
