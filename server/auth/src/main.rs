@@ -83,6 +83,7 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
         .add_directive(format!("tq_crypto={}", log_level).parse().unwrap())
         .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
         .add_directive(format!("tq_network={}", log_level).parse().unwrap())
+        .add_directive(format!("auth={}", log_level).parse().unwrap())
         .add_directive(format!("auth_server={}", log_level).parse().unwrap());
     let logger = tracing_subscriber::fmt()
         .pretty()
