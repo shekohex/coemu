@@ -1,13 +1,14 @@
 use super::{MsgTalk, TalkChannel};
 use crate::state::State;
+use crate::systems::TileType;
 use crate::{utils, ActorState, Error};
 use async_trait::async_trait;
-use num_enum::FromPrimitive;
+use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
-use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
+use tq_network::{Actor, PacketID, PacketProcess};
 use tracing::{debug, warn};
 use utils::LoHi;
-#[derive(Debug, FromPrimitive)]
+#[derive(Debug, FromPrimitive, IntoPrimitive)]
 #[repr(u16)]
 pub enum ActionType {
     #[default]
@@ -107,12 +108,12 @@ pub enum ActionType {
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PacketID)]
 #[packet(id = 1010)]
 pub struct MsgAction {
-    client_timestamp: u32,
-    character_id: u32,
-    data1: u32,
-    data2: u32,
-    details: u16,
-    action_type: u16,
+    pub client_timestamp: u32,
+    pub character_id: u32,
+    pub data1: u32,
+    pub data2: u32,
+    pub details: u16,
+    pub action_type: u16,
 }
 
 impl MsgAction {
@@ -216,27 +217,35 @@ impl MsgAction {
             return Ok(());
         }
 
-        // I guess everything seems to be valid .. send the jump.
-
         let direction =
             tq_math::get_direction_sector((me.x(), me.y()), (new_x, new_y));
-        let tile = mymap.tile(new_x, new_y).await.ok_or_else(|| {
-            MsgTalk::from_system(
-                me.id(),
-                TalkChannel::TopLeft,
-                String::from("Invalid Location"),
-            )
-            .error_packet()
-        })?;
-        me.set_x(new_x)
-            .set_y(new_y)
-            .set_direction(direction)
-            .set_action(100);
-        me.set_elevation(tile.elevation);
-        mymap.update_region_for(me.clone()).await?;
-        actor.send(self.clone()).await?;
-        let myscreen = actor.screen().await;
-        myscreen.send_movement(self.clone()).await?;
+        match mymap.tile(new_x, new_y).await {
+            Some(tile) if tile.access > TileType::Npc => {
+                tracing::debug!(id = %me.id(), x = %me.x(), y = %me.y(), %new_x, %new_y, "Jumping");
+                // I guess everything seems to be valid .. send the jump.
+                me.set_x(new_x)
+                    .set_y(new_y)
+                    .set_direction(direction)
+                    .set_action(100);
+                me.set_elevation(tile.elevation);
+                mymap.update_region_for(me.clone()).await?;
+                actor.send(self.clone()).await?;
+                let myscreen = actor.screen().await;
+                myscreen.send_movement(self.clone()).await?;
+            },
+            Some(_) | None => {
+                // Invalid Location move them back
+                let msg = MsgTalk::from_system(
+                    me.id(),
+                    TalkChannel::TopLeft,
+                    String::from("Invalid Location"),
+                );
+                actor.send(msg).await?;
+                me.kick_back().await?;
+                tracing::debug!(id = %me.id(), x = %me.x(), y = %me.y(), %new_x, %new_y, "Invalid Location");
+                return Ok(());
+            },
+        };
         Ok(())
     }
 

@@ -5,7 +5,7 @@ use crate::{ActorState, Error};
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
+use tq_network::{Actor, PacketID, PacketProcess};
 
 use super::{MsgTalk, TalkChannel};
 
@@ -57,26 +57,28 @@ impl PacketProcess for MsgWalk {
         let x = current_location.0.wrapping_add(offset.0);
         let y = current_location.1.wrapping_add(offset.1);
         let map = actor.map().await;
-        let tile = map.tile(x, y).await.ok_or_else(|| {
-            MsgTalk::from_system(
-                me.id(),
-                TalkChannel::TopLeft,
-                String::from("Invalid Location"),
-            )
-            .error_packet()
-        })?;
-        if tile.access as u8 > TileType::Npc as u8 {
-            // The packet is valid. Assign character data:
-            // Send the movement back to the message server and client:
-            me.set_x(x).set_y(y).set_direction(direction as u8);
-            me.set_elevation(tile.elevation);
-            actor.send(self.clone()).await?;
-            map.update_region_for(me.clone()).await?;
-            let myscreen = actor.screen().await;
-            myscreen.send_movement(self.clone()).await?;
-        } else {
-            me.kick_back().await?;
-        }
+        match map.tile(x, y).await {
+            Some(tile) if tile.access > TileType::Npc => {
+                // The packet is valid. Assign character data:
+                // Send the movement back to the message server and client:
+                me.set_x(x).set_y(y).set_direction(direction as u8);
+                me.set_elevation(tile.elevation);
+                actor.send(self.clone()).await?;
+                map.update_region_for(me.clone()).await?;
+                let myscreen = actor.screen().await;
+                myscreen.send_movement(self.clone()).await?;
+            },
+            Some(_) | None => {
+                let msg = MsgTalk::from_system(
+                    me.id(),
+                    TalkChannel::TopLeft,
+                    String::from("Invalid Location"),
+                );
+                actor.send(msg).await?;
+                me.kick_back().await?;
+                return Ok(());
+            },
+        };
         Ok(())
     }
 }
