@@ -36,7 +36,18 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::Teleport(info) => {
-            me.teleport(state, info.map_id, (info.x, info.y)).await
+            me.teleport(state, info.map_id, (info.x, info.y)).await?;
+            if info.all {
+                let others = state.characters().read().await;
+                for other in others.values() {
+                    if other.id() != me.id() {
+                        other
+                            .teleport(state, info.map_id, (info.x, info.y))
+                            .await?;
+                    }
+                }
+            }
+            Ok(())
         },
         SubCommands::Which(which) => {
             if which.map {
@@ -156,6 +167,9 @@ struct TeleportCmd {
     x: u16,
     #[argh(positional)]
     y: u16,
+    /// teleport all characters with you
+    #[argh(option, default = "false")]
+    all: bool,
 }
 
 /// Fix Nearnest Portal
