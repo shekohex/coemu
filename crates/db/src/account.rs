@@ -59,11 +59,12 @@ impl Account {
 
     /// Creates a new account in the database.
     pub async fn create(mut self, pool: &SqlitePool) -> Result<Self, Error> {
+        let password = bcrypt::hash(&self.password, bcrypt::DEFAULT_COST)?;
         let res = sqlx::query(
             "INSERT INTO accounts (username, password, name, email) VALUES (?, ?, ?, ?);",
         )
         .bind(&self.username)
-        .bind(&self.password)
+        .bind(&password)
         .bind(&self.name)
         .bind(&self.email)
         .execute(pool)
