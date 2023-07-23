@@ -104,13 +104,20 @@ async fn handle_stream<S: Server>(
         if let Err(err) =
             S::PacketHandler::handle((id, bytes), &state, &actor).await
         {
-            tracing::error!("Error while handling packet: {err}");
             let result = actor
                 .send(err)
                 .await
                 .map_err(|e| Error::Other(e.to_string()));
             if let Err(e) = result {
-                tracing::error!("{}", e);
+                match e {
+                    Error::SendError => {
+                        tracing::error!("Actor is dead, stopping task.");
+                        break;
+                    },
+                    _ => {
+                        tracing::error!("{e:?}");
+                    },
+                }
             }
         }
     }
@@ -144,5 +151,6 @@ async fn handle_msg<C: Cipher>(
         };
     }
     tracing::debug!("Socket Closed, stopping handle message.");
+    encoder.close().await?;
     Ok(())
 }
