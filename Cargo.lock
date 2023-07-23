@@ -189,6 +189,7 @@ dependencies = [
  "game",
  "parking_lot",
  "pretty-hex",
+ "rand",
  "sqlx",
  "thiserror",
  "tokio",

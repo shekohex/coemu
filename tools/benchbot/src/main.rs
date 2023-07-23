@@ -1,12 +1,15 @@
 mod error;
 mod state;
 
+use core::time::Duration;
 use std::env;
 
 use error::Error;
 use futures::stream::FuturesUnordered;
-use game::constants;
-use game::packets::{TalkChannel, TalkStyle};
+use game::packets::{ActionType, TalkChannel, TalkStyle};
+use game::utils::LoHi;
+use game::{constants, utils};
+use rand::{Rng, SeedableRng};
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 use tq_codec::{TQCodec, TQEncoder};
@@ -14,6 +17,9 @@ use tq_crypto::{CQCipher, Cipher, NopCipher};
 use tq_db::account::Account;
 use tq_db::realm::Realm;
 use tq_network::{PacketDecode, PacketEncode, PacketID};
+
+const NUM_OF_BOTS: i64 = 1;
+const MAX_ACTION_DELAY: Duration = Duration::from_millis(100);
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -87,12 +93,10 @@ async fn main() -> Result<(), Error> {
                     .encode()?,
                 )
                 .await?;
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            cipher.generate_keys(res.token);
             state.tokens().write().insert(account.account_id, res.token);
+            cipher.generate_keys(res.token);
             while let Some(packet) = decoder.next().await {
                 let (id, bytes) = packet?;
-                tracing::debug!(?id, "Received packet");
                 if id == game::packets::MsgTalk::id() {
                     handle_msg_talk(
                         &state,
@@ -105,27 +109,49 @@ async fn main() -> Result<(), Error> {
                 }
                 if id == game::packets::MsgUserInfo::id() {
                     let msg = game::packets::MsgUserInfo::decode(&bytes)?;
-                    tracing::debug!(?msg, "Received MsgUserInfo packet");
-                    // Move to map 1005 (arena)
-                    let msg_cmd = game::packets::MsgTalk {
-                        color: 0x00FF_FFFF,
-                        channel: TalkChannel::Talk.into(),
-                        style: TalkStyle::Normal.into(),
+                    tracing::trace!(?msg, "Received MsgUserInfo packet");
+                    let msg_leave_booth = game::packets::MsgAction {
+                        client_timestamp: utils::current_ts(),
                         character_id: msg.character_id as _,
-                        recipient_mesh: 0,
-                        sender_mesh: 0,
-                        list_count: 4,
-                        sender_name: msg.character_name.clone(),
-                        recipient_name: constants::ALL_USERS.to_string(),
-                        suffix: String::new(),
-                        message: String::from("$tele 1005 50 50"),
+                        data1: 0,
+                        data2: 0,
+                        details: 0,
+                        action_type: ActionType::LeaveBooth.into(),
                     };
-                    encoder.send(msg_cmd.encode()?).await?;
-                    tokio::time::sleep(std::time::Duration::from_secs(100))
-                        .await;
+                    encoder.send(msg_leave_booth.encode()?).await?;
+                    let msg_setlocation = game::packets::MsgAction {
+                        client_timestamp: utils::current_ts(),
+                        character_id: msg.character_id as _,
+                        data1: 0,
+                        data2: 0,
+                        details: 0,
+                        action_type: ActionType::SendLocation.into(),
+                    };
+                    encoder.send(msg_setlocation.encode()?).await?;
+                    do_random_stuff(
+                        &state,
+                        &account,
+                        &mut encoder,
+                        msg_setlocation,
+                    )
+                    .await?;
                     continue;
                 }
+                if id == game::packets::MsgAction::id() {
+                    let msg = game::packets::MsgAction::decode(&bytes)?;
+                    do_random_stuff(&state, &account, &mut encoder, msg)
+                        .await?;
+                    continue;
+                }
+                if id == game::packets::MsgPlayer::id() {
+                    let msg = game::packets::MsgPlayer::decode(&bytes)?;
+                    tracing::trace!(%msg.character_name, "We now see other players");
+                    continue;
+                }
+                tracing::debug!("Unhandled packet: {:?}", id);
             }
+            tracing::debug!(?account.name, ?realm.name, "Disconnected");
+            encoder.close().await?;
             Ok(())
         });
         tasks.push(task);
@@ -146,14 +172,13 @@ async fn main() -> Result<(), Error> {
 async fn create_or_get_accounts(
     state: &state::State,
 ) -> Result<Vec<Account>, Error> {
-    const LIMIT: i64 = 5;
-    let mut accounts = Account::all(state.pool(), Some(LIMIT), None).await?;
-    tracing::info!(len = %accounts.len(), "Found accounts");
-    while accounts.len() < LIMIT as usize {
+    let mut accounts =
+        Account::all(state.pool(), Some(NUM_OF_BOTS), Some(2)).await?;
+    while accounts.len() < NUM_OF_BOTS as usize {
         let account = Account {
-            username: format!("test{}", accounts.len() + 1),
+            username: format!("bot{}", accounts.len() + 1),
             password: "123456".into(),
-            name: Some(format!("Test{}", accounts.len() + 1)),
+            name: Some(format!("Bot{}", accounts.len() + 1)),
             ..Default::default()
         }
         .create(state.pool())
@@ -169,6 +194,7 @@ async fn handle_msg_talk(
     encoder: &mut TQEncoder<TcpStream, CQCipher>,
     msg: game::packets::MsgTalk,
 ) -> Result<(), Error> {
+    tracing::trace!(?msg, "Received MsgTalk packet");
     match msg.channel.into() {
         TalkChannel::Login if msg.message.contains("Invalid") => {
             tracing::warn!(?account.name, ?msg, "Invalid password");
@@ -176,7 +202,6 @@ async fn handle_msg_talk(
         },
         TalkChannel::Login if msg.message.eq(constants::ANSWER_OK) => {
             tracing::info!(?account.name, "Logged in");
-            return Ok(());
         },
         TalkChannel::Login if msg.message.eq(constants::NEW_ROLE) => {
             // Create a new character
@@ -188,12 +213,13 @@ async fn handle_msg_talk(
                 .cloned()
                 .ok_or(Error::AccountTokenNotFound)?;
             let msg_register = game::packets::MsgRegister {
-                character_name: format!("Test{}", account.account_id).into(),
+                character_name: format!("bot{}", account.account_id).into(),
                 class: game::packets::BaseClass::Trojan.into(),
                 mesh: game::packets::BodyType::AgileMale.into(),
                 token: token as _,
                 ..Default::default()
             };
+            tracing::debug!(?msg_register, "Sending MsgRegister packet");
             encoder.send(msg_register.encode()?).await?;
         },
         TalkChannel::Register if msg.message.contains("taken") => {
@@ -202,25 +228,117 @@ async fn handle_msg_talk(
         },
         TalkChannel::Register if msg.message.eq(constants::ANSWER_OK) => {
             tracing::info!(?account.name, "Account created");
-            // Move to map 1005 (arena)
+        },
+        TalkChannel::System if msg.message.contains("Invalid") => {
+            tracing::warn!("Got invalid location");
+            // We got invalid location, teleport us back to the ceneter.
+            let msg_setlocation = game::packets::MsgAction {
+                client_timestamp: utils::current_ts(),
+                character_id: msg.character_id as _,
+                data1: 0,
+                data2: 0,
+                details: 0,
+                action_type: ActionType::SendLocation.into(),
+            };
+            encoder.send(msg_setlocation.encode()?).await?;
+        },
+        _ => {
+            tracing::trace!(?account.name, ?msg, "Unhandled message");
+        },
+    }
+    Ok(())
+}
+
+async fn do_random_stuff(
+    _state: &state::State,
+    account: &Account,
+    encoder: &mut TQEncoder<TcpStream, CQCipher>,
+    msg: game::packets::MsgAction,
+) -> Result<(), Error> {
+    let boundries: [(u16, u16); 4] = [
+        // Top left
+        (35, 65),
+        // Top right
+        (35, 35),
+        // Bottom left
+        (65, 65),
+        // Bottom right
+        (65, 35),
+    ];
+    match msg.action_type.into() {
+        ActionType::SendLocation => {
+            let mut rng =
+                rand::rngs::StdRng::seed_from_u64(msg.character_id as _);
+            // Move to map 1005 (arena) if we are not there already
+            let map_id = msg.data1;
+            let (x, y) = (msg.data2.lo(), msg.data2.hi());
+            if map_id == 1005 && (x < 65 || x > 35) && (y < 65 || y > 35) {
+                return Ok(());
+            }
+            let x = rng.gen_range(40..60);
+            let y = rng.gen_range(40..60);
             let msg_cmd = game::packets::MsgTalk {
                 color: 0x00FF_FFFF,
                 channel: TalkChannel::Talk.into(),
                 style: TalkStyle::Normal.into(),
-                character_id: 0,
+                character_id: msg.character_id as _,
                 recipient_mesh: 0,
                 sender_mesh: 0,
                 list_count: 4,
-                sender_name: format!("Test{}", account.account_id),
+                sender_name: String::new(),
                 recipient_name: constants::ALL_USERS.to_string(),
                 suffix: String::new(),
-                message: String::from("$tele 1005 50 50"),
+                message: format!("$tele 1005 {x} {y}"),
             };
             encoder.send(msg_cmd.encode()?).await?;
-            return Ok(());
         },
-        _ => {
-            tracing::debug!(?account.name, ?msg, "Unhandled message");
+        ActionType::Teleport => {
+            // Maybe that was an invalid move, try again
+            let (my_x, my_y) = (msg.data2.lo(), msg.data2.hi());
+            let mut rng = rand::rngs::StdRng::seed_from_u64(
+                (msg.character_id + my_x as u32 + my_y as u32) as _,
+            );
+            // random x, y but not too far
+            let x_inc = rng.gen_range(-10..10i16);
+            let y_inc = rng.gen_range(-10..10i16);
+            let x = (my_x as i16 + x_inc) as u16;
+            let y = (my_y as i16 + y_inc) as u16;
+            let jump = game::packets::MsgAction {
+                action_type: ActionType::GroundJump.into(),
+                data1: u32::constract(y, x),
+                ..msg
+            };
+            // Simulate a delay before sending the packet
+            tokio::time::sleep(MAX_ACTION_DELAY).await;
+            encoder.send(jump.encode()?).await?;
+        },
+        ActionType::GroundJump => {
+            // that was a valid move, now jump again.
+            let (my_x, my_y) = (msg.data1.lo(), msg.data1.hi());
+            let mut rng = rand::rngs::StdRng::seed_from_u64(
+                (msg.character_id + my_x as u32 + my_y as u32) as _,
+            );
+            // random x, y but not too far
+            let x_inc = rng.gen_range(-10..10i16);
+            let y_inc = rng.gen_range(-10..10i16);
+            let x = (my_x as i16 + x_inc) as u16;
+            let y = (my_y as i16 + y_inc) as u16;
+            let jump = game::packets::MsgAction {
+                action_type: ActionType::GroundJump.into(),
+                data1: u32::constract(y, x),
+                data2: u32::constract(my_x, my_x),
+                ..msg
+            };
+            tokio::time::sleep(MAX_ACTION_DELAY).await;
+            encoder.send(jump.encode()?).await?;
+        },
+        others => {
+            tracing::debug!(
+                ?account.name,
+                ty = ?others,
+                ?msg,
+                "Unhandled action"
+            );
         },
     }
     Ok(())

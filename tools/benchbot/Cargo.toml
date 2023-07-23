@@ -11,6 +11,7 @@ tracing.workspace = true
 futures.workspace = true
 tokio-stream.workspace = true
 parking_lot.workspace = true
+rand.workspace = true
 
 tq-codec.workspace = true
 tq-crypto.workspace = true
