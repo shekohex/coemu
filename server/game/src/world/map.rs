@@ -154,11 +154,11 @@ impl Map {
     /// adding it to the current map. As the character is added, its map,
     /// current tile, and current elevation are changed.
     pub async fn insert_character(&self, me: Character) -> Result<(), Error> {
-        let old_map = me.owner().map().await;
-        // Remove the client from the previous map
-        old_map.remove_character(me.id()).await?;
-        drop(old_map);
-
+        if me.map_id() != self.id() {
+            let old_map = me.owner().map().await;
+            // Remove the client from the previous map
+            old_map.remove_character(me.id()).await?;
+        }
         // if the map is not loaded in memory, load it.
         if !self.loaded().await {
             self.load().await?;
@@ -224,16 +224,25 @@ impl Map {
         elevation: u16,
     ) -> bool {
         let distance = tq_math::get_distance(start, end) as u16;
+        // If the distance is 0, we are not moving.
+        if distance == 0 {
+            return true;
+        }
         let delta = tq_math::delta(start, end);
         let floor = self.floor.read().await;
         for i in 0..distance {
-            let x = start.0 + ((i * delta.0) / distance);
-            let y = start.1 + ((i * delta.1) / distance);
-            let tile = floor[(x, y)];
-            let within_elevation =
-                tq_math::within_elevation(tile.elevation, elevation);
-            if !within_elevation {
-                return false;
+            let x = start.0 + ((i.saturating_mul(delta.0)) / distance);
+            let y = start.1 + ((i.saturating_mul(delta.1)) / distance);
+            let tile = floor.tile(x, y);
+            match tile {
+                Some(tile) => {
+                    let within_elevation =
+                        tq_math::within_elevation(tile.elevation, elevation);
+                    if !within_elevation {
+                        return false;
+                    }
+                },
+                None => return false,
             }
         }
         true
