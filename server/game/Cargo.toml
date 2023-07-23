@@ -43,11 +43,17 @@ version = "0.3"
 default-features = false
 features = ["env-filter", "ansi", "fmt", "smallvec"]
 
+# Debugging
+[dependencies.console-subscriber]
+version = "0.1"
+default-features = false
+features = ["env-filter", "parking_lot"]
+
 # Runtime
 [dependencies.tokio]
 workspace = true
 default-features = false
-features = ["rt-multi-thread", "macros", "signal", "sync"]
+features = ["rt-multi-thread", "macros", "signal", "sync", "parking_lot", "tracing"]
 
 # Database
 [dependencies.sqlx]

@@ -127,6 +127,8 @@ Copyright 2020 Shady Khalifa (@shekohex)
 
 fn setup_logger(verbosity: i32) -> Result<(), Error> {
     use tracing::Level;
+    use tracing_subscriber::prelude::*;
+
     let log_level = match verbosity {
         0 => Level::ERROR,
         1 => Level::WARN,
@@ -142,12 +144,18 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
         .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
         .add_directive(format!("tq_network={}", log_level).parse().unwrap())
         .add_directive(format!("game={}", log_level).parse().unwrap())
+        .add_directive("tokio=trace".parse().unwrap())
+        .add_directive("runtime=trace".parse().unwrap())
         .add_directive(format!("game_server={}", log_level).parse().unwrap());
-    let logger = tracing_subscriber::fmt()
-        .pretty()
-        .with_target(true)
-        .with_max_level(log_level)
-        .with_env_filter(env_filter);
-    logger.init();
+    let console_layer = console_subscriber::ConsoleLayer::builder()
+        .with_default_env()
+        .spawn();
+    let logger = tracing_subscriber::fmt::layer().pretty().with_target(true);
+
+    tracing_subscriber::registry()
+        .with(console_layer)
+        .with(env_filter)
+        .with(logger)
+        .init();
     Ok(())
 }

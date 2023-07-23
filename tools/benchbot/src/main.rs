@@ -18,8 +18,8 @@ use tq_db::account::Account;
 use tq_db::realm::Realm;
 use tq_network::{PacketDecode, PacketEncode, PacketID};
 
-const NUM_OF_BOTS: i64 = 1;
-const MAX_ACTION_DELAY: Duration = Duration::from_millis(100);
+const NUM_OF_BOTS: i64 = 50;
+const MAX_ACTION_DELAY: Duration = Duration::from_millis(200);
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -229,19 +229,6 @@ async fn handle_msg_talk(
         TalkChannel::Register if msg.message.eq(constants::ANSWER_OK) => {
             tracing::info!(?account.name, "Account created");
         },
-        TalkChannel::System if msg.message.contains("Invalid") => {
-            tracing::warn!("Got invalid location");
-            // We got invalid location, teleport us back to the ceneter.
-            let msg_setlocation = game::packets::MsgAction {
-                client_timestamp: utils::current_ts(),
-                character_id: msg.character_id as _,
-                data1: 0,
-                data2: 0,
-                details: 0,
-                action_type: ActionType::SendLocation.into(),
-            };
-            encoder.send(msg_setlocation.encode()?).await?;
-        },
         _ => {
             tracing::trace!(?account.name, ?msg, "Unhandled message");
         },
@@ -255,24 +242,14 @@ async fn do_random_stuff(
     encoder: &mut TQEncoder<TcpStream, CQCipher>,
     msg: game::packets::MsgAction,
 ) -> Result<(), Error> {
-    let boundries: [(u16, u16); 4] = [
-        // Top left
-        (35, 65),
-        // Top right
-        (35, 35),
-        // Bottom left
-        (65, 65),
-        // Bottom right
-        (65, 35),
-    ];
+    let (w, h) = (70, 70);
     match msg.action_type.into() {
         ActionType::SendLocation => {
             let mut rng =
                 rand::rngs::StdRng::seed_from_u64(msg.character_id as _);
             // Move to map 1005 (arena) if we are not there already
             let map_id = msg.data1;
-            let (x, y) = (msg.data2.lo(), msg.data2.hi());
-            if map_id == 1005 && (x < 65 || x > 35) && (y < 65 || y > 35) {
+            if map_id == 1005 {
                 return Ok(());
             }
             let x = rng.gen_range(40..60);
@@ -295,19 +272,21 @@ async fn do_random_stuff(
         ActionType::Teleport => {
             // Maybe that was an invalid move, try again
             let (my_x, my_y) = (msg.data2.lo(), msg.data2.hi());
-            let mut rng = rand::rngs::StdRng::seed_from_u64(
-                (msg.character_id + my_x as u32 + my_y as u32) as _,
-            );
             // random x, y but not too far
-            let x_inc = rng.gen_range(-10..10i16);
-            let y_inc = rng.gen_range(-10..10i16);
-            let x = (my_x as i16 + x_inc) as u16;
-            let y = (my_y as i16 + y_inc) as u16;
-            let jump = game::packets::MsgAction {
-                action_type: ActionType::GroundJump.into(),
-                data1: u32::constract(y, x),
-                ..msg
+            let (x, y) = loop {
+                let mut rng = rand::thread_rng();
+                let x_inc = rng.gen_range(-18..18);
+                let y_inc = rng.gen_range(-18..18);
+                let x = (my_x as i16 + x_inc) as u16;
+                let y = (my_y as i16 + y_inc) as u16;
+                let in_range = |x, y| x > w / 2 && y > h / 2 && x < w && y < h;
+                if in_range(x, y) {
+                    break (x, y);
+                }
             };
+            let mut jump = msg.clone();
+            jump.action_type = ActionType::GroundJump.into();
+            jump.data1 = u32::constract(y, x);
             // Simulate a delay before sending the packet
             tokio::time::sleep(MAX_ACTION_DELAY).await;
             encoder.send(jump.encode()?).await?;
@@ -315,20 +294,20 @@ async fn do_random_stuff(
         ActionType::GroundJump => {
             // that was a valid move, now jump again.
             let (my_x, my_y) = (msg.data1.lo(), msg.data1.hi());
-            let mut rng = rand::rngs::StdRng::seed_from_u64(
-                (msg.character_id + my_x as u32 + my_y as u32) as _,
-            );
             // random x, y but not too far
-            let x_inc = rng.gen_range(-10..10i16);
-            let y_inc = rng.gen_range(-10..10i16);
-            let x = (my_x as i16 + x_inc) as u16;
-            let y = (my_y as i16 + y_inc) as u16;
-            let jump = game::packets::MsgAction {
-                action_type: ActionType::GroundJump.into(),
-                data1: u32::constract(y, x),
-                data2: u32::constract(my_x, my_x),
-                ..msg
+            let (x, y) = loop {
+                let mut rng = rand::thread_rng();
+                let x_inc = rng.gen_range(-18..18);
+                let y_inc = rng.gen_range(-18..18);
+                let x = (my_x as i16 + x_inc) as u16;
+                let y = (my_y as i16 + y_inc) as u16;
+                let in_range = |x, y| x > w / 2 && y > h / 2 && x < w && y < h;
+                if in_range(x, y) {
+                    break (x, y);
+                }
             };
+            let mut jump = msg.clone();
+            jump.data1 = u32::constract(y, x);
             tokio::time::sleep(MAX_ACTION_DELAY).await;
             encoder.send(jump.encode()?).await?;
         },

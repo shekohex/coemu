@@ -62,7 +62,7 @@ impl From<(u16, Bytes)> for Message {
 }
 
 #[async_trait]
-pub trait ActorState: Send + Sync + Sized + Clone {
+pub trait ActorState: Send + Sync + Sized {
     fn init() -> Self;
     /// Should be only used for the Default Actor
     fn empty() -> Self;
@@ -93,6 +93,7 @@ impl<S: ActorState> Actor<S> {
     pub fn set_id(&self, id: usize) { self.id.store(id, Ordering::Relaxed); }
 
     /// Enqueue the packet and send it to the client connected to this actor
+    #[instrument(skip(self, packet))]
     pub async fn send<P: PacketEncode>(
         &self,
         packet: P,
@@ -109,6 +110,7 @@ impl<S: ActorState> Actor<S> {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     pub async fn shutdown(&self) -> Result<(), Error> {
         self.tx.send(Message::Shutdown).await?;
         Ok(())
