@@ -18,13 +18,13 @@ impl Parse for Args {
         })?;
         let _: Token!(=) = input
             .parse()
-            .map_err(|e| syn::Error::new(e.span(), format!("expected `=`")))?;
-        let ident1_value: Expr = input.parse().map_err(|e| {
-            syn::Error::new(e.span(), format!("expected `Expr`"))
-        })?;
+            .map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
+        let ident1_value: Expr = input
+            .parse()
+            .map_err(|e| syn::Error::new(e.span(), "expected `Expr`"))?;
         let _: Token!(,) = input
             .parse()
-            .map_err(|e| syn::Error::new(e.span(), format!("expected `,`")))?;
+            .map_err(|e| syn::Error::new(e.span(), "expected `,`"))?;
         let ident2: Ident = input.parse().map_err(|e| {
             syn::Error::new(
                 e.span(),
@@ -33,10 +33,10 @@ impl Parse for Args {
         })?;
         let _: Token!(=) = input
             .parse()
-            .map_err(|e| syn::Error::new(e.span(), format!("expected `=`")))?;
-        let ident2_value: Expr = input.parse().map_err(|e| {
-            syn::Error::new(e.span(), format!("expected `Expr`"))
-        })?;
+            .map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
+        let ident2_value: Expr = input
+            .parse()
+            .map_err(|e| syn::Error::new(e.span(), "expected `Expr`"))?;
         let (state, actor_state) = match (ident1, ident2) {
             (ident1, ident2)
                 if ident1 == "state" && ident2 == "actor_state" =>
