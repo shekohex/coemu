@@ -121,7 +121,7 @@ impl super::Cipher for CQCipher {
             dst[i] ^= key1[(x & 0xff) as usize];
             dst[i] = dst[i] >> 4 | dst[i] << 4;
             dst[i] ^= 0xAB;
-            x += 1;
+            x = x.wrapping_add(1);
         }
     }
 
@@ -130,7 +130,6 @@ impl super::Cipher for CQCipher {
         assert_eq!(src.len(), dst.len(), "src.len() != dst.len()");
         let active_key_value = self.active_key.load(Ordering::SeqCst);
         let active_key = ActiveKey::from(active_key_value);
-        let decypt_counter = self.decrypt_counter.load(Ordering::SeqCst);
         let mut x = self
             .encrypt_counter
             .fetch_add(src.len() as u16, Ordering::SeqCst);
@@ -143,14 +142,13 @@ impl super::Cipher for CQCipher {
                     dst[i] ^= key1[(x & 0xff) as usize];
                 },
                 ActiveKey::Key2 => {
-                    dst[i] =
-                        src[i] ^ key2[((decypt_counter >> 8) + 0x100) as usize];
-                    dst[i] ^= key2[(decypt_counter & 0xff) as usize];
+                    dst[i] = src[i] ^ key2[((x >> 8) + 0x100) as usize];
+                    dst[i] ^= key2[(x & 0xff) as usize];
                 },
             }
             dst[i] = dst[i] >> 4 | dst[i] << 4;
             dst[i] ^= 0xAB;
-            x += 1;
+            x = x.wrapping_add(1);
         }
     }
 }
@@ -191,7 +189,6 @@ mod tests {
 
     #[test]
     fn encrypt_decrypt_with_generated_keys() {
-        let seed: u64 = 0xc0ffeebabe;
         let cq_cipher = CQCipher::new();
         let tq_cipher = TQCipher::new();
         let src = [0u8; 28];
@@ -201,6 +198,8 @@ mod tests {
         tq_cipher.decrypt(&dst, &mut dst2);
         assert_eq!(src.len(), dst2.len(), "src.len() != dst.len()");
         assert_eq!(src.as_slice(), &dst2);
+        // Exchange keys
+        let seed: u64 = 0xc0ffeebabe;
         cq_cipher.generate_keys(seed);
         tq_cipher.generate_keys(seed);
         // --
@@ -209,6 +208,14 @@ mod tests {
         tq_cipher.encrypt(&src, &mut dst);
         let mut dst2 = vec![0u8; dst.len()];
         cq_cipher.decrypt(&dst, &mut dst2);
+        assert_eq!(src.len(), dst2.len(), "src.len() != dst.len()");
+        assert_eq!(src.as_slice(), &dst2);
+        // --
+        let src = [0u8; 28];
+        let mut dst = vec![0u8; src.len()];
+        cq_cipher.encrypt(&src, &mut dst);
+        let mut dst2 = vec![0u8; dst.len()];
+        tq_cipher.decrypt(&dst, &mut dst2);
         assert_eq!(src.len(), dst2.len(), "src.len() != dst.len()");
         assert_eq!(src.as_slice(), &dst2);
     }

@@ -114,7 +114,7 @@ impl TQCipher {
             dst[i] = dst[i] >> 4 | dst[i] << 4;
             dst[i] ^= key[(x & 0xff) as usize];
             dst[i] ^= key[((x >> 8) + 0x100) as usize];
-            x += 1;
+            x = x.wrapping_add(1);
         }
     }
 }
