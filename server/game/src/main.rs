@@ -137,6 +137,7 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
         _ => Level::TRACE,
     };
 
+    let logger = tracing_subscriber::fmt::layer().pretty().with_target(true);
     let env_filter = tracing_subscriber::EnvFilter::from_default_env()
         .add_directive(format!("tq_db={}", log_level).parse().unwrap())
         .add_directive(format!("tq_serde={}", log_level).parse().unwrap())
@@ -144,18 +145,25 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
         .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
         .add_directive(format!("tq_network={}", log_level).parse().unwrap())
         .add_directive(format!("game={}", log_level).parse().unwrap())
-        .add_directive("tokio=trace".parse().unwrap())
-        .add_directive("runtime=trace".parse().unwrap())
         .add_directive(format!("game_server={}", log_level).parse().unwrap());
+
+    #[cfg(feature = "console")]
+    let env_filter = env_filter
+        .add_directive("tokio=trace".parse().unwrap())
+        .add_directive("runtime=trace".parse().unwrap());
+
+    #[cfg(feature = "console")]
     let console_layer = console_subscriber::ConsoleLayer::builder()
         .with_default_env()
         .spawn();
-    let logger = tracing_subscriber::fmt::layer().pretty().with_target(true);
 
-    tracing_subscriber::registry()
-        .with(console_layer)
+    let registry = tracing_subscriber::registry()
         .with(env_filter)
-        .with(logger)
-        .init();
+        .with(logger);
+
+    #[cfg(feature = "console")]
+    let registry = registry.with(console_layer);
+
+    registry.init();
     Ok(())
 }

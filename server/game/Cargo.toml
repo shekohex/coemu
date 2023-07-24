@@ -46,6 +46,7 @@ features = ["env-filter", "ansi", "fmt", "smallvec"]
 # Debugging
 [dependencies.console-subscriber]
 version = "0.1"
+optional = true
 default-features = false
 features = ["env-filter", "parking_lot"]
 
@@ -60,3 +61,9 @@ features = ["rt-multi-thread", "macros", "signal", "sync", "parking_lot", "traci
 workspace = true
 default-features = false
 features = ["runtime-tokio-rustls", "sqlite", "time"]
+
+
+[features]
+default = []
+console = ["dep:console-subscriber"]
+
