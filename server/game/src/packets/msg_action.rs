@@ -134,6 +134,7 @@ impl MsgAction {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_send_location(
         &self,
         actor: &Actor<ActorState>,
@@ -147,6 +148,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_map_argb(
         &self,
         actor: &Actor<ActorState>,
@@ -159,6 +161,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_leave_booth(
         &self,
         state: &State,
@@ -171,6 +174,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_jump(
         &self,
         state: &State,
@@ -183,13 +187,7 @@ impl MsgAction {
         let me = actor.character().await;
         // Starting to validate this jump.
         if current_x != me.x() || current_y != me.y() {
-            debug!(
-                "Bad Packet Got ({}, {}) but expected ({}, {})",
-                current_x,
-                current_y,
-                me.x(),
-                me.y()
-            );
+            debug!(%current_x, %current_y, my_x = %me.x(), my_y = %me.y(),"Bad Jump Packet");
             me.kick_back().await?;
             return Ok(());
         }
@@ -223,7 +221,6 @@ impl MsgAction {
             tq_math::get_direction_sector((me.x(), me.y()), (new_x, new_y));
         match mymap.tile(new_x, new_y).await {
             Some(tile) if tile.access > TileType::Npc => {
-                tracing::debug!(id = %me.id(), x = %me.x(), y = %me.y(), %new_x, %new_y, "Jumping");
                 // I guess everything seems to be valid .. send the jump.
                 me.set_x(new_x)
                     .set_y(new_y)
@@ -251,6 +248,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_change_facing(
         &self,
         actor: &Actor<ActorState>,
@@ -273,6 +271,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_query_entity(
         &self,
         state: &State,
@@ -289,6 +288,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_change_map(
         &self,
         state: &State,

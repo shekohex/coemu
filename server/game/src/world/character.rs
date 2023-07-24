@@ -100,6 +100,7 @@ impl Character {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, state), fields(me = self.id()))]
     pub async fn teleport(
         &self,
         state: &crate::State,
@@ -117,6 +118,7 @@ impl Character {
         if let Some(new_map) = state.maps().get(&map_id) {
             new_map.insert_character(self.clone()).await?;
             let tile = new_map.tile(x, y).await.ok_or_else(|| {
+                tracing::warn!("Invalid Location");
                 MsgTalk::from_system(
                     self.id(),
                     TalkChannel::TopLeft,
@@ -124,11 +126,16 @@ impl Character {
                 )
                 .error_packet()
             })?;
+            // remove from old map
+            if let Some(old_map) = state.maps().get(&self.map_id()) {
+                old_map.remove_character(self.id()).await?;
+            }
             self.set_x(x).set_y(y).set_map_id(map_id);
             self.set_elevation(tile.elevation);
             new_map.update_region_for(self.clone()).await?;
             self.owner.send(msg).await?;
         } else {
+            tracing::warn!("Invalid Map");
             self.owner
                 .send(MsgTalk::from_system(
                     self.id(),
@@ -140,6 +147,7 @@ impl Character {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all, fields(me = self.id(), observer = observer.entity().id()))]
     pub async fn exchange_spawn_packets(
         &self,
         observer: impl BaseEntity,
@@ -149,6 +157,7 @@ impl Character {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, state), fields(me = self.id()))]
     pub async fn save(&self, state: &crate::State) -> Result<(), Error> {
         let e = tq_db::character::Character {
             character_id: self.inner.character_id,
@@ -191,9 +200,11 @@ impl BaseEntity for Character {
 
     fn entity(&self) -> Entity { self.entity.clone() }
 
+    #[tracing::instrument(skip(self, to), fields(me = self.id()))]
     async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {
         let msg = MsgPlayer::from(self.clone());
         to.send(msg).await?;
+        tracing::debug!("Sent Spawn");
         Ok(())
     }
 }

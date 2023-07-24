@@ -108,8 +108,9 @@ impl Map {
     /// server will make an attempt to find and convert a dmap version of the
     /// map into a compressed map file. After converting the map, the map
     /// will be loaded for the server.
+    #[tracing::instrument(skip_all, fields(map_id = self.id()))]
     pub async fn load(&self) -> Result<(), Error> {
-        debug!("Loading {} into memory", self.id());
+        debug!("Loading into memory");
         let mut lock = self.floor.write().await;
         lock.load().await?;
         let map_size = lock.boundaries();
@@ -130,19 +131,20 @@ impl Map {
         let mut lock = self.regions.write().await;
         *lock = regions;
         drop(lock);
-        debug!("Map {} Loaded into memory", self.id());
+        debug!("Map Loaded into memory");
         Ok(())
     }
 
+    #[tracing::instrument(skip_all, fields(map_id = self.id()))]
     pub async fn unload(&self) -> Result<(), Error> {
-        debug!("Unload {} from memory", self.id());
+        debug!("Unload from memory");
         let mut lock = self.floor.write().await;
         lock.unload();
         drop(lock);
         let mut lock = self.regions.write().await;
         lock.clear();
         drop(lock);
-        debug!("Map {} Unloaded from memory", self.id());
+        debug!("Unloaded from memory");
         Ok(())
     }
 
@@ -152,6 +154,7 @@ impl Map {
     /// It does this by removing the player from the previous map, then
     /// adding it to the current map. As the character is added, its map,
     /// current tile, and current elevation are changed.
+    #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
     pub async fn insert_character(&self, me: Character) -> Result<(), Error> {
         // if the map is not loaded in memory, load it.
         if !self.loaded().await {
@@ -159,12 +162,13 @@ impl Map {
         }
         // Add the player to the current map
         let mut lock = self.characters.write().await;
-        lock.insert(me.id(), me.clone());
-        drop(lock);
-
+        if lock.insert(me.id(), me.clone()).is_none() {
+            debug!("Added to Map");
+        }
         Ok(())
     }
 
+    #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
     pub async fn update_region_for(&self, me: Character) -> Result<(), Error> {
         let region = self.region(me.x(), me.y()).await;
         let old_region = self.region(me.prev_x(), me.prev_y()).await;
@@ -190,9 +194,15 @@ impl Map {
     /// This method removes the client specified in the parameters from the map.
     /// If the screen of the character still exists, it will remove the
     /// character from each observer's screen.
-    pub async fn remove_character(&self, id: u32) -> Result<(), Error> {
+    #[tracing::instrument(skip(self), fields(map_id = self.id()))]
+    pub async fn remove_character(
+        &self,
+        character_id: u32,
+    ) -> Result<(), Error> {
         let mut characters = self.characters.write().await;
-        characters.remove(&id);
+        if characters.remove(&character_id).is_some() {
+            debug!("Removed from Map");
+        }
         drop(characters);
         // No One in this map?
         if self.characters.read().await.is_empty() {

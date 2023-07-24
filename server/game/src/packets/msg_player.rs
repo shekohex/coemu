@@ -43,7 +43,7 @@ pub struct MsgPlayer {
 
 impl From<Character> for MsgPlayer {
     fn from(c: Character) -> Self {
-        let msg = Self {
+        Self {
             character_id: c.id() as i32,
             character_id2: c.id() as i32,
             mesh: (c.mesh() + (c.avatar() as u32 * 10_000)) as i32,
@@ -59,8 +59,6 @@ impl From<Character> for MsgPlayer {
             direction: c.direction(),
             action: c.action() as u8,
             ..Default::default()
-        };
-        tracing::debug!("{:?}", msg);
-        msg
+        }
     }
 }
