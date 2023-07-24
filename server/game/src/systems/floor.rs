@@ -82,7 +82,11 @@ impl Floor {
             trace!("we didn't found the map at {}", map_path.display());
             let mut p = self.path.clone();
             p.set_extension("DMap");
-            let orignal_path = data_path.join("GameMaps").join("map").join(p);
+            let orignal_path = data_path
+                .join("GameMaps")
+                .join("map")
+                .join(p)
+                .canonicalize()?;
             self.convert(orignal_path).await?;
         }
         self.loaded = true;
@@ -172,10 +176,15 @@ impl Floor {
                     let (f, _) = scene_file_name.split_at(
                         scene_file_name.find('\0').unwrap_or_default(),
                     );
-                    let scene_file_name = f.replace("map\\", "");
+                    // replace backslashes with forward slashes
+                    let scene_file_name =
+                        f.replace("map\\", "").replace('\\', "/");
                     let data_path = PathBuf::from(env::var("DATA_LOCATION")?);
-                    let scene_path =
-                        data_path.join("GameMaps").join(scene_file_name);
+                    let scene_path = data_path
+                        .join("GameMaps")
+                        .join(scene_file_name)
+                        .canonicalize()?;
+                    trace!("Loading scene file {}", scene_path.display());
                     let px = buffer.get_i32_le();
                     let py = buffer.get_i32_le();
                     let location = Point::new(px, py);
