@@ -67,7 +67,7 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::FixPortal(fix) => {
-            let mymap = actor.map().await;
+            let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
             let maybe_portal = mymap.portals().iter().find(|p| {
                 tq_math::in_circle(
                     (me.x(), me.y(), 10),

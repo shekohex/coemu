@@ -1,11 +1,11 @@
 use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
 use crate::packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel};
 use crate::utils::LoHi;
-use crate::{constants, ActorState, Error};
+use crate::{constants, Error};
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
-use tq_network::{Actor, IntoErrorPacket};
+use tq_network::{ActorHandle, IntoErrorPacket};
 
 /// This struct encapsulates the game character for a player. The player
 /// controls the character as the protagonist of the Conquer Online storyline.
@@ -16,7 +16,7 @@ use tq_network::{Actor, IntoErrorPacket};
 pub struct Character {
     inner: Arc<tq_db::character::Character>,
     entity: Entity,
-    owner: Actor<ActorState>,
+    owner: ActorHandle,
     elevation: Arc<AtomicU16>,
 }
 
@@ -27,10 +27,7 @@ impl Deref for Character {
 }
 
 impl Character {
-    pub fn new(
-        owner: Actor<ActorState>,
-        inner: tq_db::character::Character,
-    ) -> Self {
+    pub fn new(owner: ActorHandle, inner: tq_db::character::Character) -> Self {
         let entity = Entity::new(
             inner.character_id as u32 + constants::CHARACTER_BASE_ID,
             inner.name.clone(),
@@ -117,7 +114,7 @@ impl Character {
             self.direction() as u16,
             ActionType::Teleport,
         );
-        if let Some(new_map) = state.maps().read().await.get(&map_id) {
+        if let Some(new_map) = state.maps().get(&map_id) {
             new_map.insert_character(self.clone()).await?;
             let tile = new_map.tile(x, y).await.ok_or_else(|| {
                 MsgTalk::from_system(
@@ -131,6 +128,14 @@ impl Character {
             self.set_elevation(tile.elevation);
             new_map.update_region_for(self.clone()).await?;
             self.owner.send(msg).await?;
+        } else {
+            self.owner
+                .send(MsgTalk::from_system(
+                    self.id(),
+                    TalkChannel::TopLeft,
+                    format!("Invalid Map {map_id}"),
+                ))
+                .await?;
         }
         Ok(())
     }
@@ -180,13 +185,13 @@ impl Character {
 
 #[async_trait::async_trait]
 impl BaseEntity for Character {
-    fn owner(&self) -> Actor<ActorState> { self.owner.clone() }
+    fn owner(&self) -> ActorHandle { self.owner.clone() }
 
     fn entity_type(&self) -> EntityTypeFlag { EntityTypeFlag::PLAYER }
 
     fn entity(&self) -> Entity { self.entity.clone() }
 
-    async fn send_spawn(&self, to: &Actor<ActorState>) -> Result<(), Error> {
+    async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {
         let msg = MsgPlayer::from(self.clone());
         to.send(msg).await?;
         Ok(())

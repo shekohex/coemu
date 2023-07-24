@@ -22,12 +22,13 @@ impl Server for GameServer {
     type ActorState = ActorState;
     type Cipher = TQCipher;
     type PacketHandler = Handler;
+    type State = State;
 
     /// Get Called right before ending the connection with that client.
     /// good chance to clean up anything related to that actor.
     #[tracing::instrument(skip(state, actor))]
     async fn on_disconnected(
-        state: &<Self::PacketHandler as PacketHandler>::State,
+        state: &Self::State,
         actor: Actor<Self::ActorState>,
     ) -> Result<(), tq_network::Error> {
         let _ = state;
@@ -35,8 +36,14 @@ impl Server for GameServer {
         me.save(state)
             .map_err(|e| tq_network::Error::Other(e.to_string()))
             .await?;
-        ActorState::dispose(&actor, &actor).await?;
+        ActorState::dispose(&actor, actor.handle()).await?;
         state.characters().write().await.remove(&me.id());
+        if let Some(mymap) = state.maps().get(&me.map_id()) {
+            mymap
+                .remove_character(me.id())
+                .map_err(|e| tq_network::Error::Other(e.to_string()))
+                .await?;
+        }
         Ok(())
     }
 }
@@ -44,9 +51,10 @@ impl Server for GameServer {
 struct RpcServer;
 
 impl Server for RpcServer {
-    type ActorState = ();
+    type ActorState = ActorState;
     type Cipher = NopCipher;
     type PacketHandler = RpcHandler;
+    type State = State;
 }
 
 #[derive(Copy, Clone, PacketHandler)]
@@ -61,7 +69,7 @@ pub enum Handler {
 }
 
 #[derive(Copy, Clone, PacketHandler)]
-#[handle(state = State, actor_state = ())]
+#[handle(state = State, actor_state = ActorState)]
 pub enum RpcHandler {
     MsgTransfer,
 }
@@ -157,9 +165,7 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
         .with_default_env()
         .spawn();
 
-    let registry = tracing_subscriber::registry()
-        .with(env_filter)
-        .with(logger);
+    let registry = tracing_subscriber::registry().with(env_filter).with(logger);
 
     #[cfg(feature = "console")]
     let registry = registry.with(console_layer);

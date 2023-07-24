@@ -1,8 +1,5 @@
 use std::sync::Arc;
 
-use futures::TryFutureExt;
-use tq_network::Actor;
-
 use crate::systems::Screen;
 use crate::world::{Character, Map};
 
@@ -24,27 +21,9 @@ impl tq_network::ActorState for ActorState {
             screen: Default::default(),
         }
     }
-
-    async fn dispose(
-        &self,
-        actor: &Actor<Self>,
-    ) -> Result<(), tq_network::Error> {
-        let mymap = actor.map().await;
-        let me = self.character().await;
-        mymap
-            .remove_character(me.id())
-            .map_err(|e| tq_network::Error::Other(e.to_string()))
-            .await?;
-        Ok(())
-    }
 }
 
 impl ActorState {
-    pub async fn set_map(&self, map: Map) {
-        let mut lock = self.map.write().await;
-        *lock = Some(map);
-    }
-
     pub async fn set_character(&self, character: Character) {
         let mut lock = self.character.write().await;
         *lock = Some(character);
@@ -53,10 +32,6 @@ impl ActorState {
     pub async fn set_screen(&self, screen: Screen) {
         let mut lock = self.screen.write().await;
         *lock = Some(screen);
-    }
-
-    pub async fn map(&self) -> Map {
-        self.map.read().await.clone().expect("state is not empty")
     }
 
     pub async fn character(&self) -> Character {

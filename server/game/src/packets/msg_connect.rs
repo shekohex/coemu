@@ -44,16 +44,14 @@ impl PacketProcess for MsgConnect {
         .await?;
         match maybe_character {
             Some(character) => {
-                let me = Character::new(actor.clone(), character);
+                let me = Character::new(actor.handle(), character);
                 actor.set_character(me.clone()).await;
-                let maps = state.maps().read().await;
-                let mymap = maps
+                let mymap = state.maps()
                     .get(&me.map_id())
                     .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
-                actor.set_map(mymap.clone()).await;
                 mymap.insert_character(me.clone()).await?;
                 state.characters().write().await.insert(me.id(), me.clone());
-                let screen = Screen::new(actor.clone());
+                let screen = Screen::new(actor.handle(), me.clone());
                 actor.set_screen(screen).await;
                 actor.send(MsgTalk::login_ok()).await?;
                 let msg = MsgUserInfo::from(me);

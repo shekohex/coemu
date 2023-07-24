@@ -1,4 +1,4 @@
-use crate::{Error, State};
+use crate::{Error, State, ActorState};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tq_network::{Actor, PacketID, PacketProcess};
@@ -17,7 +17,7 @@ pub struct MsgTransfer {
 
 #[async_trait]
 impl PacketProcess for MsgTransfer {
-    type ActorState = ();
+    type ActorState = ActorState;
     type Error = Error;
     type State = State;
 

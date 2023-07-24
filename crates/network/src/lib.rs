@@ -13,10 +13,11 @@ mod errors;
 pub use errors::Error;
 
 mod actor;
-pub use actor::{Actor, ActorState, Message};
+pub use actor::{Actor, ActorHandle, ActorState, Message};
 
 mod server;
-pub use server::Server;
+pub use server::{Server, ServerState};
+
 pub trait PacketID {
     /// Get the ID of that packet.
     fn id() -> u16;
@@ -64,7 +65,11 @@ pub trait PacketDecode {
 pub trait PacketHandler {
     type Error: StdError + PacketEncode + Send + Sync;
     type ActorState: ActorState;
-    type State: Clone + Send + Sync + 'static;
+    type State: ServerState<ActorState = Self::ActorState>
+        + Clone
+        + Send
+        + Sync
+        + 'static;
     async fn handle(
         packet: (u16, Bytes),
         state: &Self::State,

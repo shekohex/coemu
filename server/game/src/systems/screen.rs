@@ -2,12 +2,12 @@ use crate::entities::BaseEntity;
 use crate::packets::{ActionType, MsgAction};
 use crate::utils::LoHi;
 use crate::world::Character;
-use crate::{ActorState, Error};
+use crate::Error;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tq_network::{Actor, PacketEncode};
+use tq_network::{ActorHandle, PacketEncode};
 use tracing::debug;
 
 type Characters = Arc<RwLock<HashMap<u32, Character>>>;
@@ -18,15 +18,17 @@ type Characters = Arc<RwLock<HashMap<u32, Character>>>;
 /// (the actor) moves.
 #[derive(Clone, Debug)]
 pub struct Screen {
-    owner: Actor<ActorState>,
+    owner: ActorHandle,
+    character: Character,
     characters: Characters,
 }
 
 impl Screen {
-    pub fn new(owner: Actor<ActorState>) -> Self {
+    pub fn new(owner: ActorHandle, character: Character) -> Self {
         debug!("Creating Screen for Actor #{}", owner.id());
         Self {
             owner,
+            character,
             characters: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -49,19 +51,11 @@ impl Screen {
             .insert(observer.id(), observer.clone())
             .is_none();
         if added {
-            let me = self.owner.character().await;
+            let me = &self.character;
             debug!("Added #{} to #{}", observer.id(), me.id());
-            let observer_screen = observer.owner().screen().await;
-            let res = observer_screen
-                .characters
-                .write()
-                .await
-                .insert(me.id(), me)
-                .is_none();
-            let res = added && res;
-            Ok(res)
+            Ok(true)
         } else {
-            Ok(added)
+            Ok(false)
         }
     }
 
@@ -69,16 +63,9 @@ impl Screen {
         if let Some(observer_character) =
             self.characters.write().await.remove(&id)
         {
-            let me = self.owner.character().await;
+            let me = &self.character;
             debug!("Removed #{} from #{}", observer_character.id(), me.id());
-            let observer_screen = observer_character.owner().screen().await;
-            let removed = observer_screen
-                .characters
-                .write()
-                .await
-                .remove(&me.id())
-                .is_some();
-            Ok(removed)
+            Ok(true)
         } else {
             Ok(false)
         }
@@ -86,7 +73,7 @@ impl Screen {
 
     pub async fn delete_character(&self, id: u32) -> Result<bool, Error> {
         let deleted = self.characters.write().await.remove(&id);
-        let me = self.owner.character().await;
+        let me = &self.character;
         if let Some(other) = deleted {
             let location = u32::constract(other.y(), other.x());
             self.owner
@@ -109,11 +96,11 @@ impl Screen {
     /// delete method (general action subtype packet) to forcefully remove
     /// the owner from each screen within the owner's screen distance.
     pub async fn remove_from_observers(&self) -> Result<(), Error> {
-        let me = self.owner.character().await;
+        let me = &self.character;
         for observer in self.characters.read().await.values() {
             debug!("Found Observer #{}", observer.id());
-            let observer_screen = observer.owner().screen().await;
-            observer_screen.delete_character(me.id()).await?;
+            // let observer_screen = observer.owner().screen().await;
+            // observer_screen.delete_character(me.id()).await?;
             debug!(
                 "#{} Removed from Observer #{} Screen",
                 me.id(),
@@ -124,10 +111,10 @@ impl Screen {
     }
 
     pub async fn refresh_spawn_for_observers(&self) -> Result<(), Error> {
-        let me = self.owner.character().await;
+        let me = &self.character;
         for observer in self.characters.read().await.values() {
-            let observer_screen = observer.owner().screen().await;
-            observer_screen.delete_character(me.id()).await?;
+            // let observer_screen = observer.owner().screen().await;
+            // observer_screen.delete_character(me.id()).await?;
             me.send_spawn(&observer.owner()).await?;
         }
         Ok(())
@@ -137,10 +124,13 @@ impl Screen {
     /// map after a teleportation. It iterates through each map object and
     /// spawns it to the owner's screen (if the object is within the owner's
     /// screen distance).
-    pub async fn load_surroundings(&self) -> Result<(), Error> {
+    pub async fn load_surroundings(
+        &self,
+        state: &crate::State,
+    ) -> Result<(), Error> {
         // Load Players from the Map
-        let mymap = self.owner.map().await;
-        let me = self.owner.character().await;
+        let me = &self.character;
+        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
         for observer in mymap.characters().read().await.values() {
             let is_myself = me.id() == observer.id();
             if is_myself {
@@ -185,11 +175,12 @@ impl Screen {
     /// from the owner's screen.
     pub async fn send_movement<P: PacketEncode + Clone>(
         &self,
+        state: &crate::State,
         packet: P,
     ) -> Result<(), Error> {
-        let mymap = self.owner.map().await;
+        let me = &self.character;
+        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
         // For each possible observer on the map
-        let me = self.owner.character().await;
         for observer in mymap.characters().read().await.values() {
             let is_myself = me.id() == observer.id();
             let observer_owner = observer.owner();
@@ -222,22 +213,13 @@ impl Screen {
                 }
             } else {
                 //  Else, remove the observer and send the last packet.
-                let observer_screen = observer_owner.screen().await;
-                let removed = observer_screen.remove_character(me.id()).await?;
-                if removed {
-                    debug!(
-                        "UnLoaded #{} From #{} Screen",
-                        me.id(),
-                        observer.id(),
-                    );
-                    // send the last packet.
-                    observer_owner
-                        .send(packet.clone())
-                        .await
-                        .unwrap_or_default();
-                }
-                let myscreen = self.owner.screen().await;
-                let removed = myscreen.remove_character(observer.id()).await?;
+                debug!("UnLoaded #{} From #{} Screen", me.id(), observer.id(),);
+                // send the last packet.
+                observer_owner
+                    .send(packet.clone())
+                    .await
+                    .unwrap_or_default();
+                let removed = self.remove_character(observer.id()).await?;
                 if removed {
                     debug!(
                         "UnLoaded #{} From #{} Screen",

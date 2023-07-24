@@ -1,5 +1,4 @@
 use super::{Character, Portal};
-use crate::entities::BaseEntity;
 use crate::systems::{Floor, Tile};
 use crate::{constants, Error};
 use num_enum::FromPrimitive;
@@ -154,11 +153,6 @@ impl Map {
     /// adding it to the current map. As the character is added, its map,
     /// current tile, and current elevation are changed.
     pub async fn insert_character(&self, me: Character) -> Result<(), Error> {
-        if me.map_id() != self.id() {
-            let old_map = me.owner().map().await;
-            // Remove the client from the previous map
-            old_map.remove_character(me.id()).await?;
-        }
         // if the map is not loaded in memory, load it.
         if !self.loaded().await {
             self.load().await?;
@@ -168,8 +162,6 @@ impl Map {
         lock.insert(me.id(), me.clone());
         drop(lock);
 
-        // get the region the character is in and add it to the region
-        me.owner().set_map(self.clone()).await;
         Ok(())
     }
 
@@ -200,10 +192,7 @@ impl Map {
     /// character from each observer's screen.
     pub async fn remove_character(&self, id: u32) -> Result<(), Error> {
         let mut characters = self.characters.write().await;
-        if let Some(character) = characters.remove(&id) {
-            let screen = character.owner().screen().await;
-            screen.remove_from_observers().await?;
-        }
+        characters.remove(&id);
         drop(characters);
         // No One in this map?
         if self.characters.read().await.is_empty() {

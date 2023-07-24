@@ -14,6 +14,7 @@ struct AuthServer;
 
 impl Server for AuthServer {
     type ActorState = ();
+    type State = State;
     type Cipher = TQCipher;
     type PacketHandler = AuthServerHandler;
 }

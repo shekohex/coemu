@@ -12,20 +12,38 @@ use tq_codec::{TQCodec, TQEncoder};
 use tq_crypto::Cipher;
 
 #[async_trait]
+pub trait ServerState: Send + Sync {
+    type ActorState: ActorState;
+    async fn on_connected(&self, addr: SocketAddr) -> Result<(), Error> {
+        let _ = addr;
+        Ok(())
+    }
+
+    async fn on_disconnected(
+        &self,
+        actor: Actor<Self::ActorState>,
+    ) -> Result<(), Error> {
+        let _ = actor;
+        Ok(())
+    }
+}
+
+#[async_trait]
 pub trait Server: Sized + Send + Sync {
     type Cipher: Cipher;
     type ActorState: ActorState;
-    type PacketHandler: PacketHandler<ActorState = Self::ActorState>;
+    type State: ServerState<ActorState = Self::ActorState> + Clone + Send + Sync + 'static;
+    type PacketHandler: PacketHandler<ActorState = Self::ActorState, State = Self::State>;
 
     /// Get Called once a Stream Got Connected, Returing Error here will stop
     /// the stream task and disconnect them from the server.
     #[tracing::instrument(skip(state))]
     async fn on_connected(
-        state: &<Self::PacketHandler as PacketHandler>::State,
+        state: &Self::State,
         addr: SocketAddr,
     ) -> Result<(), Error> {
         let _ = addr;
-        let _ = state;
+        state.on_connected(addr).await?;
         Ok(())
     }
 
@@ -33,11 +51,11 @@ pub trait Server: Sized + Send + Sync {
     /// good chance to clean up anything related to that actor.
     #[tracing::instrument(skip(state, actor))]
     async fn on_disconnected(
-        state: &<Self::PacketHandler as PacketHandler>::State,
+        state: &Self::State,
         actor: Actor<Self::ActorState>,
     ) -> Result<(), Error> {
-        let _ = state;
-        ActorState::dispose(actor.deref(), &actor).await?;
+        ActorState::dispose(actor.deref(), actor.handle()).await?;
+        state.on_disconnected(actor).await?;
         Ok(())
     }
 
@@ -46,7 +64,7 @@ pub trait Server: Sized + Send + Sync {
     #[tracing::instrument(skip(state))]
     async fn run<A>(
         addr: A,
-        state: <Self::PacketHandler as PacketHandler>::State,
+        state: Self::State,
     ) -> Result<(), Error>
     where
         A: Debug + ToSocketAddrs + Send + Sync,
@@ -90,7 +108,7 @@ pub trait Server: Sized + Send + Sync {
 #[tracing::instrument(skip(stream, state))]
 async fn handle_stream<S: Server>(
     stream: TcpStream,
-    state: <S::PacketHandler as PacketHandler>::State,
+    state: S::State,
 ) -> Result<(), Error> {
     let (tx, rx) = mpsc::channel(50);
     let actor = Actor::new(tx);

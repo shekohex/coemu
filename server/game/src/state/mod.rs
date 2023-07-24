@@ -4,6 +4,7 @@ use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tq_network::ServerState;
 use tracing::debug;
 
 mod actor_state;
@@ -11,7 +12,7 @@ mod token_store;
 
 pub use actor_state::ActorState;
 
-type Maps = Arc<RwLock<HashMap<u32, Map>>>;
+type Maps = Arc<HashMap<u32, Map>>;
 type Characters = Arc<RwLock<HashMap<u32, Character>>>;
 type Shared<T> = Arc<RwLock<T>>;
 
@@ -37,13 +38,23 @@ impl State {
             .min_connections(4)
             .connect(&db_url)
             .await?;
+
+        debug!("Loading Maps from Database");
+        let db_maps = tq_db::map::Map::load_all(&pool).await?;
+        let mut maps = HashMap::with_capacity(db_maps.len());
+        debug!("Loaded #{} Map From Database", maps.len());
+        for map in db_maps {
+            let portals =
+                tq_db::portal::Portal::by_map(&pool, map.map_id).await?;
+            let map = Map::new(map, portals);
+            maps.insert(map.id(), map);
+        }
         let state = Self {
             token_store: token_store::TokenStore::new(),
-            maps: Default::default(),
+            maps: Arc::new(maps),
             characters: Default::default(),
             pool,
         };
-        state.post_init().await?;
         Ok(state)
     }
 
@@ -68,26 +79,8 @@ impl State {
         debug!("Closed Database Connection ..");
         Ok(())
     }
+}
 
-    /// For Things we should do before sending that we init the state
-    async fn post_init(&self) -> Result<(), Error> {
-        self.init_maps().await?;
-        Ok(())
-    }
-
-    /// This method loads the compressed conquer maps from the flat-file
-    /// database using the database's maps table.
-    async fn init_maps(&self) -> Result<(), Error> {
-        debug!("Loading Maps from Database");
-        let maps = tq_db::map::Map::load_all(&self.pool).await?;
-        debug!("Loaded #{} Map From Database", maps.len());
-        let mut lock = self.maps.write().await;
-        for map in maps {
-            let portals =
-                tq_db::portal::Portal::by_map(&self.pool, map.map_id).await?;
-            let map = Map::new(map, portals);
-            lock.insert(map.id(), map);
-        }
-        Ok(())
-    }
+impl ServerState for State {
+    type ActorState = ActorState;
 }
