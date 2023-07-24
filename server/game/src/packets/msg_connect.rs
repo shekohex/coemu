@@ -46,7 +46,8 @@ impl PacketProcess for MsgConnect {
             Some(character) => {
                 let me = Character::new(actor.handle(), character);
                 actor.set_character(me.clone()).await;
-                let mymap = state.maps()
+                let mymap = state
+                    .maps()
                     .get(&me.map_id())
                     .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
                 mymap.insert_character(me.clone()).await?;
