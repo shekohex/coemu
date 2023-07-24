@@ -22,13 +22,12 @@ impl Server for GameServer {
     type ActorState = ActorState;
     type Cipher = TQCipher;
     type PacketHandler = Handler;
-    type State = State;
 
     /// Get Called right before ending the connection with that client.
     /// good chance to clean up anything related to that actor.
     #[tracing::instrument(skip(state, actor))]
     async fn on_disconnected(
-        state: &Self::State,
+        state: &<Self::PacketHandler as PacketHandler>::State,
         actor: Actor<Self::ActorState>,
     ) -> Result<(), tq_network::Error> {
         let _ = state;
@@ -54,7 +53,6 @@ impl Server for RpcServer {
     type ActorState = ActorState;
     type Cipher = NopCipher;
     type PacketHandler = RpcHandler;
-    type State = State;
 }
 
 #[derive(Copy, Clone, PacketHandler)]

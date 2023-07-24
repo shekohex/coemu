@@ -7,7 +7,7 @@ pub mod world;
 pub mod state;
 pub use state::{ActorState, State};
 
-pub mod errors;
-pub use errors::Error;
+pub mod error;
+pub use error::Error;
 
 pub mod packets;

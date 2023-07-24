@@ -4,7 +4,6 @@ use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tq_network::ServerState;
 use tracing::debug;
 
 mod actor_state;
@@ -79,8 +78,4 @@ impl State {
         debug!("Closed Database Connection ..");
         Ok(())
     }
-}
-
-impl ServerState for State {
-    type ActorState = ActorState;
 }

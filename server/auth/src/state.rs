@@ -1,6 +1,5 @@
 use crate::Error;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
-use tq_network::ServerState;
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -27,8 +26,4 @@ impl State {
 
     /// Get access to the database pool
     pub fn pool(&self) -> &SqlitePool { &self.pool }
-}
-
-impl ServerState for State {
-    type ActorState = ();
 }
