@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use futures::TryFutureExt;
-use tokio::sync::RwLock;
 use tq_network::Actor;
 
 use crate::systems::Screen;
@@ -16,15 +15,6 @@ pub struct ActorState {
     screen: Shared<Option<Screen>>,
 }
 
-impl Default for ActorState {
-    fn default() -> Self {
-        Self {
-            character: Arc::new(RwLock::new(None)),
-            map: Arc::new(RwLock::new(None)),
-            screen: Arc::new(RwLock::new(None)),
-        }
-    }
-}
 #[async_trait::async_trait]
 impl tq_network::ActorState for ActorState {
     fn init() -> Self {
@@ -34,8 +24,6 @@ impl tq_network::ActorState for ActorState {
             screen: Default::default(),
         }
     }
-
-    fn empty() -> Self { Self::default() }
 
     async fn dispose(
         &self,

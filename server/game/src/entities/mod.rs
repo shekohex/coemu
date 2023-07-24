@@ -20,7 +20,7 @@ bitflags! {
 /// A Base Entity in a game world that has the minimal set of props shared
 /// between all of game objects.
 #[async_trait]
-pub trait BaseEntity: Default {
+pub trait BaseEntity {
     fn owner(&self) -> Actor<ActorState>;
     /// The Current Entity Type, used for Casting to other types at runtime if
     /// needed.

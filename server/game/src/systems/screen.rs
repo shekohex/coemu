@@ -16,7 +16,7 @@ type Characters = Arc<RwLock<HashMap<u32, Character>>>;
 /// enter, move, and leave the screen. It controls the distribution of packets
 /// to the other players in the screen and adding new objects as the character
 /// (the actor) moves.
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub struct Screen {
     owner: Actor<ActorState>,
     characters: Characters,
@@ -27,7 +27,7 @@ impl Screen {
         debug!("Creating Screen for Actor #{}", owner.id());
         Self {
             owner,
-            ..Default::default()
+            characters: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
