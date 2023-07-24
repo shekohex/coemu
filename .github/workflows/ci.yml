@@ -32,6 +32,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "rust"
+      - name: Setup mold Linker
+        uses: rui314/setup-mold@v1
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1
