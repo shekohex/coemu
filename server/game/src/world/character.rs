@@ -4,7 +4,6 @@ use crate::utils::LoHi;
 use crate::{constants, Error};
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::Arc;
 use tq_network::{ActorHandle, IntoErrorPacket};
 
 /// This struct encapsulates the game character for a player. The player
@@ -12,12 +11,12 @@ use tq_network::{ActorHandle, IntoErrorPacket};
 /// The character is the persona of the player who controls it. The persona can
 /// be altered using different avatars, hairstyles, and body types. The player
 /// also controls the character's professions and abilities.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Character {
-    inner: Arc<tq_db::character::Character>,
+    inner: tq_db::character::Character,
     entity: Entity,
     owner: ActorHandle,
-    elevation: Arc<AtomicU16>,
+    elevation: AtomicU16,
 }
 
 impl Deref for Character {
@@ -42,7 +41,7 @@ impl Character {
         Self {
             entity,
             owner,
-            inner: Arc::new(inner),
+            inner,
             elevation: Default::default(),
         }
     }
@@ -116,7 +115,6 @@ impl Character {
             ActionType::Teleport,
         );
         if let Some(new_map) = state.maps().get(&map_id) {
-            new_map.insert_character(self.clone()).await?;
             let tile = new_map.tile(x, y).await.ok_or_else(|| {
                 tracing::warn!("Invalid Location");
                 MsgTalk::from_system(
@@ -132,7 +130,6 @@ impl Character {
             }
             self.set_x(x).set_y(y).set_map_id(map_id);
             self.set_elevation(tile.elevation);
-            new_map.update_region_for(self.clone()).await?;
             self.owner.send(msg).await?;
         } else {
             tracing::warn!("Invalid Map");
@@ -147,7 +144,7 @@ impl Character {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all, fields(me = self.id(), observer = observer.entity().id()))]
+    #[tracing::instrument(skip_all, fields(me = self.id()))]
     pub async fn exchange_spawn_packets(
         &self,
         observer: impl BaseEntity,
@@ -197,8 +194,6 @@ impl BaseEntity for Character {
     fn owner(&self) -> ActorHandle { self.owner.clone() }
 
     fn entity_type(&self) -> EntityTypeFlag { EntityTypeFlag::PLAYER }
-
-    fn entity(&self) -> Entity { self.entity.clone() }
 
     #[tracing::instrument(skip(self, to), fields(me = self.id()))]
     async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {

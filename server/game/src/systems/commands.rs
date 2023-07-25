@@ -9,7 +9,7 @@ pub async fn parse_and_execute(
     actor: &Actor<ActorState>,
     args: &[&str],
 ) -> Result<(), Error> {
-    let me = actor.character().await;
+    let me = actor.character();
     let c = match Command::from_args(&["commands"], args) {
         Ok(cmd) => cmd,
         Err(e) => {
@@ -36,14 +36,22 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::Teleport(info) => {
+            let old_map =
+                state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
+            let map =
+                state.maps().get(&info.map_id).ok_or(Error::MapNotFound)?;
             me.teleport(state, info.map_id, (info.x, info.y)).await?;
+            map.insert_character(me.clone()).await?;
+            old_map.remove_character(me.id()).await?;
             if info.all {
-                let others = state.characters().read().await;
-                for other in others.values() {
+                let others = state.characters();
+                for other in others {
                     if other.id() != me.id() {
                         other
                             .teleport(state, info.map_id, (info.x, info.y))
                             .await?;
+                        map.insert_character(other.clone()).await?;
+                        old_map.remove_character(other.id()).await?;
                     }
                 }
             }
@@ -103,6 +111,13 @@ pub async fn parse_and_execute(
                         (portal.from_x() - 5, portal.from_y() - 5),
                     )
                     .await?;
+                    actor
+                        .send(MsgTalk::from_system(
+                            me.id(),
+                            TalkChannel::System,
+                            format!("Teleported to Portal {}", pos),
+                        ))
+                        .await?;
                 } else {
                     actor
                         .send(MsgTalk::from_system(

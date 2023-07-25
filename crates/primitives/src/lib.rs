@@ -1,6 +1,5 @@
 use num_traits::PrimInt;
 use std::sync::atomic::{AtomicU16, AtomicU8};
-use std::sync::Arc;
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
 pub struct Size<I: PrimInt> {
@@ -31,9 +30,9 @@ pub struct Location {
     pub direction: u8,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct AtomicLocation {
-    pub x: Arc<AtomicU16>,
-    pub y: Arc<AtomicU16>,
-    pub direction: Arc<AtomicU8>,
+    pub x: AtomicU16,
+    pub y: AtomicU16,
+    pub direction: AtomicU8,
 }

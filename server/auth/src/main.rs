@@ -51,19 +51,9 @@ Copyright 2020-2022 Shady Khalifa (@shekohex)
     let state = State::init().await?;
     tracing::info!("Initializing server...");
     let auth_port = env::var("AUTH_PORT")?;
-    let ctrlc = tokio::signal::ctrl_c();
-    let server = AuthServer::run(format!("0.0.0.0:{}", auth_port), state);
-
     tracing::info!("Auth Server will be available on {auth_port}");
-
-    tokio::select! {
-        _ = ctrlc => {
-            tracing::info!("Got Ctrl+C Signal!");
-        }
-        _ = server => {
-            tracing::info!("Server Is Shutting Down..");
-        }
-    };
+    let _state =
+        AuthServer::run(format!("0.0.0.0:{}", auth_port), state).await?;
     Ok(())
 }
 

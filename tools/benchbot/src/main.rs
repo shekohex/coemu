@@ -44,8 +44,8 @@ async fn main() -> Result<(), Error> {
         let state = state.clone();
         let task = tokio::spawn(async move {
             // Try to connect to that realm's RPC first.
-            let ip = realm.rpc_ip_address.as_str();
-            let port = realm.rpc_port;
+            let ip = realm.game_ip_address.as_str();
+            let port = realm.game_port;
             let stream = TcpStream::connect(format!("{ip}:{port}")).await;
             let stream = match stream {
                 Ok(s) => s,
@@ -53,8 +53,9 @@ async fn main() -> Result<(), Error> {
                     return Err(e.into());
                 },
             };
+            let cipher = CQCipher::new();
             let (mut encoder, mut decoder) =
-                TQCodec::new(stream, NopCipher).split();
+                TQCodec::new(stream, cipher).split();
             let transfer = auth::packets::MsgTransfer {
                 account_id: account.account_id as u32,
                 realm_id: realm.realm_id as u32,

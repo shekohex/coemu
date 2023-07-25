@@ -47,49 +47,76 @@ pub trait Server: Sized + Send + Sync {
     async fn run<A>(
         addr: A,
         state: <Self::PacketHandler as PacketHandler>::State,
-    ) -> Result<(), Error>
+    ) -> Result<<Self::PacketHandler as PacketHandler>::State, Error>
     where
         A: Debug + ToSocketAddrs + Send + Sync,
     {
         let listener = TcpListener::bind(addr).await?;
-        let mut incoming = TcpListenerStream::new(listener);
-        tracing::trace!("Starting Server main loop");
-        tracing::info!("Server is Ready for New Connections.");
-        while let Some(stream) = incoming.next().await {
-            let state = state.clone();
-            let stream = match stream {
-                Ok(s) => {
-                    tracing::debug!("Got Connection from {}", s.peer_addr()?);
-                    s.set_nodelay(true)?;
-                    s.set_linger(None)?;
-                    s.set_ttl(5)?;
-                    s
-                },
-                Err(e) => {
-                    tracing::error!(
-                        error = ?e,
-                        "Error while accepting new connection, dropping it."
-                    );
-                    continue;
-                },
-            };
-            tokio::spawn(async move {
-                tracing::trace!("Calling on_connected lifetime hook");
-                Self::on_connected(&state, stream.peer_addr()?).await?;
-                let (tx, rx) = mpsc::channel(50);
-                let actor = Actor::<Self::ActorState>::new(tx);
-                if let Err(e) =
-                    handle_stream::<Self>(stream, &state, &actor, rx).await
-                {
-                    tracing::error!("{e}");
-                }
-                tracing::trace!("Calling on_disconnected lifetime hook");
-                Self::on_disconnected(&state, actor).await?;
-                tracing::debug!("Task Ended.");
-                Result::<_, Error>::Ok(())
-            });
-        }
-        Ok(())
+        let static_state = &*Box::leak(Box::new(state));
+        let main_loop_task = tokio::spawn(async {
+            let mut incoming = TcpListenerStream::new(listener);
+            tracing::trace!("Starting Server main loop");
+            tracing::info!("Server is Ready for New Connections.");
+            while let Some(stream) = incoming.next().await {
+                let stream = match stream {
+                    Ok(s) => {
+                        tracing::debug!(
+                            "Got Connection from {}",
+                            s.peer_addr()?
+                        );
+                        s.set_nodelay(true)?;
+                        s.set_linger(None)?;
+                        s.set_ttl(5)?;
+                        s
+                    },
+                    Err(e) => {
+                        tracing::error!(
+                            error = ?e,
+                            "Error while accepting new connection, dropping it."
+                        );
+                        continue;
+                    },
+                };
+                tokio::spawn(async {
+                    tracing::trace!("Calling on_connected lifetime hook");
+                    Self::on_connected(static_state, stream.peer_addr()?)
+                        .await?;
+                    let (tx, rx) = mpsc::channel(50);
+                    let actor = Actor::<Self::ActorState>::new(tx);
+                    if let Err(e) =
+                        handle_stream::<Self>(stream, static_state, &actor, rx)
+                            .await
+                    {
+                        tracing::error!("{e}");
+                    }
+                    tracing::trace!("Calling on_disconnected lifetime hook");
+                    Self::on_disconnected(static_state, actor).await?;
+                    tracing::debug!("Task Ended.");
+                    Result::<_, Error>::Ok(())
+                });
+            }
+            Result::<_, Error>::Ok(())
+        });
+        let ctrl_c = tokio::signal::ctrl_c();
+        tokio::select! {
+            _ = ctrl_c => {
+                tracing::debug!("Ctrl-C received, shutting down.");
+            },
+            _ = main_loop_task => {
+                tracing::debug!("Main Loop Task Ended, shutting down.");
+            },
+        };
+        tracing::debug!("Server is shutting down.");
+        let non_static_state = unsafe {
+            // Cast to a mutable pointer.
+            // SAFETY: We are the only owner of this Box, and we are dropping
+            // it. This happens at the end of the program, so no one
+            // else can access.
+            let static_state_mut = static_state as *const _
+                as *mut <Self::PacketHandler as PacketHandler>::State;
+            *Box::from_raw(static_state_mut)
+        };
+        Ok(non_static_state)
     }
 }
 

@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 use tq_math::SCREEN_DISTANCE;
 use tracing::debug;
 
-type Characters = Arc<RwLock<HashMap<u32, Character>>>;
+type Characters = Arc<RwLock<HashMap<u32, Arc<Character>>>>;
 type Portals = Arc<HashSet<Portal>>;
 type MapRegions = Arc<RwLock<Vec<MapRegion>>>;
 
@@ -155,7 +155,10 @@ impl Map {
     /// adding it to the current map. As the character is added, its map,
     /// current tile, and current elevation are changed.
     #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
-    pub async fn insert_character(&self, me: Character) -> Result<(), Error> {
+    pub async fn insert_character(
+        &self,
+        me: Arc<Character>,
+    ) -> Result<(), Error> {
         // if the map is not loaded in memory, load it.
         if !self.loaded().await {
             self.load().await?;
@@ -169,7 +172,10 @@ impl Map {
     }
 
     #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
-    pub async fn update_region_for(&self, me: Character) -> Result<(), Error> {
+    pub async fn update_region_for(
+        &self,
+        me: Arc<Character>,
+    ) -> Result<(), Error> {
         let region = self.region(me.x(), me.y()).await;
         let old_region = self.region(me.prev_x(), me.prev_y()).await;
         match (region, old_region) {
@@ -278,7 +284,7 @@ impl MapRegion {
 
     pub fn characters(&self) -> &Characters { &self.characters }
 
-    pub async fn insert_character(&self, character: Character) {
+    pub async fn insert_character(&self, character: Arc<Character>) {
         let mut lock = self.characters.write().await;
         lock.insert(character.id(), character);
     }

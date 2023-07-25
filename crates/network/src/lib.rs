@@ -7,7 +7,7 @@ pub use async_trait::async_trait;
 pub use derive_packethandler::PacketHandler;
 pub use derive_packetid::PacketID;
 pub use tq_codec::TQCodec;
-pub use tq_crypto::{Cipher, NopCipher, TQCipher};
+pub use tq_crypto::{CQCipher, Cipher, NopCipher, TQCipher};
 
 mod error;
 pub use error::Error;
@@ -65,7 +65,7 @@ pub trait PacketDecode {
 pub trait PacketHandler {
     type Error: StdError + PacketEncode + Send + Sync;
     type ActorState: ActorState;
-    type State: Clone + Send + Sync + 'static;
+    type State: Send + Sync + 'static;
     async fn handle(
         packet: (u16, Bytes),
         state: &Self::State,

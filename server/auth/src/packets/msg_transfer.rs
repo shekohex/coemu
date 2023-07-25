@@ -5,7 +5,7 @@ use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 use tq_db::realm::Realm;
 use tq_network::{
-    Actor, IntoErrorPacket, NopCipher, PacketDecode, PacketEncode, PacketID,
+    Actor, CQCipher, IntoErrorPacket, PacketDecode, PacketEncode, PacketID,
     TQCodec,
 };
 
@@ -39,8 +39,8 @@ impl MsgTransfer {
             },
         };
         // Try to connect to that realm first.
-        let ip = realm.rpc_ip_address.as_str();
-        let port = realm.rpc_port;
+        let ip = realm.game_ip_address.as_str();
+        let port = realm.game_port;
         let stream = TcpStream::connect(format!("{ip}:{port}")).await;
         let stream = match stream {
             Ok(s) => s,
@@ -58,8 +58,8 @@ impl MsgTransfer {
         realm: Realm,
         stream: TcpStream,
     ) -> Result<AccountCredentials, Error> {
-        let (mut encoder, mut decoder) =
-            TQCodec::new(stream, NopCipher).split();
+        let cipher = CQCipher::new();
+        let (mut encoder, mut decoder) = TQCodec::new(stream, cipher).split();
         let transfer = MsgTransfer {
             account_id: actor.id() as u32,
             realm_id: realm.realm_id as u32,

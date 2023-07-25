@@ -112,10 +112,8 @@ impl PacketProcess for MsgRegister {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let info = state
-            .token_store()
             .remove_creation_token(self.token)
-            .await?
-            .ok_or_else(|| MsgTalk::register_invalid().error_packet())?;
+            .map_err(|_| MsgTalk::register_invalid().error_packet())?;
 
         if tq_db::character::Character::name_taken(
             state.pool(),
@@ -141,16 +139,16 @@ impl PacketProcess for MsgRegister {
                 .await?;
         let map_id = character.map_id;
         let me = Character::new(actor.handle(), character);
-        actor.set_character(me.clone()).await;
-        state.characters().write().await.insert(me.id(), me.clone());
+        actor.set_character(me);
+        state.insert_character(actor.character());
         // Set player map.
         state
             .maps()
             .get(&(map_id as u32))
             .ok_or_else(|| MsgTalk::register_invalid().error_packet())?
-            .insert_character(me.clone())
+            .insert_character(actor.character())
             .await?;
-        let screen = Screen::new(actor.handle(), me);
+        let screen = Screen::new(actor.handle(), actor.character());
         actor.set_screen(screen).await;
 
         tracing::info!(

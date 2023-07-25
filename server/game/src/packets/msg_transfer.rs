@@ -26,10 +26,8 @@ impl PacketProcess for MsgTransfer {
         state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
-        let generated = state
-            .token_store()
-            .generate_login_token(self.account_id, self.realm_id)
-            .await?;
+        let generated =
+            state.generate_login_token(self.account_id, self.realm_id)?;
         let mut msg = self.clone();
         msg.token = generated.token;
         actor.send(msg).await?;

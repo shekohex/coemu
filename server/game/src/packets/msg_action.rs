@@ -140,7 +140,7 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let mut res = self.clone();
-        let character = actor.character().await;
+        let character = actor.character();
         res.data1 = character.map_id();
         res.data2 = u32::constract(character.y(), character.x());
         actor.send(res).await?;
@@ -154,7 +154,7 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let mut res = self.clone();
-        let character = actor.character().await;
+        let character = actor.character();
         res.data1 = 0x00FF_FFFF;
         res.data2 = u32::constract(character.y(), character.x());
         actor.send(res).await?;
@@ -168,7 +168,7 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         // Remove Player from Booth.
-        let myscreen = actor.screen().await;
+        let myscreen = actor.screen();
         myscreen.clear().await?;
         myscreen.load_surroundings(state).await?;
         Ok(())
@@ -184,7 +184,7 @@ impl MsgAction {
         let new_y = self.data1.hi();
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
-        let me = actor.character().await;
+        let me = actor.character();
         // Starting to validate this jump.
         if current_x != me.x() || current_y != me.y() {
             debug!(%current_x, %current_y, my_x = %me.x(), my_y = %me.y(),"Bad Jump Packet");
@@ -229,7 +229,7 @@ impl MsgAction {
                 me.set_elevation(tile.elevation);
                 mymap.update_region_for(me.clone()).await?;
                 actor.send(self.clone()).await?;
-                let myscreen = actor.screen().await;
+                let myscreen = actor.screen();
                 myscreen.send_movement(state, self.clone()).await?;
             },
             Some(_) | None => {
@@ -255,7 +255,7 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
-        let me = actor.character().await;
+        let me = actor.character();
 
         // Starting to validate this jump.
         if current_x != me.x() || current_y != me.y() {
@@ -266,7 +266,7 @@ impl MsgAction {
 
         me.set_direction(self.details as u8);
         actor.send(self.clone()).await?;
-        let myscreen = actor.screen().await;
+        let myscreen = actor.screen();
         myscreen.send_message(self.clone()).await?;
         Ok(())
     }
@@ -277,12 +277,12 @@ impl MsgAction {
         state: &State,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
-        let me = actor.character().await;
+        let me = actor.character();
         let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
         let characters = mymap.characters().read().await;
         let other = characters.get(&self.data1);
         if let Some(other) = other {
-            let msg = super::MsgPlayer::from(other.clone());
+            let msg = super::MsgPlayer::from(other.as_ref());
             actor.send(msg).await?;
         }
         Ok(())
@@ -296,7 +296,7 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let portal_x = self.data1.lo();
         let portal_y = self.data1.hi();
-        let me = actor.character().await;
+        let me = actor.character();
         if !tq_math::in_screen((me.x(), me.y()), (portal_x, portal_y)) {
             debug!(
                 "Bad Location ({}, {}) -> ({}, {}) > 18",
@@ -314,12 +314,19 @@ impl MsgAction {
             tq_math::in_circle((me.x(), me.y(), 5), (p.from_x(), p.from_y()))
         });
         if let Some(portal) = maybe_portal {
+            let portal_map = state
+                .maps()
+                .get(&portal.to_map_id())
+                .ok_or(Error::MapNotFound)?;
+            portal_map.insert_character(me.clone()).await?;
+            portal_map.update_region_for(me.clone()).await?;
             me.teleport(
                 state,
                 portal.to_map_id(),
                 (portal.to_x(), portal.to_y()),
             )
             .await?;
+            mymap.remove_character(me.id()).await?;
         } else {
             me.teleport(state, me.map_id(), (me.prev_x(), me.prev_y()))
                 .await?;

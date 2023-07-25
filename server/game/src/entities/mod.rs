@@ -2,6 +2,7 @@ use crate::Error;
 use async_trait::async_trait;
 use bitflags::bitflags;
 use primitives::AtomicLocation;
+use std::ops::Deref;
 use std::sync::atomic::{AtomicU16, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use tq_network::ActorHandle;
@@ -26,8 +27,6 @@ pub trait BaseEntity {
     /// needed.
     fn entity_type(&self) -> EntityTypeFlag;
 
-    fn entity(&self) -> Entity;
-
     fn is_player(&self) -> bool {
         self.entity_type().contains(EntityTypeFlag::PLAYER)
     }
@@ -49,6 +48,18 @@ pub trait BaseEntity {
     /// screens. By default, the actor of the screen change loads the spawn
     /// data for both players.
     async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error>;
+}
+
+#[async_trait]
+impl<T: BaseEntity + Send + Sync> BaseEntity for Arc<T> {
+    fn owner(&self) -> ActorHandle { self.deref().owner() }
+
+    fn entity_type(&self) -> EntityTypeFlag { self.deref().entity_type() }
+
+    async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {
+        let this = &**self;
+        this.send_spawn(to).await
+    }
 }
 
 bitflags! {
@@ -74,26 +85,26 @@ impl Default for Flags {
 
 /// A More Advanced Entity Used to be composed with Other Entites Like Player or
 /// Monster.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct Entity {
     /// Entity Identity in the game world .. Unique over the all game.
     id: u32,
     /// How that entity looks like?
-    mesh: Arc<AtomicU32>,
+    mesh: AtomicU32,
     /// Could be player name, Monster name .. or anything.
     name: String,
     /// The Current MapID of that entity.
-    map_id: Arc<AtomicU32>,
+    map_id: AtomicU32,
     /// Current Location (X, Y, Direction)
     location: AtomicLocation,
     /// Set of flags shows the current entity status.
-    flags: Arc<AtomicU64>,
+    flags: AtomicU64,
     /// Current Entity Level.
-    level: Arc<AtomicU16>,
+    level: AtomicU16,
     /// What Action this entity is doing right now?
-    action: Arc<AtomicU16>,
+    action: AtomicU16,
     /// Old MapID
-    prev_map_id: Arc<AtomicU32>,
+    prev_map_id: AtomicU32,
     /// The Old Location .. used in calculations with the new location.
     prev_location: AtomicLocation,
 }

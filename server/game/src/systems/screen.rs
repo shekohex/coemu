@@ -10,21 +10,21 @@ use tokio::sync::RwLock;
 use tq_network::{ActorHandle, PacketEncode, PacketID};
 use tracing::debug;
 
-type Characters = Arc<RwLock<HashMap<u32, Character>>>;
+type Characters = Arc<RwLock<HashMap<u32, Arc<Character>>>>;
 /// This struct encapsulates the client's screen system. It handles screen
 /// objects that the player can currently see in the client window as they
 /// enter, move, and leave the screen. It controls the distribution of packets
 /// to the other players in the screen and adding new objects as the character
 /// (the actor) moves.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Screen {
     owner: ActorHandle,
-    character: Character,
+    character: Arc<Character>,
     characters: Characters,
 }
 
 impl Screen {
-    pub fn new(owner: ActorHandle, character: Character) -> Self {
+    pub fn new(owner: ActorHandle, character: Arc<Character>) -> Self {
         debug!("Creating Screen for Actor #{}", owner.id());
         Self {
             owner,
@@ -44,7 +44,7 @@ impl Screen {
     #[tracing::instrument(skip(self), fields(me = self.character.id(), observer = observer.id()))]
     pub async fn insert_charcter(
         &self,
-        observer: Character,
+        observer: Arc<Character>,
     ) -> Result<bool, Error> {
         let added = self
             .characters

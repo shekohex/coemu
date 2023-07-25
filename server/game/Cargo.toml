@@ -30,8 +30,9 @@ tokio-stream.workspace = true
 rand.workspace = true
 chrono.workspace = true
 futures.workspace = true
+arc-swap.workspace = true
+parking_lot.workspace = true
 
-encoding = "0.2"
 bitflags = "2.3"
 argh = "0.1"
 
@@ -66,4 +67,3 @@ features = ["runtime-tokio-rustls", "sqlite", "time"]
 [features]
 default = []
 console = ["dep:console-subscriber"]
-

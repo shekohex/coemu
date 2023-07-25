@@ -11,8 +11,6 @@ pub struct Realm {
     pub name: String,
     pub game_ip_address: String,
     pub game_port: i16,
-    pub rpc_ip_address: String,
-    pub rpc_port: i16,
 }
 
 impl Realm {

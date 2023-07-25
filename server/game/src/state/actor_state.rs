@@ -1,15 +1,14 @@
 use std::sync::Arc;
 
-use crate::systems::Screen;
-use crate::world::{Character, Map};
+use arc_swap::ArcSwapOption;
 
-use super::Shared;
+use crate::systems::Screen;
+use crate::world::Character;
 
 #[derive(Debug)]
 pub struct ActorState {
-    character: Shared<Option<Character>>,
-    map: Shared<Option<Map>>,
-    screen: Shared<Option<Screen>>,
+    character: ArcSwapOption<Character>,
+    screen: ArcSwapOption<Screen>,
 }
 
 #[async_trait::async_trait]
@@ -17,46 +16,25 @@ impl tq_network::ActorState for ActorState {
     fn init() -> Self {
         ActorState {
             character: Default::default(),
-            map: Default::default(),
             screen: Default::default(),
         }
     }
 }
 
 impl ActorState {
-    pub async fn set_character(&self, character: Character) {
-        let mut lock = self.character.write().await;
-        *lock = Some(character);
+    pub fn set_character(&self, character: Character) {
+        self.character.store(Some(Arc::new(character)));
     }
 
     pub async fn set_screen(&self, screen: Screen) {
-        let mut lock = self.screen.write().await;
-        *lock = Some(screen);
+        self.screen.store(Some(Arc::new(screen)));
     }
 
-    pub async fn character(&self) -> Character {
-        self.character
-            .read()
-            .await
-            .clone()
-            .expect("state is not empty")
+    pub fn character(&self) -> Arc<Character> {
+        self.character.load().clone().expect("state is not empty")
     }
 
-    pub async fn screen(&self) -> Screen {
-        self.screen
-            .read()
-            .await
-            .clone()
-            .expect("state is not empty")
-    }
-}
-
-impl Clone for ActorState {
-    fn clone(&self) -> Self {
-        Self {
-            character: Arc::clone(&self.character),
-            map: Arc::clone(&self.map),
-            screen: Arc::clone(&self.screen),
-        }
+    pub fn screen(&self) -> Arc<Screen> {
+        self.screen.load().clone().expect("state is not empty")
     }
 }

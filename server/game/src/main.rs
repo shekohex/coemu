@@ -8,9 +8,7 @@
 use async_trait::async_trait;
 use futures::TryFutureExt;
 use std::env;
-use tq_network::{
-    Actor, ActorState as _, NopCipher, PacketHandler, Server, TQCipher,
-};
+use tq_network::{Actor, ActorState as _, PacketHandler, Server, TQCipher};
 
 use game::packets::*;
 use game::{ActorState, Error, State};
@@ -31,12 +29,12 @@ impl Server for GameServer {
         actor: Actor<Self::ActorState>,
     ) -> Result<(), tq_network::Error> {
         let _ = state;
-        let me = actor.character().await;
+        let me = actor.character();
         me.save(state)
             .map_err(|e| tq_network::Error::Other(e.to_string()))
             .await?;
         ActorState::dispose(&actor, actor.handle()).await?;
-        state.characters().write().await.remove(&me.id());
+        state.remove_character(me.id());
         if let Some(mymap) = state.maps().get(&me.map_id()) {
             mymap
                 .remove_character(me.id())
@@ -45,14 +43,6 @@ impl Server for GameServer {
         }
         Ok(())
     }
-}
-
-struct RpcServer;
-
-impl Server for RpcServer {
-    type ActorState = ActorState;
-    type Cipher = NopCipher;
-    type PacketHandler = RpcHandler;
 }
 
 #[derive(Copy, Clone, PacketHandler)]
@@ -64,11 +54,6 @@ pub enum Handler {
     MsgAction,
     MsgItem,
     MsgWalk,
-}
-
-#[derive(Copy, Clone, PacketHandler)]
-#[handle(state = State, actor_state = ActorState)]
-pub enum RpcHandler {
     MsgTransfer,
 }
 
@@ -96,36 +81,16 @@ Copyright 2020 Shady Khalifa (@shekohex)
     tracing::info!("Starting Game Server");
     tracing::info!("Initializing server...");
 
-    let game_port = env::var("GAME_PORT")?;
-    let rpc_port = env::var("GAME_RPC_PORT")?;
-
-    let ctrlc = tokio::signal::ctrl_c();
-
     tracing::info!("Initializing State ..");
     let state = State::init().await?;
-
-    let server =
-        GameServer::run(format!("0.0.0.0:{}", game_port), state.clone());
-    let server = tokio::spawn(server);
-
-    let rpc_server =
-        RpcServer::run(format!("0.0.0.0:{}", rpc_port), state.clone());
-    let rpc_server = tokio::spawn(rpc_server);
-
+    let realm = tq_db::realm::Realm::by_name(state.pool(), "CoEmu")
+        .await?
+        .ok_or(Error::RealmNotFound)?;
+    let game_port = realm.game_port;
     tracing::info!("Game Server will be available on {}", game_port);
-    tracing::info!("RPC Server will be available on {}", rpc_port);
 
-    tokio::select! {
-        _ = ctrlc => {
-            tracing::info!("Got Ctrl+C Signal!");
-        }
-        _ = server => {
-            tracing::info!("Server Is Shutting Down..");
-        }
-        _ = rpc_server => {
-            tracing::info!("Rpc Server is Suhtting Down..");
-        }
-    };
+    let state =
+        GameServer::run(format!("0.0.0.0:{}", game_port), state).await?;
     state.clean_up().await?;
     tracing::info!("Shutdown.");
     Ok(())

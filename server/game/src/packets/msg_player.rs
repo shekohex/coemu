@@ -41,8 +41,8 @@ pub struct MsgPlayer {
     pub character_name: String,
 }
 
-impl From<Character> for MsgPlayer {
-    fn from(c: Character) -> Self {
+impl<'a> From<&'a Character> for MsgPlayer {
+    fn from(c: &'a Character) -> Self {
         Self {
             character_id: c.id() as i32,
             character_id2: c.id() as i32,

@@ -31,10 +31,8 @@ impl PacketProcess for MsgConnect {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let info = state
-            .token_store()
             .remove_login_token(self.token)
-            .await?
-            .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
+            .map_err(|_| MsgTalk::login_invalid().error_packet())?;
         actor.generate_keys(self.token).await?;
         actor.set_id(info.account_id as usize);
         let maybe_character = tq_db::character::Character::from_account(
@@ -45,28 +43,26 @@ impl PacketProcess for MsgConnect {
         match maybe_character {
             Some(character) => {
                 let me = Character::new(actor.handle(), character);
-                actor.set_character(me.clone()).await;
+                let msg = MsgUserInfo::from(&me);
+                let mymap_id = me.map_id();
+                actor.set_character(me);
                 let mymap = state
                     .maps()
-                    .get(&me.map_id())
+                    .get(&mymap_id)
                     .ok_or_else(|| MsgTalk::login_invalid().error_packet())?;
-                mymap.insert_character(me.clone()).await?;
-                state.characters().write().await.insert(me.id(), me.clone());
-                let screen = Screen::new(actor.handle(), me.clone());
+                mymap.insert_character(actor.character()).await?;
+                state.insert_character(actor.character());
+                let screen = Screen::new(actor.handle(), actor.character());
                 actor.set_screen(screen).await;
                 actor.send(MsgTalk::login_ok()).await?;
-                let msg = MsgUserInfo::from(me);
                 actor.send(msg).await?;
             },
             None => {
-                state
-                    .token_store()
-                    .store_creation_token(
-                        self.token as u32,
-                        info.account_id,
-                        info.realm_id,
-                    )
-                    .await?;
+                state.store_creation_token(
+                    self.token as u32,
+                    info.account_id,
+                    info.realm_id,
+                )?;
                 actor.send(MsgTalk::login_new_role()).await?;
             },
         };

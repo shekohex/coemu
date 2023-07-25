@@ -12,6 +12,8 @@ pub enum Error {
     #[error(transparent)]
     DotEnv(#[from] dotenvy::Error),
     #[error(transparent)]
+    Utf8(#[from] std::str::Utf8Error),
+    #[error(transparent)]
     Env(#[from] std::env::VarError),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
@@ -35,6 +37,12 @@ pub enum Error {
     MapRegionNotFound,
     #[error("Map not found!")]
     MapNotFound,
+    #[error("Login Token not found!")]
+    LoginTokenNotFound,
+    #[error("Creation Token not found!")]
+    CreationTokenNotFound,
+    #[error("Realm not found!")]
+    RealmNotFound,
 }
 
 impl<T> From<mpsc::error::SendError<T>> for Error {

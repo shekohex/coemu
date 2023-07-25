@@ -65,8 +65,8 @@ impl Default for MsgUserInfo {
     }
 }
 
-impl From<Character> for MsgUserInfo {
-    fn from(c: Character) -> Self {
+impl<'a> From<&'a Character> for MsgUserInfo {
+    fn from(c: &'a Character) -> Self {
         Self {
             character_id: c.id(),
             mesh: (c.mesh() + (c.avatar() as u32 * 10_000)),

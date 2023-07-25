@@ -41,6 +41,7 @@ argh = "0.1"
 tokio-stream = "0.1.8"
 parking_lot = "0.12.1"
 rand = "0.8"
+arc-swap = "1.6"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 num_enum = { version = "0.6", default-features = false }
 

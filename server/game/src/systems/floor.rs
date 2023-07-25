@@ -1,7 +1,5 @@
 use crate::Error;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use encoding::all::ASCII;
-use encoding::{DecoderTrap, Encoding};
 use io::{AsyncReadExt, AsyncWriteExt};
 use num_enum::FromPrimitive;
 use primitives::{Point, Size};
@@ -170,9 +168,7 @@ impl Floor {
                 SceneryType::SceneryObject => {
                     // Get scene data from the DMap
                     let buf = buffer.split_to(260);
-                    let scene_file_name = ASCII
-                        .decode(&buf, DecoderTrap::Ignore)
-                        .expect("Should never fail");
+                    let scene_file_name = std::str::from_utf8(&buf)?;
                     let (f, _) = scene_file_name.split_at(
                         scene_file_name.find('\0').unwrap_or_default(),
                     );
