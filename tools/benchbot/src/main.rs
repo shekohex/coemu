@@ -18,8 +18,8 @@ use tq_db::account::Account;
 use tq_db::realm::Realm;
 use tq_network::{PacketDecode, PacketEncode, PacketID};
 
-const NUM_OF_BOTS: i64 = 50;
-const MAX_ACTION_DELAY: Duration = Duration::from_millis(200);
+const NUM_OF_BOTS: i64 = 20;
+const MAX_ACTION_DELAY: Duration = Duration::from_millis(300);
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -243,17 +243,18 @@ async fn do_random_stuff(
     msg: game::packets::MsgAction,
 ) -> Result<(), Error> {
     let (w, h) = (70, 70);
+    let target_map_id = 1005;
     match msg.action_type.into() {
         ActionType::SendLocation => {
             let mut rng =
                 rand::rngs::StdRng::seed_from_u64(msg.character_id as _);
             // Move to map 1005 (arena) if we are not there already
             let map_id = msg.data1;
-            if map_id == 1005 {
+            if map_id == target_map_id {
                 return Ok(());
             }
-            let x = rng.gen_range(40..60);
-            let y = rng.gen_range(40..60);
+            let x = rng.gen_range(35..60);
+            let y = rng.gen_range(35..60);
             let msg_cmd = game::packets::MsgTalk {
                 color: 0x00FF_FFFF,
                 channel: TalkChannel::Talk.into(),
@@ -265,7 +266,7 @@ async fn do_random_stuff(
                 sender_name: String::new(),
                 recipient_name: constants::ALL_USERS.to_string(),
                 suffix: String::new(),
-                message: format!("$tele 1005 {x} {y}"),
+                message: format!("$tele {target_map_id} {x} {y}"),
             };
             encoder.send(msg_cmd.encode()?).await?;
         },

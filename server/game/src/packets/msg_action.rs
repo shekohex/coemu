@@ -134,6 +134,7 @@ impl MsgAction {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_send_location(
         &self,
         actor: &Actor<ActorState>,
@@ -147,6 +148,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_map_argb(
         &self,
         actor: &Actor<ActorState>,
@@ -159,19 +161,23 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_leave_booth(
         &self,
+        state: &State,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         // Remove Player from Booth.
         let myscreen = actor.screen().await;
         myscreen.clear().await?;
-        myscreen.load_surroundings().await?;
+        myscreen.load_surroundings(state).await?;
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_jump(
         &self,
+        state: &State,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let new_x = self.data1.lo();
@@ -181,13 +187,7 @@ impl MsgAction {
         let me = actor.character().await;
         // Starting to validate this jump.
         if current_x != me.x() || current_y != me.y() {
-            debug!(
-                "Bad Packet Got ({}, {}) but expected ({}, {})",
-                current_x,
-                current_y,
-                me.x(),
-                me.y()
-            );
+            debug!(%current_x, %current_y, my_x = %me.x(), my_y = %me.y(),"Bad Jump Packet");
             me.kick_back().await?;
             return Ok(());
         }
@@ -204,7 +204,7 @@ impl MsgAction {
             return Ok(());
         }
 
-        let mymap = actor.map().await;
+        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
         let within_elevation = mymap
             .sample_elevation((me.x(), me.y()), (new_x, new_y), me.elevation())
             .await;
@@ -221,7 +221,6 @@ impl MsgAction {
             tq_math::get_direction_sector((me.x(), me.y()), (new_x, new_y));
         match mymap.tile(new_x, new_y).await {
             Some(tile) if tile.access > TileType::Npc => {
-                tracing::debug!(id = %me.id(), x = %me.x(), y = %me.y(), %new_x, %new_y, "Jumping");
                 // I guess everything seems to be valid .. send the jump.
                 me.set_x(new_x)
                     .set_y(new_y)
@@ -231,7 +230,7 @@ impl MsgAction {
                 mymap.update_region_for(me.clone()).await?;
                 actor.send(self.clone()).await?;
                 let myscreen = actor.screen().await;
-                myscreen.send_movement(self.clone()).await?;
+                myscreen.send_movement(state, self.clone()).await?;
             },
             Some(_) | None => {
                 // Invalid Location move them back
@@ -249,6 +248,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_change_facing(
         &self,
         actor: &Actor<ActorState>,
@@ -271,11 +271,14 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_query_entity(
         &self,
+        state: &State,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
-        let mymap = actor.map().await;
+        let me = actor.character().await;
+        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
         let characters = mymap.characters().read().await;
         let other = characters.get(&self.data1);
         if let Some(other) = other {
@@ -285,6 +288,7 @@ impl MsgAction {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn handle_change_map(
         &self,
         state: &State,
@@ -305,7 +309,7 @@ impl MsgAction {
             return Ok(());
         }
         dbg!(portal_x, portal_y);
-        let mymap = actor.map().await;
+        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
         let maybe_portal = mymap.portals().iter().find(|p| {
             tq_math::in_circle((me.x(), me.y(), 5), (p.from_x(), p.from_y()))
         });
@@ -339,7 +343,9 @@ impl PacketProcess for MsgAction {
         match ty {
             ActionType::SendLocation => self.handle_send_location(actor).await,
             ActionType::MapARGB => self.handle_map_argb(actor).await,
-            ActionType::LeaveBooth => self.handle_leave_booth(actor).await,
+            ActionType::LeaveBooth => {
+                self.handle_leave_booth(state, actor).await
+            },
             ActionType::SendItems => {
                 // TODO(shekohex): send MsgItemInfo
                 actor.send(self.clone()).await?;
@@ -369,9 +375,11 @@ impl PacketProcess for MsgAction {
                 Ok(())
             },
             ActionType::LogainCompeleted => Ok(()),
-            ActionType::GroundJump => self.handle_jump(actor).await,
+            ActionType::GroundJump => self.handle_jump(state, actor).await,
             ActionType::ChangeFacing => self.handle_change_facing(actor).await,
-            ActionType::QueryEntity => self.handle_query_entity(actor).await,
+            ActionType::QueryEntity => {
+                self.handle_query_entity(state, actor).await
+            },
             ActionType::ChangeMap => self.handle_change_map(state, actor).await,
             _ => {
                 let p = MsgTalk::from_system(

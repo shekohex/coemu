@@ -9,14 +9,15 @@ pub use derive_packetid::PacketID;
 pub use tq_codec::TQCodec;
 pub use tq_crypto::{Cipher, NopCipher, TQCipher};
 
-mod errors;
-pub use errors::Error;
+mod error;
+pub use error::Error;
 
 mod actor;
-pub use actor::{Actor, ActorState, Message};
+pub use actor::{Actor, ActorHandle, ActorState, Message};
 
 mod server;
 pub use server::Server;
+
 pub trait PacketID {
     /// Get the ID of that packet.
     fn id() -> u16;
