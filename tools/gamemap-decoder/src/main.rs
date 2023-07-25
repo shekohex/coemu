@@ -1,6 +1,4 @@
 use bytes::{Buf, Bytes};
-use encoding::all::ASCII;
-use encoding::{DecoderTrap, Encoding};
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use std::{env, fs};
@@ -21,9 +19,7 @@ fn main() -> Result<(), String> {
         let map_id = buffer.get_u32_le();
         let path_len = buffer.get_u32_le() as usize;
         let path_buf = buffer.split_to(path_len);
-        let mut path = ASCII
-            .decode(&path_buf, DecoderTrap::Ignore)
-            .expect("Never fails");
+        let mut path = String::from_utf8(path_buf.into()).expect("Never fails");
         path.replace_range(0..8, "");
         let path = path.replace(".DMap", ".cmap");
         println!(

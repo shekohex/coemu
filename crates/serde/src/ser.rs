@@ -1,8 +1,6 @@
 //! Serializer for Binary Packets.
 use crate::TQSerdeError;
 use bytes::{BufMut, BytesMut};
-use encoding::all::ASCII;
-use encoding::{EncoderTrap, Encoding};
 use serde::ser::{self, Serialize};
 
 #[derive(Debug)]
@@ -82,9 +80,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        let val_encoded =
-            ASCII.encode(v, EncoderTrap::Ignore).expect("Never Panic!");
-        self.serialize_bytes(&val_encoded)?;
+        let val_encoded = v.as_bytes();
+        self.serialize_bytes(val_encoded)?;
         Ok(())
     }
 

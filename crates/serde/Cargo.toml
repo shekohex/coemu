@@ -8,7 +8,6 @@ edition.workspace = true
 thiserror.workspace = true
 bytes.workspace = true
 serde.workspace = true
-encoding.workspace = true
 tq-crypto.workspace = true
 
 [dev-dependencies]

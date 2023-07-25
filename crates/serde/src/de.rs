@@ -2,8 +2,6 @@
 
 use crate::TQSerdeError;
 use bytes::Buf;
-use encoding::all::ASCII;
-use encoding::{DecoderTrap, Encoding};
 use serde::de::{self, Deserialize, DeserializeSeed, SeqAccess, Visitor};
 use std::io::Cursor;
 
@@ -108,11 +106,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         let length = self.input.get_u8();
-        let mut dst = vec![0u8; length as usize];
-        self.input.copy_to_slice(&mut dst);
-        let val = ASCII
-            .decode(&dst, DecoderTrap::Ignore)
-            .expect("Never Fails");
+        let string_bytes = self.input.copy_to_bytes(length as usize);
+        let val = String::from_utf8_lossy(&string_bytes);
         let val = val.trim_end_matches('\0');
         visitor.visit_string(val.to_string())
     }

@@ -266,6 +266,7 @@ where
 {
     type Item = io::Result<(u16, Bytes)>;
 
+    #[tracing::instrument(skip(self, cx))]
     fn poll_next(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,

@@ -9,7 +9,7 @@
       "request": "launch",
       "name": "Debug executable 'auth-server'",
       "cargo": {
-        "args": ["build", "--bin=auth-server", "--package=auth-server"],
+        "args": ["build", "--bin=auth-server", "--package=auth"],
         "filter": {
           "name": "auth-server",
           "kind": "bin"
@@ -23,7 +23,7 @@
       "request": "launch",
       "name": "Debug executable 'game-server'",
       "cargo": {
-        "args": ["build", "--bin=game-server", "--package=game-server"],
+        "args": ["build", "--bin=game-server", "--package=game"],
         "filter": {
           "name": "game-server",
           "kind": "bin"

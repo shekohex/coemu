@@ -92,8 +92,9 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
             type Error = crate::Error;
             type ActorState = #actor_state;
             type State = #state;
+            #[::tracing::instrument(skip_all, fields(actor = actor.id(), packet_id = packet.0))]
              async fn handle(
-                 (id, bytes): (u16, bytes::Bytes),
+                 packet: (u16, bytes::Bytes),
                  state: &Self::State,
                  actor: &tq_network::Actor<Self::ActorState>,
                 ) -> Result<(), Self::Error> {
@@ -111,17 +112,25 @@ fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
     let if_stms = vars.into_iter().map(|v| {
         let ident = v.ident;
         quote! {
-            if id == #ident::id() {
-                let msg = <#ident as tq_network::PacketDecode>::decode(&bytes)?;
-                tracing::debug!(target: "cq_msg", "{msg:?}");
-                msg.process(state, actor).await?;
+            if packet.0 == #ident::id() {
+                let maybe_msg = <#ident as tq_network::PacketDecode>::decode(&packet.1);
+                match maybe_msg {
+                    Ok(msg) => {
+                        tracing::debug!(target: "cq_msg", "{msg:?}");
+                        msg.process(state, actor).await?;
+                    },
+                    Err(e) => {
+                        tracing::error!(id = %packet.0, error = ?e, "Failed to decode packet");
+                        return Ok(());
+                    }
+                }
                 return Ok(());
             }
         }
     });
     let tokens = quote! {
             #(#if_stms)*
-            tracing::warn!(%id, "Got Unknown Packet");
+            tracing::warn!(id = %packet.0, "Got Unknown Packet");
     };
     Ok(tokens)
 }

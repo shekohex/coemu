@@ -1,7 +1,5 @@
 //! A Fixed Length String, used in Binary Packets
 use core::fmt;
-use encoding::all::ASCII;
-use encoding::{DecoderTrap, EncoderTrap, Encoding};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -66,21 +64,27 @@ impl<L: FixedLen> fmt::Debug for FixedString<L> {
     }
 }
 
+fn encode_fixed_string<const N: usize>(s: &str) -> [u8; N] {
+    let mut final_string = [0u8; N];
+    let string_encoded = s.as_bytes();
+    // remove any non-ascii char and replace it with '?' instead
+    // Write value to final string
+    for (i, b) in string_encoded.iter().take(N).enumerate() {
+        if b.is_ascii() {
+            final_string[i] = *b;
+        } else {
+            final_string[i] = b'?';
+        }
+    }
+    final_string
+}
+
 impl Serialize for FixedString<L16> {
     fn serialize<S: Serializer>(
         &self,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        let mut final_string = [0u8; 16];
-        let mut string_encoded = ASCII
-            .encode(&self.inner, EncoderTrap::Ignore)
-            .expect("Never Fail");
-        string_encoded.truncate(16);
-        // Write value to final string
-        for (i, c) in string_encoded.into_iter().enumerate() {
-            final_string[i] = c;
-        }
-        final_string.serialize(serializer)
+        encode_fixed_string::<16>(&self.inner).serialize(serializer)
     }
 }
 
@@ -89,16 +93,7 @@ impl Serialize for FixedString<L10> {
         &self,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        let mut final_string = [0u8; 10];
-        let mut string_encoded = ASCII
-            .encode(&self.inner, EncoderTrap::Ignore)
-            .expect("Never Fail");
-        string_encoded.truncate(10);
-        // Write value to final string
-        for (i, c) in string_encoded.into_iter().enumerate() {
-            final_string[i] = c;
-        }
-        final_string.serialize(serializer)
+        encode_fixed_string::<10>(&self.inner).serialize(serializer)
     }
 }
 
@@ -108,16 +103,7 @@ impl Serialize for FixedString<EncryptedPassword> {
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         // FIXME: encrypt password
-        let mut final_string = [0u8; 16];
-        let mut string_encoded = ASCII
-            .encode(&self.inner, EncoderTrap::Ignore)
-            .expect("Never Fail");
-        string_encoded.truncate(16);
-        // Write value to final string
-        for (i, c) in string_encoded.into_iter().enumerate() {
-            final_string[i] = c;
-        }
-        final_string.serialize(serializer)
+        encode_fixed_string::<16>(&self.inner).serialize(serializer)
     }
 }
 
@@ -126,14 +112,8 @@ impl<'de> Deserialize<'de> for FixedString<L10> {
         deserializer: D,
     ) -> Result<Self, D::Error> {
         let slice: [u8; 10] = Deserialize::deserialize(deserializer)?;
-        if slice.len() != 10 {
-            return Err(serde::de::Error::custom(
-                "input slice has wrong length",
-            ));
-        }
-        let result = ASCII
-            .decode(&slice, DecoderTrap::Ignore)
-            .expect("Never Fails");
+        let result =
+            std::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
@@ -144,14 +124,8 @@ impl<'de> Deserialize<'de> for FixedString<L16> {
         deserializer: D,
     ) -> Result<Self, D::Error> {
         let slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
-        if slice.len() != 16 {
-            return Err(serde::de::Error::custom(
-                "input slice has wrong length",
-            ));
-        }
-        let result = ASCII
-            .decode(&slice, DecoderTrap::Ignore)
-            .expect("Never Fails");
+        let result =
+            std::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
@@ -162,17 +136,11 @@ impl<'de> Deserialize<'de> for FixedString<EncryptedPassword> {
         deserializer: D,
     ) -> Result<Self, D::Error> {
         let slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
-        if slice.len() != 16 {
-            return Err(serde::de::Error::custom(
-                "input slice has wrong length",
-            ));
-        }
         let rc5 = TQRC5::new();
         let mut pass_decrypted_bytes = [0u8; 16];
         rc5.decrypt(&slice, &mut pass_decrypted_bytes);
-        let result = ASCII
-            .decode(&pass_decrypted_bytes, DecoderTrap::Ignore)
-            .expect("Never Fails");
+        let result = std::str::from_utf8(&pass_decrypted_bytes)
+            .map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
