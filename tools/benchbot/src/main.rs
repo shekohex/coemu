@@ -13,7 +13,7 @@ use rand::{Rng, SeedableRng};
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 use tq_codec::{TQCodec, TQEncoder};
-use tq_crypto::{CQCipher, Cipher, NopCipher};
+use tq_crypto::{CQCipher, Cipher};
 use tq_db::account::Account;
 use tq_db::realm::Realm;
 use tq_network::{PacketDecode, PacketEncode, PacketID};
