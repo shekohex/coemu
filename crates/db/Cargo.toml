@@ -5,7 +5,7 @@ authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition.workspace = true
 
 [dependencies]
-bcrypt = "0.13"
+bcrypt = "0.15"
 thiserror.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
