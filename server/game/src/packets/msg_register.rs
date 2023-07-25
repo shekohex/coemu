@@ -140,19 +140,17 @@ impl PacketProcess for MsgRegister {
             tq_db::character::Character::by_id(state.pool(), character_id)
                 .await?;
         let map_id = character.map_id;
-        let me = Character::new(actor.clone(), character);
+        let me = Character::new(actor.handle(), character);
         actor.set_character(me.clone()).await;
         state.characters().write().await.insert(me.id(), me.clone());
         // Set player map.
         state
             .maps()
-            .read()
-            .await
             .get(&(map_id as u32))
             .ok_or_else(|| MsgTalk::register_invalid().error_packet())?
-            .insert_character(me)
+            .insert_character(me.clone())
             .await?;
-        let screen = Screen::new(actor.clone());
+        let screen = Screen::new(actor.handle(), me);
         actor.set_screen(screen).await;
 
         tracing::info!(

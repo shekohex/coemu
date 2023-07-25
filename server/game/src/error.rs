@@ -33,6 +33,8 @@ pub enum Error {
     Msg(u16, Bytes),
     #[error("Map Region not found!")]
     MapRegionNotFound,
+    #[error("Map not found!")]
+    MapNotFound,
 }
 
 impl<T> From<mpsc::error::SendError<T>> for Error {

@@ -1,6 +1,6 @@
-pub mod errors;
+pub mod error;
 pub mod packets;
 pub mod state;
 
-pub use errors::Error;
+pub use error::Error;
 pub use state::State;

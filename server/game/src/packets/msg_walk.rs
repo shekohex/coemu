@@ -44,7 +44,7 @@ impl PacketProcess for MsgWalk {
     /// will be teleported back to the character's original position.
     async fn process(
         &self,
-        _state: &Self::State,
+        state: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let direction = (self.direction % 8) as usize;
@@ -56,7 +56,7 @@ impl PacketProcess for MsgWalk {
         );
         let x = current_location.0.wrapping_add(offset.0);
         let y = current_location.1.wrapping_add(offset.1);
-        let map = actor.map().await;
+        let map = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
         match map.tile(x, y).await {
             Some(tile) if tile.access > TileType::Npc => {
                 // The packet is valid. Assign character data:
@@ -66,7 +66,7 @@ impl PacketProcess for MsgWalk {
                 actor.send(self.clone()).await?;
                 map.update_region_for(me.clone()).await?;
                 let myscreen = actor.screen().await;
-                myscreen.send_movement(self.clone()).await?;
+                myscreen.send_movement(state, self.clone()).await?;
             },
             Some(_) | None => {
                 let msg = MsgTalk::from_system(
