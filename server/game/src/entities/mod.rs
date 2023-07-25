@@ -1,10 +1,10 @@
-use crate::{ActorState, Error};
+use crate::Error;
 use async_trait::async_trait;
 use bitflags::bitflags;
 use primitives::AtomicLocation;
 use std::sync::atomic::{AtomicU16, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
-use tq_network::Actor;
+use tq_network::ActorHandle;
 mod floor_item;
 pub use floor_item::{FloorItem, Item};
 
@@ -21,7 +21,7 @@ bitflags! {
 /// between all of game objects.
 #[async_trait]
 pub trait BaseEntity {
-    fn owner(&self) -> Actor<ActorState>;
+    fn owner(&self) -> ActorHandle;
     /// The Current Entity Type, used for Casting to other types at runtime if
     /// needed.
     fn entity_type(&self) -> EntityTypeFlag;
@@ -48,7 +48,7 @@ pub trait BaseEntity {
     /// called by the screen system when the players appear in each others'
     /// screens. By default, the actor of the screen change loads the spawn
     /// data for both players.
-    async fn send_spawn(&self, to: &Actor<ActorState>) -> Result<(), Error>;
+    async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error>;
 }
 
 bitflags! {
