@@ -4,6 +4,7 @@ use arc_swap::ArcSwapOption;
 
 use crate::systems::Screen;
 use crate::world::Character;
+use crate::Error;
 
 #[derive(Debug)]
 pub struct ActorState {
@@ -34,7 +35,18 @@ impl ActorState {
         self.character.load().clone().expect("state is not empty")
     }
 
+    pub fn try_character(&self) -> Result<Arc<Character>, Error> {
+        self.character
+            .load()
+            .clone()
+            .ok_or(Error::CharacterNotFound)
+    }
+
     pub fn screen(&self) -> Arc<Screen> {
         self.screen.load().clone().expect("state is not empty")
+    }
+
+    pub fn try_screen(&self) -> Result<Arc<Screen>, Error> {
+        self.screen.load().clone().ok_or(Error::ScreenNotFound)
     }
 }

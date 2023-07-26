@@ -3,14 +3,16 @@ use crate::packets::{ActionType, MsgAction};
 use crate::utils::LoHi;
 use crate::world::Character;
 use crate::Error;
+use futures::stream::FuturesUnordered;
+use futures::{FutureExt, StreamExt};
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tq_network::{ActorHandle, PacketEncode, PacketID};
 use tracing::debug;
 
-type Characters = Arc<RwLock<HashMap<u32, Arc<Character>>>>;
+type Characters = RwLock<HashMap<u32, Arc<Character>>>;
 /// This struct encapsulates the client's screen system. It handles screen
 /// objects that the player can currently see in the client window as they
 /// enter, move, and leave the screen. It controls the distribution of packets
@@ -29,31 +31,43 @@ impl Screen {
         Self {
             owner,
             character,
-            characters: Arc::new(RwLock::new(HashMap::new())),
+            characters: RwLock::new(HashMap::new()),
         }
     }
 
+    pub fn with_characters<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&HashMap<u32, Arc<Character>>) -> R,
+    {
+        f(&self.characters.read())
+    }
+
+    pub fn with_characters_mut<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut HashMap<u32, Arc<Character>>) -> R,
+    {
+        f(&mut self.characters.write())
+    }
+
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
-    pub async fn clear(&self) -> Result<(), Error> {
+    pub fn clear(&self) -> Result<(), Error> {
         debug!("Clearing Screen..");
-        self.characters.write().await.clear();
+        *self.characters.write() = HashMap::new();
         debug!("Screen is clean!");
         Ok(())
     }
 
     #[tracing::instrument(skip(self), fields(me = self.character.id(), observer = observer.id()))]
-    pub async fn insert_charcter(
+    pub fn insert_charcter(
         &self,
         observer: Arc<Character>,
     ) -> Result<bool, Error> {
-        let added = self
-            .characters
-            .write()
-            .await
-            .insert(observer.id(), observer.clone())
-            .is_none();
+        let observer_id = observer.id();
+        let added = self.with_characters_mut(|c| {
+            c.insert(observer.id(), observer).is_none()
+        });
         if added {
-            debug!(observer = observer.id(), "Added to Screen");
+            debug!(observer = observer_id, "Added to Screen");
             Ok(true)
         } else {
             Ok(false)
@@ -61,9 +75,11 @@ impl Screen {
     }
 
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
-    pub async fn remove_character(&self, observer: u32) -> Result<bool, Error> {
-        if self.characters.write().await.remove(&observer).is_some() {
-            debug!(%observer, "Removed from Screen");
+    pub fn remove_character(&self, observer: u32) -> Result<bool, Error> {
+        let removed =
+            self.with_characters_mut(|c| c.remove(&observer).is_some());
+        if removed {
+            debug!(observer = observer, "Removed from Screen");
             Ok(true)
         } else {
             Ok(false)
@@ -72,7 +88,7 @@ impl Screen {
 
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
     pub async fn delete_character(&self, observer: u32) -> Result<bool, Error> {
-        let deleted = self.characters.write().await.remove(&observer);
+        let deleted = self.with_characters_mut(|c| c.remove(&observer));
         if let Some(other) = deleted {
             let location = u32::constract(other.y(), other.x());
             self.owner
@@ -97,46 +113,86 @@ impl Screen {
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
     pub async fn remove_from_observers(&self) -> Result<(), Error> {
         let me = &self.character;
-        for observer in self.characters.read().await.values() {
-            debug!(observer = observer.id(), "Found Observer");
-            // let observer_screen = observer.owner().screen().await;
-            // observer_screen.delete_character(me.id()).await?;
-            let location = u32::constract(me.y(), me.x());
-            observer
-                .owner()
-                .send(MsgAction::new(
-                    me.id(),
-                    me.map_id(),
-                    location,
-                    me.direction() as u16,
-                    ActionType::LeaveMap,
-                ))
-                .await?;
-            debug!(observer = observer.id(), "Removed from Observer Screen");
-        }
+        let location = u32::constract(me.y(), me.x());
+        let msg = MsgAction::new(
+            me.id(),
+            me.map_id(),
+            location,
+            me.direction() as u16,
+            ActionType::LeaveMap,
+        );
+        let futures = FuturesUnordered::new();
+        self.with_characters(|c| {
+            for observer in c.values() {
+                debug!(observer = observer.id(), "Found Observer");
+                let observer_owner = observer.owner();
+                let msg = msg.clone();
+                let fut = async move {
+                    observer_owner.send(msg).await?;
+                    Result::<_, Error>::Ok(observer_owner.id())
+                };
+                futures.push(fut);
+            }
+        });
+        // await all futures to complete.
+        futures
+            .for_each_concurrent(None, |res| async {
+               match res {
+                   Ok(observer) => {
+                       debug!(observer = observer, "Deleted from Screen");
+                   },
+                   Err(e) => {
+                       tracing::error!(error = ?e, "Failed to delete from screen");
+                   },
+               }
+            })
+            .await;
+        // let observer_screen = observer.owner().screen().await;
+        // observer_screen.delete_character(me.id()).await?;
         Ok(())
     }
 
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
     pub async fn refresh_spawn_for_observers(&self) -> Result<(), Error> {
         let me = &self.character;
-        for observer in self.characters.read().await.values() {
-            // let observer_screen = observer.owner().screen().await;
-            // observer_screen.delete_character(me.id()).await?;
-            let location = u32::constract(me.y(), me.x());
-            observer
-                .owner()
-                .send(MsgAction::new(
-                    me.id(),
-                    me.map_id(),
-                    location,
-                    me.direction() as u16,
-                    ActionType::LeaveMap,
-                ))
-                .await?;
-            me.send_spawn(&observer.owner()).await?;
-            debug!(observer = observer.id(), "Refreshed Spawn");
-        }
+        let location = u32::constract(me.y(), me.x());
+        let msg = MsgAction::new(
+            me.id(),
+            me.map_id(),
+            location,
+            me.direction() as u16,
+            ActionType::LeaveMap,
+        );
+        let futures = FuturesUnordered::new();
+        self.with_characters(|c| {
+            for observer in c.values() {
+                debug!(observer = observer.id(), "Found Observer");
+                let observer_owner = observer.owner();
+                let msg = msg.clone();
+                let fut = async move {
+                    observer_owner.send(msg).await?;
+                    me.send_spawn(&observer_owner).await?;
+                    Result::<_, Error>::Ok(observer_owner.id())
+                };
+                futures.push(fut);
+            }
+        });
+
+        // await all futures to complete.
+        futures
+            .for_each_concurrent(None, |res| async {
+                match res {
+                    Ok(observer) => {
+                        debug!(%observer, "Refreshed Spawn");
+                    },
+                    Err(e) => {
+                        tracing::error!(error = ?e, "Failed to refresh spawn");
+                    },
+                }
+            })
+            .await;
+        // let observer_screen = observer.owner().screen().await;
+        // observer_screen.delete_character(me.id()).await?;
         Ok(())
     }
 
@@ -152,24 +208,46 @@ impl Screen {
         // Load Players from the Map
         let me = &self.character;
         let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
-        for observer in mymap.characters().read().await.values() {
-            let is_myself = me.id() == observer.id();
-            if is_myself {
-                continue;
+        let myreagion = mymap
+            .region(me.x(), me.y())
+            .ok_or(Error::MapRegionNotFound)?;
+        let futures = FuturesUnordered::new();
+        myreagion.with_characters(|c| {
+            for observer in c.values() {
+                let is_myself = me.id() == observer.id();
+                if is_myself {
+                    continue;
+                }
+                let in_screen = tq_math::in_screen(
+                    (observer.x(), observer.y()),
+                    (me.x(), me.y()),
+                );
+                if !in_screen {
+                    continue;
+                }
+                let observer = observer.clone();
+                let fut = async move {
+                    let added = self.insert_charcter(observer.clone())?;
+                    if added {
+                        debug!(observer = observer.id(), "Loaded Into Screen");
+                        me.exchange_spawn_packets(observer).await?;
+                    }
+                    Result::<_, Error>::Ok(())
+                };
+                futures.push(fut);
             }
-            let in_screen = tq_math::in_screen(
-                (observer.x(), observer.y()),
-                (me.x(), me.y()),
-            );
-            if !in_screen {
-                continue;
-            }
-            let added = self.insert_charcter(observer.clone()).await?;
-            if added {
-                debug!(observer = observer.id(), "Loaded Into Screen");
-                me.exchange_spawn_packets(observer.clone()).await?;
-            }
-        }
+        });
+        // await all futures to complete.
+        futures
+            .for_each_concurrent(None, |res| async {
+                match res {
+                    Ok(_) => {},
+                    Err(e) => {
+                        tracing::error!(error = ?e, "Failed to load surroundings");
+                    },
+                }
+            })
+            .await;
         Ok(())
     }
 
@@ -181,9 +259,29 @@ impl Screen {
     where
         P: PacketEncode + PacketID + Clone,
     {
-        for observer in self.characters.read().await.values() {
-            observer.owner().send(packet.clone()).await?;
-        }
+        let futures = FuturesUnordered::new();
+        self.with_characters(|c| {
+            for observer in c.values() {
+                let observer_owner = observer.owner();
+                let packet = packet.clone();
+                let fut = async move {
+                    observer_owner.send(packet).await?;
+                    Result::<_, P::Error>::Ok(())
+                };
+                futures.push(fut);
+            }
+        });
+        // await all futures to complete.
+        futures
+            .for_each_concurrent(None, |res| async {
+                match res {
+                    Ok(_) => {},
+                    Err(e) => {
+                        tracing::error!(error = ?e, "Failed to send message");
+                    },
+                }
+            })
+            .await;
         Ok(())
     }
 
@@ -202,51 +300,76 @@ impl Screen {
         packet: P,
     ) -> Result<(), Error>
     where
-        P: PacketEncode + PacketID + Clone,
+        P: PacketEncode + PacketID + Clone + Send + Sync + 'static,
     {
         let me = &self.character;
         let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
-        // For each possible observer on the map
-        for observer in mymap.characters().read().await.values() {
-            let is_myself = me.id() == observer.id();
-            let observer_owner = observer.owner();
-            // skip myself
-            if is_myself {
-                continue;
-            }
-            // If the character is in screen, make sure it's in the owner's
-            // screen:
-            let in_screen = tq_math::in_screen(
-                (observer.x(), observer.y()),
-                (me.x(), me.y()),
-            );
-            if in_screen {
-                let added = self.insert_charcter(observer.clone()).await?;
-                // new, let's exchange spawn packets
-                if added {
-                    debug!(observer = observer.id(), "Loaded Into Screen",);
-                    me.exchange_spawn_packets(observer.clone()).await?;
+        let myreagion = mymap
+            .region(me.x(), me.y())
+            .ok_or(Error::MapRegionNotFound)?;
+        let futures = FuturesUnordered::new();
+        myreagion.with_characters(|c| {
+            // For each possible observer on the region:
+            for observer in c.values() {
+                let is_myself = me.id() == observer.id();
+                let observer_owner = observer.owner();
+                // skip myself
+                if is_myself {
+                    continue;
+                }
+                // If the character is in screen, make sure it's in the owner's
+                // screen:
+                let in_screen = tq_math::in_screen(
+                    (observer.x(), observer.y()),
+                    (me.x(), me.y()),
+                );
+                if in_screen {
+                    let packet = packet.clone();
+                    let observer = observer.clone();
+                    let fut = async move {
+                        let added = self.insert_charcter(observer.clone())?;
+                        // new, let's exchange spawn packets
+                        if added {
+                            debug!(
+                                observer = observer.id(),
+                                "Loaded Into Screen",
+                            );
+                            me.exchange_spawn_packets(observer).await?;
+                        } else {
+                            // observer is already there, send the movement
+                            // packet
+                            observer_owner
+                                .send(packet)
+                                .await
+                                .unwrap_or_default();
+                        }
+                        Result::<_, Error>::Ok(())
+                    }
+                    .boxed();
+                    futures.push(fut);
                 } else {
-                    // observer is already there, send the movement packet
-                    observer_owner
-                        .send(packet.clone())
-                        .await
-                        .unwrap_or_default();
-                }
-            } else {
-                //  Else, remove the observer and send the last packet.
-                debug!(observer = observer.id(), "UnLoaded Screen");
-                // send the last packet.
-                observer_owner
-                    .send(packet.clone())
-                    .await
-                    .unwrap_or_default();
-                let removed = self.remove_character(observer.id()).await?;
-                if removed {
-                    debug!(observer = observer.id(), "Removed from Screen");
+                    let packet = packet.clone();
+                    let observer_owner = observer.owner();
+                    let observer_id = observer.id();
+                    let fut = async move {
+                        // Else, remove the observer and send the last packet.
+                        debug!(observer = observer_id, "UnLoaded Screen");
+                        // send the last packet.
+                        observer_owner.send(packet).await.unwrap_or_default();
+                        let removed = self.remove_character(observer_id)?;
+                        if removed {
+                            debug!(
+                                observer = observer_id,
+                                "Removed from Screen"
+                            );
+                        }
+                        Result::<_, Error>::Ok(())
+                    }
+                    .boxed();
+                    futures.push(fut);
                 }
             }
-        }
+        });
         Ok(())
     }
 }

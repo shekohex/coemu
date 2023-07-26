@@ -12,7 +12,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
     type SerializeMap = ser::Impossible<(), Self::Error>;
-    type SerializeSeq = ser::Impossible<(), Self::Error>;
+    type SerializeSeq = Self;
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
     type SerializeTuple = Self;
@@ -141,9 +141,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_seq(
         self,
-        _: Option<usize>,
+        _len: Option<usize>,
     ) -> Result<Self::SerializeSeq, Self::Error> {
-        Err(TQSerdeError::Unspported)
+        Ok(self)
     }
 
     fn serialize_tuple(
@@ -195,6 +195,20 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
         Ok(self)
     }
+}
+
+impl<'a> ser::SerializeSeq for &'a mut Serializer {
+    type Error = TQSerdeError;
+    type Ok = ();
+
+    fn serialize_element<T: Serialize + ?Sized>(
+        &mut self,
+        v: &T,
+    ) -> Result<(), Self::Error> {
+        v.serialize(&mut **self)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
 }
 
 impl<'a> ser::SerializeTuple for &'a mut Serializer {

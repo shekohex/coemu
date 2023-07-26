@@ -169,7 +169,7 @@ impl MsgAction {
     ) -> Result<(), Error> {
         // Remove Player from Booth.
         let myscreen = actor.screen();
-        myscreen.clear().await?;
+        myscreen.clear()?;
         myscreen.load_surroundings(state).await?;
         Ok(())
     }
@@ -205,9 +205,11 @@ impl MsgAction {
         }
 
         let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
-        let within_elevation = mymap
-            .sample_elevation((me.x(), me.y()), (new_x, new_y), me.elevation())
-            .await;
+        let within_elevation = mymap.sample_elevation(
+            (me.x(), me.y()),
+            (new_x, new_y),
+            me.elevation(),
+        );
         if !within_elevation {
             debug!(
                 "Cannot jump that high. new elevation {} diff > 210",
@@ -219,7 +221,7 @@ impl MsgAction {
 
         let direction =
             tq_math::get_direction_sector((me.x(), me.y()), (new_x, new_y));
-        match mymap.tile(new_x, new_y).await {
+        match mymap.tile(new_x, new_y) {
             Some(tile) if tile.access > TileType::Npc => {
                 // I guess everything seems to be valid .. send the jump.
                 me.set_x(new_x)
@@ -227,7 +229,7 @@ impl MsgAction {
                     .set_direction(direction)
                     .set_action(100);
                 me.set_elevation(tile.elevation);
-                mymap.update_region_for(me.clone()).await?;
+                mymap.update_region_for(me.clone());
                 actor.send(self.clone()).await?;
                 let myscreen = actor.screen();
                 myscreen.send_movement(state, self.clone()).await?;
@@ -279,8 +281,9 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let me = actor.character();
         let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
-        let characters = mymap.characters().read().await;
-        let other = characters.get(&self.data1);
+        let other = mymap.with_regions(|r| {
+            r.iter().find_map(|r| r.try_character(self.data1))
+        });
         if let Some(other) = other {
             let msg = super::MsgPlayer::from(other.as_ref());
             actor.send(msg).await?;
@@ -319,14 +322,13 @@ impl MsgAction {
                 .get(&portal.to_map_id())
                 .ok_or(Error::MapNotFound)?;
             portal_map.insert_character(me.clone()).await?;
-            portal_map.update_region_for(me.clone()).await?;
             me.teleport(
                 state,
                 portal.to_map_id(),
                 (portal.to_x(), portal.to_y()),
             )
             .await?;
-            mymap.remove_character(me.id()).await?;
+            mymap.remove_character(&me)?;
         } else {
             me.teleport(state, me.map_id(), (me.prev_x(), me.prev_y()))
                 .await?;

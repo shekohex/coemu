@@ -115,7 +115,7 @@ impl Character {
             ActionType::Teleport,
         );
         if let Some(new_map) = state.maps().get(&map_id) {
-            let tile = new_map.tile(x, y).await.ok_or_else(|| {
+            let tile = new_map.tile(x, y).ok_or_else(|| {
                 tracing::warn!("Invalid Location");
                 MsgTalk::from_system(
                     self.id(),
@@ -126,7 +126,7 @@ impl Character {
             })?;
             // remove from old map
             if let Some(old_map) = state.maps().get(&self.map_id()) {
-                old_map.remove_character(self.id()).await?;
+                old_map.remove_character(self)?;
             }
             self.set_x(x).set_y(y).set_map_id(map_id);
             self.set_elevation(tile.elevation);

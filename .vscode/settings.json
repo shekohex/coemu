@@ -1,4 +1,14 @@
 {
   "deno.enable": true,
-  "rust-analyzer.cargo.allFeatures": true
+  "rust-analyzer.cargo.allFeatures": true,
+  "sqltools.useNodeRuntime": true,
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "driver": "SQLite",
+      "name": "CoEmu",
+      "group": "Conquer Server Emulators",
+      "database": "${workspaceFolder:coemu}/data/coemu.db"
+    }
+  ]
 }

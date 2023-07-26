@@ -8,6 +8,7 @@ use tq_network::{
     Actor, CQCipher, IntoErrorPacket, PacketDecode, PacketEncode, PacketID,
     TQCodec,
 };
+use tracing::Instrument;
 
 /// Defines account parameters to be transferred from the account server to the
 /// game server. Account information is supplied from the account database, and
@@ -22,6 +23,7 @@ pub struct MsgTransfer {
 }
 
 impl MsgTransfer {
+    #[tracing::instrument(skip(state, actor))]
     pub async fn handle(
         state: &crate::State,
         actor: &Actor<()>,
@@ -41,10 +43,19 @@ impl MsgTransfer {
         // Try to connect to that realm first.
         let ip = realm.game_ip_address.as_str();
         let port = realm.game_port;
-        let stream = TcpStream::connect(format!("{ip}:{port}")).await;
+        let stream = TcpStream::connect(format!("{ip}:{port}"))
+            .instrument(tracing::info_span!("realm_connect", %ip, %port, realm_id = realm.realm_id))
+            .await;
         let stream = match stream {
             Ok(s) => s,
             Err(e) => {
+                tracing::error!(
+                    %ip,
+                    %port,
+                    realm_id = realm.realm_id,
+                    error = ?e,
+                    "Failed to connect to realm"
+                );
                 actor.send(RejectionCode::ServerDown.packet()).await?;
                 actor.shutdown().await?;
                 return Err(e.into());
@@ -53,6 +64,7 @@ impl MsgTransfer {
         Self::transfer(actor, realm, stream).await
     }
 
+    #[tracing::instrument(skip(actor, stream), err, fields(realm = realm.name))]
     async fn transfer(
         actor: &Actor<()>,
         realm: Realm,

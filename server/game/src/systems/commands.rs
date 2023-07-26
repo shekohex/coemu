@@ -42,7 +42,7 @@ pub async fn parse_and_execute(
                 state.maps().get(&info.map_id).ok_or(Error::MapNotFound)?;
             me.teleport(state, info.map_id, (info.x, info.y)).await?;
             map.insert_character(me.clone()).await?;
-            old_map.remove_character(me.id()).await?;
+            old_map.remove_character(&me)?;
             if info.all {
                 let others = state.characters();
                 for other in others {
@@ -51,7 +51,7 @@ pub async fn parse_and_execute(
                             .teleport(state, info.map_id, (info.x, info.y))
                             .await?;
                         map.insert_character(other.clone()).await?;
-                        old_map.remove_character(other.id()).await?;
+                        old_map.remove_character(&other)?;
                     }
                 }
             }

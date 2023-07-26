@@ -18,7 +18,7 @@ pub enum Message {
 
 /// This struct is the main actor type for the server. It is a wrapper around
 /// connections to client and its state.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Actor<S: ActorState> {
     handle: ActorHandle,
     state: S,

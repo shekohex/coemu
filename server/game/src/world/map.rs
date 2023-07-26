@@ -2,34 +2,32 @@ use super::{Character, Portal};
 use crate::systems::{Floor, Tile};
 use crate::{constants, Error};
 use num_enum::FromPrimitive;
+use parking_lot::RwLock;
 use primitives::{Point, Size};
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tq_math::SCREEN_DISTANCE;
 use tracing::debug;
 
-type Characters = Arc<RwLock<HashMap<u32, Arc<Character>>>>;
-type Portals = Arc<HashSet<Portal>>;
-type MapRegions = Arc<RwLock<Vec<MapRegion>>>;
+type Characters = RwLock<HashMap<u32, Arc<Character>>>;
+type Portals = HashSet<Portal>;
+type MapRegions = RwLock<Vec<MapRegion>>;
 
 /// This struct encapsulates map information from a compressed map and the
 /// database. It includes the identification of the map, pools and methods for
 /// character tracking and screen updates, and other methods for processing map
 /// actions and events. It composes the floor struct which defines the map's
 /// coordinate tile grid.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct Map {
     /// The Inner map loaded from the database
-    inner: Arc<tq_db::map::Map>,
-    /// Holds client information for each player on the map.
-    characters: Characters,
+    inner: tq_db::map::Map,
     /// where should the player get revived on this map
     #[allow(dead_code)]
-    revive_point: Arc<Point<u32>>,
+    revive_point: Point<u32>,
     /// defines the map's coordinate tile grid.
-    floor: Arc<RwLock<Floor>>,
+    floor: Floor,
     /// Holds all Portals in that map.
     portals: Portals,
     /// Holds all MapRegions in that map.
@@ -49,31 +47,32 @@ impl Map {
     ) -> Self {
         let portals = portals.into_iter().map(Portal::new).collect();
         Self {
-            floor: Arc::new(RwLock::new(Floor::new(inner.path.clone()))),
-            characters: Arc::new(RwLock::new(HashMap::new())),
-            revive_point: Arc::new(Point::new(
+            floor: Floor::new(inner.path.clone()),
+            revive_point: Point::new(
                 inner.revive_point_x as u32,
                 inner.revive_point_y as u32,
-            )),
-            portals: Arc::new(portals),
-            regions: Arc::new(RwLock::new(Vec::new())),
-            inner: Arc::new(inner),
+            ),
+            regions: RwLock::new(Vec::new()),
+            portals,
+            inner,
         }
     }
 
     pub fn id(&self) -> u32 { self.inner.map_id as u32 }
 
-    pub fn characters(&self) -> &Characters { &self.characters }
-
     pub fn portals(&self) -> &Portals { &self.portals }
 
-    pub async fn tile(&self, x: u16, y: u16) -> Option<Tile> {
-        let floor = self.floor.read().await;
-        floor.tile(x, y)
+    pub fn tile(&self, x: u16, y: u16) -> Option<Tile> { self.floor.tile(x, y) }
+
+    pub fn with_regions<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&Vec<MapRegion>) -> R,
+    {
+        f(&self.regions.read())
     }
 
-    pub async fn region(&self, x: u16, y: u16) -> Option<MapRegion> {
-        let regions = self.regions.read().await;
+    pub fn region(&self, x: u16, y: u16) -> Option<MapRegion> {
+        let regions = self.regions.read();
         let region_size = MapRegion::SIZE;
         let region_x = x as u32 / region_size.width;
         let region_y = y as u32 / region_size.height;
@@ -82,8 +81,8 @@ impl Map {
     }
 
     /// Get a list of the regions that surround the given point.
-    pub async fn surrunding_regions(&self, x: u16, y: u16) -> Vec<MapRegion> {
-        let regions = self.regions.read().await;
+    pub fn surrunding_regions(&self, x: u16, y: u16) -> Vec<MapRegion> {
+        let regions = self.regions.read();
         let region_size = MapRegion::SIZE;
         let region_x = x as u32 / region_size.width;
         let region_y = y as u32 / region_size.height;
@@ -111,9 +110,8 @@ impl Map {
     #[tracing::instrument(skip_all, fields(map_id = self.id()))]
     pub async fn load(&self) -> Result<(), Error> {
         debug!("Loading into memory");
-        let mut lock = self.floor.write().await;
-        lock.load().await?;
-        let map_size = lock.boundaries();
+        self.floor.load().await?;
+        let map_size = self.floor.boundaries();
         let region_size = MapRegion::SIZE;
         let mut regions = Vec::new();
         // ceil division to get the number of regions
@@ -127,28 +125,23 @@ impl Map {
                 regions.push(region);
             }
         }
-        drop(lock);
-        let mut lock = self.regions.write().await;
+        let mut lock = self.regions.write();
         *lock = regions;
-        drop(lock);
         debug!("Map Loaded into memory");
         Ok(())
     }
 
     #[tracing::instrument(skip_all, fields(map_id = self.id()))]
-    pub async fn unload(&self) -> Result<(), Error> {
+    pub fn unload(&self) -> Result<(), Error> {
         debug!("Unload from memory");
-        let mut lock = self.floor.write().await;
-        lock.unload();
-        drop(lock);
-        let mut lock = self.regions.write().await;
-        lock.clear();
-        drop(lock);
+        self.floor.unload();
+        *self.regions.write() = Vec::new();
         debug!("Unloaded from memory");
         Ok(())
     }
 
-    pub async fn loaded(&self) -> bool { self.floor.read().await.loaded() }
+    /// This method checks if the map is loaded in memory.
+    pub fn loaded(&self) -> bool { self.floor.loaded() }
 
     /// This method adds the client specified in the parameters to the map pool.
     /// It does this by removing the player from the previous map, then
@@ -160,60 +153,29 @@ impl Map {
         me: Arc<Character>,
     ) -> Result<(), Error> {
         // if the map is not loaded in memory, load it.
-        if !self.loaded().await {
+        if !self.loaded() {
             self.load().await?;
         }
         // Add the player to the current map
-        let mut lock = self.characters.write().await;
-        if lock.insert(me.id(), me.clone()).is_none() {
-            debug!("Added to Map");
-        }
-        Ok(())
-    }
-
-    #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
-    pub async fn update_region_for(
-        &self,
-        me: Arc<Character>,
-    ) -> Result<(), Error> {
-        let region = self.region(me.x(), me.y()).await;
-        let old_region = self.region(me.prev_x(), me.prev_y()).await;
-        match (region, old_region) {
-            (Some(region), Some(old_region)) if region != old_region => {
-                region.insert_character(me.clone()).await;
-                old_region.remove_character(me.id()).await;
-            },
-            (Some(_), Some(_)) => {
-                // it is the same region, do nothing
-            },
-            (Some(region), None) => {
-                region.insert_character(me.clone()).await;
-            },
-            (None, Some(old_region)) => {
-                old_region.remove_character(me.id()).await;
-            },
-            (None, None) => {},
-        }
+        self.update_region_for(me);
         Ok(())
     }
 
     /// This method removes the client specified in the parameters from the map.
     /// If the screen of the character still exists, it will remove the
     /// character from each observer's screen.
-    #[tracing::instrument(skip(self), fields(map_id = self.id()))]
-    pub async fn remove_character(
-        &self,
-        character_id: u32,
-    ) -> Result<(), Error> {
-        let mut characters = self.characters.write().await;
-        if characters.remove(&character_id).is_some() {
-            debug!("Removed from Map");
+    #[tracing::instrument(skip(self, character), fields(map_id = self.id(), character_id = character.id()))]
+    pub fn remove_character(&self, character: &Character) -> Result<(), Error> {
+        // Remove the player from the current map
+        let region = self.region(character.x(), character.y());
+        if let Some(region) = region {
+            region.remove_character(character.id());
         }
-        drop(characters);
         // No One in this map?
-        if self.characters.read().await.is_empty() {
+        let is_empty = self.with_regions(|r| r.iter().all(|r| r.is_empty()));
+        if is_empty {
             // Unload the map from the wrold.
-            self.unload().await?;
+            self.unload()?;
         }
         Ok(())
     }
@@ -222,7 +184,8 @@ impl Map {
     /// jumping, this method will sample the map for key elevation changes
     /// and check that the player is not wall jumping. It checks all tiles
     /// in between the player and the jumping destination.
-    pub async fn sample_elevation(
+    #[tracing::instrument(skip(self), ret, fields(map_id = self.id()))]
+    pub fn sample_elevation(
         &self,
         start: (u16, u16),
         end: (u16, u16),
@@ -234,11 +197,10 @@ impl Map {
             return true;
         }
         let delta = tq_math::delta(start, end);
-        let floor = self.floor.read().await;
         for i in 0..distance {
             let x = start.0 + ((i.saturating_mul(delta.0)) / distance);
             let y = start.1 + ((i.saturating_mul(delta.1)) / distance);
-            let tile = floor.tile(x, y);
+            let tile = self.floor.tile(x, y);
             match tile {
                 Some(tile) => {
                     let within_elevation =
@@ -252,6 +214,28 @@ impl Map {
         }
         true
     }
+
+    #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
+    pub fn update_region_for(&self, me: Arc<Character>) {
+        let region = self.region(me.x(), me.y());
+        let old_region = self.region(me.prev_x(), me.prev_y());
+        match (region, old_region) {
+            (Some(region), Some(old_region)) if region != old_region => {
+                region.insert_character(me.clone());
+                old_region.remove_character(me.id());
+            },
+            (Some(_), Some(_)) => {
+                // it is the same region, do nothing
+            },
+            (Some(region), None) => {
+                region.insert_character(me.clone());
+            },
+            (None, Some(old_region)) => {
+                old_region.remove_character(me.id());
+            },
+            (None, None) => {},
+        }
+    }
 }
 
 /// A region or a block is a set of the map which will hold a collection with
@@ -262,7 +246,7 @@ impl Map {
 #[derive(Debug, Default, Clone)]
 pub struct MapRegion {
     start_point: Point<u32>,
-    characters: Characters,
+    characters: Arc<Characters>,
 }
 
 impl Eq for MapRegion {}
@@ -282,16 +266,34 @@ impl MapRegion {
         }
     }
 
-    pub fn characters(&self) -> &Characters { &self.characters }
+    pub fn is_empty(&self) -> bool { self.with_characters(|c| c.is_empty()) }
 
-    pub async fn insert_character(&self, character: Arc<Character>) {
-        let mut lock = self.characters.write().await;
-        lock.insert(character.id(), character);
+    pub fn try_character(&self, id: u32) -> Option<Arc<Character>> {
+        self.with_characters(|c| c.get(&id).cloned())
     }
 
-    pub async fn remove_character(&self, id: u32) {
-        let mut lock = self.characters.write().await;
-        lock.remove(&id);
+    pub fn with_characters<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&HashMap<u32, Arc<Character>>) -> R,
+    {
+        f(&self.characters.read())
+    }
+
+    pub fn with_characters_mut<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut HashMap<u32, Arc<Character>>) -> R,
+    {
+        f(&mut self.characters.write())
+    }
+
+    pub fn insert_character(&self, character: Arc<Character>) {
+        self.with_characters_mut(|c| {
+            c.insert(character.id(), character);
+        });
+    }
+
+    pub fn remove_character(&self, id: u32) -> Option<Arc<Character>> {
+        self.with_characters_mut(|c| c.remove(&id))
     }
 }
 

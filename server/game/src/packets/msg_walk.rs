@@ -57,14 +57,14 @@ impl PacketProcess for MsgWalk {
         let x = current_location.0.wrapping_add(offset.0);
         let y = current_location.1.wrapping_add(offset.1);
         let map = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
-        match map.tile(x, y).await {
+        match map.tile(x, y) {
             Some(tile) if tile.access > TileType::Npc => {
                 // The packet is valid. Assign character data:
                 // Send the movement back to the message server and client:
                 me.set_x(x).set_y(y).set_direction(direction as u8);
                 me.set_elevation(tile.elevation);
                 actor.send(self.clone()).await?;
-                map.update_region_for(me.clone()).await?;
+                map.update_region_for(me.clone());
                 let myscreen = actor.screen();
                 myscreen.send_movement(state, self.clone()).await?;
             },

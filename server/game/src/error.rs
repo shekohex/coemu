@@ -43,6 +43,14 @@ pub enum Error {
     CreationTokenNotFound,
     #[error("Realm not found!")]
     RealmNotFound,
+    #[error("Character not found!")]
+    CharacterNotFound,
+    #[error("Screen not found!")]
+    ScreenNotFound,
+    #[error("Map Tile Not found at ({0}, {1})!")]
+    TileNotFound(u16, u16),
+    #[error("Invalid Scene File Name!")]
+    InvalidSceneFileName,
 }
 
 impl<T> From<mpsc::error::SendError<T>> for Error {

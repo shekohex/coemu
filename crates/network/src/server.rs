@@ -148,7 +148,8 @@ async fn handle_stream<S: Server>(
                         break;
                     },
                     _ => {
-                        tracing::error!("{e:?}");
+                        tracing::error!(?e, "Got Error while sending error packet, stopping task.");
+                        break;
                     },
                 }
             }

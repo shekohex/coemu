@@ -7,14 +7,14 @@ use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
-use tq_serde::{String16, TQPassword};
+use tq_serde::{String16, TQMaskedPassword};
 
 #[derive(Debug, Default, Serialize, Deserialize, PacketID)]
 #[packet(id = 1001)]
 pub struct MsgRegister {
     pub username: String16,
     pub character_name: String16,
-    pub password: TQPassword,
+    pub password: TQMaskedPassword,
     pub mesh: u16,
     pub class: u16,
     pub token: u32,

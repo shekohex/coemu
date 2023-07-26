@@ -52,7 +52,16 @@ impl PacketProcess for MsgAccount {
             },
         };
         actor.set_id(account.account_id as usize);
-        let res = MsgTransfer::handle(state, actor, &self.realm).await?;
+        let res = match MsgTransfer::handle(state, actor, &self.realm).await {
+            Ok(res) => res,
+            _ => {
+                tracing::warn!(
+                    account_id = account.account_id,
+                    "Failed to transfer account"
+                );
+                return Ok(());
+            },
+        };
         let res = MsgConnectEx::forword_connection(res);
         actor.send(res).await?;
         Ok(())

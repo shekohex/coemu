@@ -5,58 +5,38 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use tq_crypto::{Cipher, TQRC5};
 
-/// A Marker Trait for a Fixed Length String.
-pub trait FixedLen {}
-
-/// Fixed Length 16 Bytes.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct L16;
-
-/// Fixed Length 10 Bytes.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct L10;
-
-/// Fixed Length 16 Encrypted Bytes.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct EncryptedPassword;
-
-impl FixedLen for L16 {}
-impl FixedLen for L10 {}
-impl FixedLen for EncryptedPassword {}
-
 /// Fixed Length String.
 #[derive(Clone, Default, PartialEq, Eq)]
-pub struct FixedString<L: FixedLen> {
+pub struct FixedString<const N: usize, Mode> {
     inner: String,
-    __len: PhantomData<L>,
+    _mode: PhantomData<Mode>,
 }
 
-impl<T, L> From<T> for FixedString<L>
+impl<T, const N: usize, M> From<T> for FixedString<N, M>
 where
     T: Into<String>,
-    L: FixedLen,
 {
     fn from(s: T) -> Self {
         Self {
             inner: s.into(),
-            __len: PhantomData,
+            _mode: PhantomData,
         }
     }
 }
 
-impl<L: FixedLen> Deref for FixedString<L> {
+impl<const N: usize, M> Deref for FixedString<N, M> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target { &self.inner }
 }
 
-impl<L: FixedLen> fmt::Display for FixedString<L> {
+impl<const N: usize, M> fmt::Display for FixedString<N, M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self)
     }
 }
 
-impl<L: FixedLen> fmt::Debug for FixedString<L> {
+impl<const N: usize, M> fmt::Debug for FixedString<N, M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FixedString")
             .field("inner", &self.inner)
@@ -79,25 +59,32 @@ fn encode_fixed_string<const N: usize>(s: &str) -> [u8; N] {
     final_string
 }
 
-impl Serialize for FixedString<L16> {
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClearText;
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Encrypted;
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Masked;
+
+impl<const N: usize> Serialize for FixedString<N, ClearText> {
     fn serialize<S: Serializer>(
         &self,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        encode_fixed_string::<16>(&self.inner).serialize(serializer)
+        encode_fixed_string::<N>(&self.inner).serialize(serializer)
     }
 }
 
-impl Serialize for FixedString<L10> {
+impl<const N: usize> Serialize for FixedString<N, Masked> {
     fn serialize<S: Serializer>(
         &self,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        encode_fixed_string::<10>(&self.inner).serialize(serializer)
+        encode_fixed_string::<N>(&self.inner).serialize(serializer)
     }
 }
 
-impl Serialize for FixedString<EncryptedPassword> {
+impl Serialize for FixedString<16, Encrypted> {
     fn serialize<S: Serializer>(
         &self,
         serializer: S,
@@ -107,7 +94,7 @@ impl Serialize for FixedString<EncryptedPassword> {
     }
 }
 
-impl<'de> Deserialize<'de> for FixedString<L10> {
+impl<'de> Deserialize<'de> for FixedString<10, ClearText> {
     fn deserialize<D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Self, D::Error> {
@@ -119,7 +106,7 @@ impl<'de> Deserialize<'de> for FixedString<L10> {
     }
 }
 
-impl<'de> Deserialize<'de> for FixedString<L16> {
+impl<'de> Deserialize<'de> for FixedString<16, ClearText> {
     fn deserialize<D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Self, D::Error> {
@@ -131,7 +118,19 @@ impl<'de> Deserialize<'de> for FixedString<L16> {
     }
 }
 
-impl<'de> Deserialize<'de> for FixedString<EncryptedPassword> {
+impl<'de> Deserialize<'de> for FixedString<16, Masked> {
+    fn deserialize<D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Self, D::Error> {
+        let slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
+        let result =
+            std::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+        let result = result.trim_end_matches('\0');
+        Ok(result.into())
+    }
+}
+
+impl<'de> Deserialize<'de> for FixedString<16, Encrypted> {
     fn deserialize<D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Self, D::Error> {
@@ -146,8 +145,12 @@ impl<'de> Deserialize<'de> for FixedString<EncryptedPassword> {
     }
 }
 /// Type Alias for a Fixed Length 16 Bytes String.
-pub type String16 = FixedString<L16>;
+pub type String16 = FixedString<16, ClearText>;
 /// Type Alias for a Fixed Length 10 Bytes String.
-pub type String10 = FixedString<L10>;
+pub type String10 = FixedString<10, ClearText>;
 /// Type Alias for a Fixed Length 16 Bytes Encrypted Password.
-pub type TQPassword = FixedString<EncryptedPassword>;
+pub type TQPassword = FixedString<16, Encrypted>;
+/// Type Alias for a Fixed Length 16 Bytes Masked Password.
+/// A Masked Password is a Password that is not encrypted, but it is masked
+/// with a * character.
+pub type TQMaskedPassword = FixedString<16, Masked>;
