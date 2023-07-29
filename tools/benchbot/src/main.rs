@@ -18,7 +18,7 @@ use tq_db::account::Account;
 use tq_db::realm::Realm;
 use tq_network::{PacketDecode, PacketEncode, PacketID};
 
-const NUM_OF_BOTS: i64 = 20;
+const NUM_OF_BOTS: i64 = 120;
 const MAX_ACTION_DELAY: Duration = Duration::from_millis(300);
 
 #[tokio::main]

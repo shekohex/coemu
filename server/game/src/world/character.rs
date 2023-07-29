@@ -3,10 +3,10 @@ use crate::packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel};
 use crate::systems::Screen;
 use crate::utils::LoHi;
 use crate::{constants, Error};
-use arc_swap::ArcSwapOption;
+use arc_swap::ArcSwapWeak;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tq_network::{ActorHandle, IntoErrorPacket};
 
 /// This struct encapsulates the game character for a player. The player
@@ -20,7 +20,7 @@ pub struct Character {
     entity: Entity,
     owner: ActorHandle,
     elevation: AtomicU16,
-    screen: ArcSwapOption<Screen>,
+    screen: ArcSwapWeak<Screen>,
 }
 
 impl Deref for Character {
@@ -51,12 +51,12 @@ impl Character {
         }
     }
 
-    pub fn set_screen(&self, screen: Arc<Screen>) {
-        self.screen.store(Some(screen));
+    pub fn set_screen(&self, screen: Weak<Screen>) {
+        self.screen.store(screen);
     }
 
     pub fn try_screen(&self) -> Result<Arc<Screen>, Error> {
-        self.screen.load().clone().ok_or(Error::ScreenNotFound)
+        self.screen.load().upgrade().ok_or(Error::ScreenNotFound)
     }
 
     pub fn elevation(&self) -> u16 { self.elevation.load(Ordering::Relaxed) }
@@ -141,6 +141,7 @@ impl Character {
             // remove from old map
             if let Ok(old_map) = state.try_map(self.map_id()) {
                 old_map.remove_character(self)?;
+                self.try_screen()?.remove_from_observers().await?;
             }
             self.set_x(x).set_y(y).set_map_id(map_id);
             self.set_elevation(tile.elevation);

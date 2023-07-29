@@ -1,4 +1,5 @@
 use super::{MsgTalk, MsgUserInfo};
+use crate::packets::MsgData;
 use crate::systems::Screen;
 use crate::world::Character;
 use crate::{ActorState, Error, State};
@@ -56,6 +57,7 @@ impl PacketProcess for MsgConnect {
                 actor.set_screen(screen);
                 actor.send(MsgTalk::login_ok()).await?;
                 actor.send(msg).await?;
+                actor.send(MsgData::now()).await?;
             },
             None => {
                 state.store_creation_token(

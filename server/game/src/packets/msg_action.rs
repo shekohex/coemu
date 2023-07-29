@@ -65,7 +65,7 @@ pub enum ActionType {
     GetMoney = 121,
     QueryEnemy = 123,
     OpenDialog = 126,
-    LogainCompeleted = 130,
+    LoginCompeleted = 130,
     LeaveMap = 132,
     GroundJump = 133,
     /// [134]
@@ -137,13 +137,39 @@ impl MsgAction {
     #[tracing::instrument(skip_all)]
     async fn handle_send_location(
         &self,
+        state: &State,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let mut res = self.clone();
         let character = actor.character();
-        res.data1 = character.map_id();
-        res.data2 = u32::constract(character.y(), character.x());
-        actor.send(res).await?;
+        match state.try_map(character.map_id()) {
+            Ok(mymap) => {
+                res.data1 = character.map_id();
+                res.data2 = u32::constract(character.y(), character.x());
+                mymap.insert_character(character).await?;
+                actor.send(res).await?;
+                let screen = actor.screen();
+                screen.load_surroundings(state).await?;
+            },
+            Err(_) => {
+                warn!(
+                    character_id = character.id(),
+                    map_id = character.map_id(),
+                    "map not found",
+                );
+                // Set default map and location.
+                character.set_map_id(1002).set_x(430).set_y(378);
+                actor
+                    .send(MsgTalk::from_system(
+                        character.id(),
+                        TalkChannel::System,
+                        "Map not found, teleporting to Twin City.".to_string(),
+                    ))
+                    .await?;
+                actor.shutdown().await?;
+                return Ok(());
+            },
+        };
         // TODO(shekohex): send MsgMapInfo
         Ok(())
     }
@@ -157,6 +183,17 @@ impl MsgAction {
         let character = actor.character();
         res.data1 = 0x00FF_FFFF;
         res.data2 = u32::constract(character.y(), character.x());
+        actor.send(res).await?;
+        Ok(())
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn handle_login_completed(
+        &self,
+        _state: &State,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        let res = self.clone();
         actor.send(res).await?;
         Ok(())
     }
@@ -259,7 +296,7 @@ impl MsgAction {
         let current_y = self.data2.hi();
         let me = actor.character();
 
-        // Starting to validate this jump.
+        // Starting to validate this action.
         if current_x != me.x() || current_y != me.y() {
             // Kick Back.
             me.kick_back().await?;
@@ -350,7 +387,9 @@ impl PacketProcess for MsgAction {
     ) -> Result<(), Self::Error> {
         let ty = self.action_type.into();
         match ty {
-            ActionType::SendLocation => self.handle_send_location(actor).await,
+            ActionType::SendLocation => {
+                self.handle_send_location(state, actor).await
+            },
             ActionType::MapARGB => self.handle_map_argb(actor).await,
             ActionType::LeaveBooth => {
                 self.handle_leave_booth(state, actor).await
@@ -383,7 +422,9 @@ impl PacketProcess for MsgAction {
                 actor.send(self.clone()).await?;
                 Ok(())
             },
-            ActionType::LogainCompeleted => Ok(()),
+            ActionType::LoginCompeleted => {
+                self.handle_login_completed(state, actor).await
+            },
             ActionType::GroundJump => self.handle_jump(state, actor).await,
             ActionType::ChangeFacing => self.handle_change_facing(actor).await,
             ActionType::QueryEntity => {

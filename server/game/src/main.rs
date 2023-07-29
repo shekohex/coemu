@@ -32,9 +32,14 @@ impl Server for GameServer {
             me.save(state)
                 .map_err(|e| tq_network::Error::Other(e.to_string()))
                 .await?;
+            me.try_screen()
+                .map_err(|e| tq_network::Error::Other(e.to_string()))?
+                .remove_from_observers()
+                .map_err(|e| tq_network::Error::Other(e.to_string()))
+                .await?;
             ActorState::dispose(&actor, actor.handle()).await?;
             state.remove_character(me.id());
-            let mymap = state.maps().get(&me.map_id()).ok_or_else(|| {
+            let mymap = state.try_map(me.map_id()).map_err(|_| {
                 tq_network::Error::Other(format!(
                     "Map {} not found!",
                     me.map_id()

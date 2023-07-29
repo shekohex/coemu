@@ -65,12 +65,21 @@ impl Screen {
         observer: Arc<Character>,
     ) -> Result<bool, Error> {
         let observer_id = observer.id();
+        let me_id = self.character.id();
         let added = self.with_characters_mut(|c| {
-            c.insert(observer.id(), observer).is_none()
+            c.insert(observer.id(), observer.clone()).is_none()
         });
         if added {
             debug!(observer = observer_id, "Added to Screen");
-            Ok(true)
+            let res = match observer.try_screen() {
+                Ok(observer_screen) => {
+                    observer_screen.with_characters_mut(|c| {
+                        c.insert(me_id, self.character.clone()).is_none()
+                    })
+                },
+                Err(_) => false,
+            };
+            Ok(res)
         } else {
             Ok(false)
         }
@@ -78,11 +87,17 @@ impl Screen {
 
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
     pub fn remove_character(&self, observer: u32) -> Result<bool, Error> {
-        let removed =
-            self.with_characters_mut(|c| c.remove(&observer).is_some());
-        if removed {
-            debug!(observer = observer, "Removed from Screen");
-            Ok(true)
+        let observer_character =
+            self.with_characters_mut(|c| c.remove(&observer));
+        if let Some(other) = observer_character {
+            debug!(observer = other.id(), "Removed from Screen");
+            let Ok(observer_screen) = other.try_screen() else {
+                return Ok(false);
+            };
+            let removed = observer_screen.with_characters_mut(|c| {
+                c.remove(&self.character.id()).is_some()
+            });
+            Ok(removed)
         } else {
             Ok(false)
         }
@@ -99,7 +114,7 @@ impl Screen {
                     other.map_id(),
                     location,
                     other.direction() as u16,
-                    ActionType::LeaveMap,
+                    ActionType::RemoveEntity,
                 ))
                 .await?;
             debug!(%observer, "Deleted from Screen");
@@ -115,22 +130,16 @@ impl Screen {
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
     pub async fn remove_from_observers(&self) -> Result<(), Error> {
         let me = &self.character;
-        let location = u32::constract(me.y(), me.x());
-        let msg = MsgAction::new(
-            me.id(),
-            me.map_id(),
-            location,
-            me.direction() as u16,
-            ActionType::LeaveMap,
-        );
         let futures = FuturesUnordered::new();
         self.with_characters(|c| {
             for observer in c.values() {
                 debug!(observer = observer.id(), "Found Observer");
                 let observer_owner = observer.owner();
-                let msg = msg.clone();
+                let Ok(observer_screen) = observer.try_screen() else {
+                    continue;
+                };
                 let fut = async move {
-                    observer_owner.send(msg).await?;
+                    observer_screen.delete_character(me.id()).await?;
                     Result::<_, Error>::Ok(observer_owner.id())
                 };
                 futures.push(fut);
@@ -141,7 +150,7 @@ impl Screen {
             .for_each_concurrent(None, |res| async {
                match res {
                    Ok(observer) => {
-                       debug!(observer = observer, "Deleted from Screen");
+                       debug!(observer = observer, "Removed from Observer's Screen");
                    },
                    Err(e) => {
                        tracing::error!(error = ?e, "Failed to delete from screen");
@@ -149,30 +158,22 @@ impl Screen {
                }
             })
             .await;
-        // let observer_screen = observer.owner().screen().await;
-        // observer_screen.delete_character(me.id()).await?;
         Ok(())
     }
 
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
     pub async fn refresh_spawn_for_observers(&self) -> Result<(), Error> {
         let me = &self.character;
-        let location = u32::constract(me.y(), me.x());
-        let msg = MsgAction::new(
-            me.id(),
-            me.map_id(),
-            location,
-            me.direction() as u16,
-            ActionType::LeaveMap,
-        );
         let futures = FuturesUnordered::new();
         self.with_characters(|c| {
             for observer in c.values() {
                 debug!(observer = observer.id(), "Found Observer");
                 let observer_owner = observer.owner();
-                let msg = msg.clone();
+                let Ok(observer_screen) = observer.try_screen() else {
+                    continue;
+                };
                 let fut = async move {
-                    observer_owner.send(msg).await?;
+                    observer_screen.delete_character(me.id()).await?;
                     me.send_spawn(&observer_owner).await?;
                     Result::<_, Error>::Ok(observer_owner.id())
                 };
@@ -359,15 +360,25 @@ impl Screen {
                         let packet = packet.clone();
                         let observer_owner = observer.owner();
                         let observer_id = observer.id();
+                        let Ok(observer_screen) = observer.try_screen() else {
+                            continue;
+                        };
                         let fut = async move {
                             // Else, remove the observer and send the last
                             // packet.
-                            debug!(observer = observer_id, "UnLoaded Screen");
-                            // send the last packet.
-                            observer_owner
-                                .send(packet)
-                                .await
-                                .unwrap_or_default();
+                            let removed =
+                                observer_screen.remove_character(me.id())?;
+                            if removed {
+                                debug!(
+                                    observer = observer_id,
+                                    "UnLoaded Screen"
+                                );
+                                // send the last packet.
+                                observer_owner
+                                    .send(packet)
+                                    .await
+                                    .unwrap_or_default();
+                            }
                             let removed = self.remove_character(observer_id)?;
                             if removed {
                                 debug!(

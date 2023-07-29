@@ -1,6 +1,8 @@
 {
-  "deno.enable": true,
-  "rust-analyzer.cargo.allFeatures": true,
+  "rust-analyzer.lens.run.enable": true,
+  "rust-analyzer.lens.references.adt.enable": true,
+  "rust-analyzer.lens.references.method.enable": true,
+  "rust-analyzer.lens.implementations.enable": true,
   "sqltools.useNodeRuntime": true,
   "sqltools.connections": [
     {

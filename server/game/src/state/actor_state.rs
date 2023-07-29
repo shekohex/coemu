@@ -30,7 +30,14 @@ impl ActorState {
     pub fn set_screen(&self, screen: Screen) {
         let screen = Arc::new(screen);
         self.screen.store(Some(screen.clone()));
-        self.character().set_screen(screen);
+        // We use Weak references to avoid a circular reference between the
+        // character and the screen. The screen needs to know about the
+        // character, but the character should not know about the screen.
+        // if the character holds a strong reference to the screen, then the
+        // screen will never be dropped. and the other way around.
+        // hence, we use a weak reference to the screen.
+        // if the screen is dropped, then the character will be dropped as well.
+        self.character().set_screen(Arc::downgrade(&screen));
     }
 
     pub fn character(&self) -> Arc<Character> {
