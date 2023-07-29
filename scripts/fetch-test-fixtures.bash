@@ -15,6 +15,14 @@ download_file() {
   curl -L -o "$dest" "$url"
 }
 
+download_file_if_not_exists() {
+  local url=$1
+  local dest=$2
+  if [[ ! -f "$dest" ]]; then
+    download_file "$url" "$dest"
+  fi
+}
+
 make_directory() {
   local dir=$1
   mkdir -p "$dir"
@@ -322,5 +330,5 @@ for file in "${files[@]}"; do
   url="${S3_ENDPOINT}/${file}"
   make_directory "$(dirname "$dest")"
   echo "Downloading ${url} to ${dest}"
-  download_file "$url" "$dest"
+  download_file_if_not_exists "$url" "$dest"
 done

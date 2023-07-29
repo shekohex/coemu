@@ -40,6 +40,14 @@ jobs:
         with:
           shared-key: "rust"
 
+      - name: Fixtures Cache
+        uses: actions/cache@v2
+        with:
+          path: data/GameMaps
+          key: fixtures-${{ hashFiles('scripts/fetch-test-fixtures.bash') }}
+          restore-keys: |
+            fixtures-
+
       - name: Setup mold Linker
         uses: rui314/setup-mold@v1
 
