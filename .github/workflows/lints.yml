@@ -17,6 +17,9 @@ jobs:
   combo:
     name: Clippy + rustfmt
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-ubuntu-latest
+      cancel-in-progress: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

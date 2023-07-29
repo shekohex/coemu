@@ -20,6 +20,9 @@ jobs:
   test:
     name: Compile and Test
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-ubuntu-latest
+      cancel-in-progress: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -40,7 +43,7 @@ jobs:
         uses: rui314/setup-mold@v1
 
       - name: Download Test Fixtures
-        runs: bash ./scripts/fetch-test-fixtures.bash
+        run: bash ./scripts/fetch-test-fixtures.bash
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1
