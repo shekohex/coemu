@@ -135,7 +135,8 @@ impl Map {
             number_of_regions,
             "Building regions",
         );
-        let mut regions = vec![MapRegion::default(); number_of_regions as usize];
+        let mut regions =
+            vec![MapRegion::default(); number_of_regions as usize];
         for y in 0..height {
             for x in 0..width {
                 let start_point = Point::new(x, y);
