@@ -114,7 +114,8 @@ impl Character {
             self.direction() as u16,
             ActionType::Teleport,
         );
-        if let Some(new_map) = state.maps().get(&map_id) {
+        if let Ok(new_map) = state.try_map(map_id) {
+            new_map.load().await?;
             let tile = new_map.tile(x, y).ok_or_else(|| {
                 tracing::warn!("Invalid Location");
                 MsgTalk::from_system(
@@ -125,7 +126,7 @@ impl Character {
                 .error_packet()
             })?;
             // remove from old map
-            if let Some(old_map) = state.maps().get(&self.map_id()) {
+            if let Ok(old_map) = state.try_map(self.map_id()) {
                 old_map.remove_character(self)?;
             }
             self.set_x(x).set_y(y).set_map_id(map_id);

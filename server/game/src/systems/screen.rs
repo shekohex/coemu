@@ -27,7 +27,11 @@ pub struct Screen {
 
 impl Screen {
     pub fn new(owner: ActorHandle, character: Arc<Character>) -> Self {
-        debug!("Creating Screen for Actor #{}", owner.id());
+        debug!(
+            owner = owner.id(),
+            character = character.id(),
+            "Creating Screen"
+        );
         Self {
             owner,
             character,
@@ -51,9 +55,7 @@ impl Screen {
 
     #[tracing::instrument(skip(self), fields(me = self.character.id()))]
     pub fn clear(&self) -> Result<(), Error> {
-        debug!("Clearing Screen..");
         *self.characters.write() = HashMap::new();
-        debug!("Screen is clean!");
         Ok(())
     }
 
@@ -207,36 +209,41 @@ impl Screen {
     ) -> Result<(), Error> {
         // Load Players from the Map
         let me = &self.character;
-        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
-        let myreagion = mymap
-            .region(me.x(), me.y())
-            .ok_or(Error::MapRegionNotFound)?;
+        let mymap = state.try_map(me.map_id())?;
+        let myreagions = mymap.surrunding_regions(me.x(), me.y());
         let futures = FuturesUnordered::new();
-        myreagion.with_characters(|c| {
-            for observer in c.values() {
-                let is_myself = me.id() == observer.id();
-                if is_myself {
-                    continue;
-                }
-                let in_screen = tq_math::in_screen(
-                    (observer.x(), observer.y()),
-                    (me.x(), me.y()),
-                );
-                if !in_screen {
-                    continue;
-                }
-                let observer = observer.clone();
-                let fut = async move {
-                    let added = self.insert_charcter(observer.clone())?;
-                    if added {
-                        debug!(observer = observer.id(), "Loaded Into Screen");
-                        me.exchange_spawn_packets(observer).await?;
+        for region in myreagions {
+            debug!(%region, "Loading Surroundings");
+            region.with_characters(|c| {
+                for observer in c.values() {
+                    let is_myself = me.id() == observer.id();
+                    if is_myself {
+                        continue;
                     }
-                    Result::<_, Error>::Ok(())
-                };
-                futures.push(fut);
-            }
-        });
+                    let in_screen = tq_math::in_screen(
+                        (observer.x(), observer.y()),
+                        (me.x(), me.y()),
+                    );
+                    if !in_screen {
+                        continue;
+                    }
+                    let observer = observer.clone();
+                    let fut = async move {
+                        let added = self.insert_charcter(observer.clone())?;
+                        if added {
+                            debug!(
+                                observer = observer.id(),
+                                "Loaded Into Screen"
+                            );
+                            me.exchange_spawn_packets(observer).await?;
+                        }
+                        Result::<_, Error>::Ok(())
+                    };
+                    futures.push(fut);
+                }
+            });
+        }
+
         // await all futures to complete.
         futures
             .for_each_concurrent(None, |res| async {
@@ -304,72 +311,89 @@ impl Screen {
     {
         let me = &self.character;
         let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
-        let myreagion = mymap
-            .region(me.x(), me.y())
-            .ok_or(Error::MapRegionNotFound)?;
+        let myreagions = mymap.surrunding_regions(me.x(), me.y());
         let futures = FuturesUnordered::new();
-        myreagion.with_characters(|c| {
-            // For each possible observer on the region:
-            for observer in c.values() {
-                let is_myself = me.id() == observer.id();
-                let observer_owner = observer.owner();
-                // skip myself
-                if is_myself {
-                    continue;
-                }
-                // If the character is in screen, make sure it's in the owner's
-                // screen:
-                let in_screen = tq_math::in_screen(
-                    (observer.x(), observer.y()),
-                    (me.x(), me.y()),
-                );
-                if in_screen {
-                    let packet = packet.clone();
-                    let observer = observer.clone();
-                    let fut = async move {
-                        let added = self.insert_charcter(observer.clone())?;
-                        // new, let's exchange spawn packets
-                        if added {
-                            debug!(
-                                observer = observer.id(),
-                                "Loaded Into Screen",
-                            );
-                            me.exchange_spawn_packets(observer).await?;
-                        } else {
-                            // observer is already there, send the movement
-                            // packet
+        for region in myreagions {
+            debug!(%region, "Sending Movement");
+            region.with_characters(|c| {
+                // For each possible observer on the region:
+                for observer in c.values() {
+                    let is_myself = me.id() == observer.id();
+                    let observer_owner = observer.owner();
+                    // skip myself
+                    if is_myself {
+                        continue;
+                    }
+                    // If the character is in screen, make sure it's in the
+                    // owner's screen:
+                    let in_screen = tq_math::in_screen(
+                        (observer.x(), observer.y()),
+                        (me.x(), me.y()),
+                    );
+                    if in_screen {
+                        let packet = packet.clone();
+                        let observer = observer.clone();
+                        let fut = async move {
+                            let added =
+                                self.insert_charcter(observer.clone())?;
+                            // new, let's exchange spawn packets
+                            if added {
+                                debug!(
+                                    observer = observer.id(),
+                                    "Loaded Into Screen",
+                                );
+                                me.exchange_spawn_packets(observer).await?;
+                            } else {
+                                // observer is already there, send the movement
+                                // packet
+                                observer_owner
+                                    .send(packet)
+                                    .await
+                                    .unwrap_or_default();
+                            }
+                            Result::<_, Error>::Ok(())
+                        }
+                        .boxed();
+                        futures.push(fut);
+                    } else {
+                        let packet = packet.clone();
+                        let observer_owner = observer.owner();
+                        let observer_id = observer.id();
+                        let fut = async move {
+                            // Else, remove the observer and send the last
+                            // packet.
+                            debug!(observer = observer_id, "UnLoaded Screen");
+                            // send the last packet.
                             observer_owner
                                 .send(packet)
                                 .await
                                 .unwrap_or_default();
+                            let removed = self.remove_character(observer_id)?;
+                            if removed {
+                                debug!(
+                                    observer = observer_id,
+                                    "Removed from Screen"
+                                );
+                            }
+                            Result::<_, Error>::Ok(())
                         }
-                        Result::<_, Error>::Ok(())
+                        .boxed();
+                        futures.push(fut);
                     }
-                    .boxed();
-                    futures.push(fut);
-                } else {
-                    let packet = packet.clone();
-                    let observer_owner = observer.owner();
-                    let observer_id = observer.id();
-                    let fut = async move {
-                        // Else, remove the observer and send the last packet.
-                        debug!(observer = observer_id, "UnLoaded Screen");
-                        // send the last packet.
-                        observer_owner.send(packet).await.unwrap_or_default();
-                        let removed = self.remove_character(observer_id)?;
-                        if removed {
-                            debug!(
-                                observer = observer_id,
-                                "Removed from Screen"
-                            );
-                        }
-                        Result::<_, Error>::Ok(())
-                    }
-                    .boxed();
-                    futures.push(fut);
                 }
-            }
-        });
+            });
+        }
+        // await all futures to complete.
+        futures
+            .for_each_concurrent(None, |res| async {
+                match res {
+                    Ok(_) => {},
+                    Err(e) => {
+                        tracing::error!(error = ?e, "Failed to send movement");
+                    },
+                }
+            })
+            .await;
         Ok(())
     }
 }

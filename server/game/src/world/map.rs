@@ -1,6 +1,7 @@
 use super::{Character, Portal};
 use crate::systems::{Floor, Tile};
 use crate::{constants, Error};
+use core::fmt;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use parking_lot::RwLock;
 use primitives::{Point, Size};
@@ -81,29 +82,40 @@ impl Map {
         let width =
             (map_size.width as f32 / region_size.width as f32).ceil() as u32;
         let region_index = region_x * width + region_y;
-        tracing::debug!(%x, %y, %region_x, %region_y, %region_index, "Querying Region");
+        tracing::trace!(%x, %y, %region_x, %region_y, %region_index, "Querying Region");
         regions.get(region_index as usize).cloned()
     }
 
     /// Get a list of the regions that surround the given point.
+    #[tracing::instrument(skip(self))]
     pub fn surrunding_regions(&self, x: u16, y: u16) -> Vec<MapRegion> {
         let regions = self.regions.read();
         let map_size = self.floor.boundaries();
         let region_size = MapRegion::SIZE;
+        let height =
+            (map_size.height as f32 / region_size.height as f32).ceil() as u32;
         let width =
             (map_size.width as f32 / region_size.width as f32).ceil() as u32;
         let region_x = x as u32 / region_size.width;
         let region_y = y as u32 / region_size.height;
-        let region_index = |x, y| x * width + y;
+        let region_index = |x, y| (x * width + y) as usize;
         let mut result = Vec::new();
+        // insert the current region
+        if let Some(region) = regions.get(region_index(region_x, region_y)) {
+            result.push(region.clone());
+        }
         for i in 0..constants::WALK_XCOORDS.len() {
             let view_x = region_x as i32 + constants::WALK_XCOORDS[i] as i32;
             let view_y = region_y as i32 + constants::WALK_YCOORDS[i] as i32;
-            if view_x.is_negative() || view_y.is_negative() {
+            if view_x.is_negative()
+                || view_y.is_negative()
+                || view_x >= width as _
+                || view_y >= height as _
+            {
                 continue;
             }
             let j = region_index(view_x as u32, view_y as u32);
-            if let Some(region) = regions.get(j as usize) {
+            if let Some(region) = regions.get(j) {
                 result.push(region.clone());
             }
         }
@@ -117,6 +129,9 @@ impl Map {
     /// will be loaded for the server.
     #[tracing::instrument(skip_all, fields(map_id = self.id()))]
     pub async fn load(&self) -> Result<(), Error> {
+        if self.loaded() {
+            return Ok(());
+        }
         debug!("Loading into memory");
         self.floor.load().await?;
         let map_size = self.floor.boundaries();
@@ -140,7 +155,7 @@ impl Map {
         for y in 0..height {
             for x in 0..width {
                 let start_point = Point::new(x, y);
-                let region = MapRegion::new(start_point);
+                let region = MapRegion::new(start_point, map_size);
                 let i = x * width + y;
                 regions[i as usize] = region;
                 tracing::trace!(%start_point, "Region created");
@@ -163,7 +178,9 @@ impl Map {
     }
 
     /// This method checks if the map is loaded in memory.
-    pub fn loaded(&self) -> bool { self.floor.loaded() }
+    pub fn loaded(&self) -> bool {
+        self.floor.loaded() && !self.regions.read().is_empty()
+    }
 
     /// This method adds the client specified in the parameters to the map pool.
     /// It does this by removing the player from the previous map, then
@@ -206,7 +223,7 @@ impl Map {
     /// jumping, this method will sample the map for key elevation changes
     /// and check that the player is not wall jumping. It checks all tiles
     /// in between the player and the jumping destination.
-    #[tracing::instrument(skip(self), ret, fields(map_id = self.id()))]
+    #[tracing::instrument(skip(self), fields(map_id = self.id()))]
     pub fn sample_elevation(
         &self,
         start: (u16, u16),
@@ -276,6 +293,7 @@ impl Map {
 #[derive(Debug, Default, Clone)]
 pub struct MapRegion {
     start_point: Point<u32>,
+    map_size: Size<i32>,
     characters: Arc<Characters>,
 }
 
@@ -283,15 +301,26 @@ impl Eq for MapRegion {}
 impl PartialEq for MapRegion {
     fn eq(&self, other: &Self) -> bool { self.start_point == other.start_point }
 }
+impl fmt::Display for MapRegion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let width = (self.map_size.width as f32 / Self::SIZE.width as f32)
+            .ceil() as u32;
+        let Point { x, y } = self.start_point;
+        let i = x * width + y;
+        let n = self.with_characters(|c| c.len());
+        write!(f, "Region #{i} with {n} characters")
+    }
+}
 
 impl MapRegion {
     /// WIDTH and HEIGHT are the number of tiles in a region.
     pub const SIZE: Size<u32> =
         Size::new(SCREEN_DISTANCE as _, SCREEN_DISTANCE as _);
 
-    pub fn new(start_point: Point<u32>) -> Self {
+    pub fn new(start_point: Point<u32>, map_size: Size<i32>) -> Self {
         Self {
             start_point,
+            map_size,
             characters: Arc::new(RwLock::new(HashMap::new())),
         }
     }

@@ -184,7 +184,7 @@ impl Floor {
                 SceneryType::SceneryObject => {
                     // Get scene data from the DMap
                     let buf = buffer.split_to(260);
-                    tracing::debug!(?buf, "scene file name");
+                    tracing::trace!(?buf, "scene file name");
                     let terminator_byte_idx = buf
                         .iter()
                         .position(|&b| b == b'\0')
