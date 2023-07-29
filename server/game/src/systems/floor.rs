@@ -131,6 +131,7 @@ impl Floor {
         let width = buffer.get_i32_le();
         let height = buffer.get_i32_le();
         let boundaries = Size::new(width, height);
+        trace!(%boundaries, "Map boundaries");
         let count = boundaries.area() as usize;
         trace!("Boundaries {:?} with #{} tiles", boundaries, count);
         let mut coordinates = vec![Tile::default(); count];
