@@ -1,9 +1,12 @@
 use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
 use crate::packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel};
+use crate::systems::Screen;
 use crate::utils::LoHi;
 use crate::{constants, Error};
+use arc_swap::ArcSwapOption;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Arc;
 use tq_network::{ActorHandle, IntoErrorPacket};
 
 /// This struct encapsulates the game character for a player. The player
@@ -17,6 +20,7 @@ pub struct Character {
     entity: Entity,
     owner: ActorHandle,
     elevation: AtomicU16,
+    screen: ArcSwapOption<Screen>,
 }
 
 impl Deref for Character {
@@ -43,7 +47,16 @@ impl Character {
             owner,
             inner,
             elevation: Default::default(),
+            screen: Default::default(),
         }
+    }
+
+    pub fn set_screen(&self, screen: Arc<Screen>) {
+        self.screen.store(Some(screen));
+    }
+
+    pub fn try_screen(&self) -> Result<Arc<Screen>, Error> {
+        self.screen.load().clone().ok_or(Error::ScreenNotFound)
     }
 
     pub fn elevation(&self) -> u16 { self.elevation.load(Ordering::Relaxed) }

@@ -28,7 +28,9 @@ impl ActorState {
     }
 
     pub fn set_screen(&self, screen: Screen) {
-        self.screen.store(Some(Arc::new(screen)));
+        let screen = Arc::new(screen);
+        self.screen.store(Some(screen.clone()));
+        self.character().set_screen(screen);
     }
 
     pub fn character(&self) -> Arc<Character> {
