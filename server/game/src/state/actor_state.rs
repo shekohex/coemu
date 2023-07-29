@@ -27,7 +27,7 @@ impl ActorState {
         self.character.store(Some(Arc::new(character)));
     }
 
-    pub async fn set_screen(&self, screen: Screen) {
+    pub fn set_screen(&self, screen: Screen) {
         self.screen.store(Some(Arc::new(screen)));
     }
 

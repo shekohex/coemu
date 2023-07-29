@@ -69,7 +69,7 @@ impl Floor {
         let data_path = PathBuf::from(env::var("DATA_LOCATION")?);
         let map_path = data_path.join("Maps").join(&self.path);
         trace!("Starting to load map from {}", map_path.display());
-        if map_path.exists() {
+        if let Ok(true) = map_path.try_exists() {
             let f = File::open(map_path).await?;
             let mut reader = io::BufReader::with_capacity(1024, f);
             let mut buffer = Vec::new();
@@ -97,11 +97,7 @@ impl Floor {
             trace!("we didn't found the map at {}", map_path.display());
             let mut p = self.path.clone();
             p.set_extension("DMap");
-            let orignal_path = data_path
-                .join("GameMaps")
-                .join("map")
-                .join(p)
-                .canonicalize()?;
+            let orignal_path = data_path.join("GameMaps").join("map").join(p);
             self.convert_and_load(orignal_path).await?;
         }
         Ok(())

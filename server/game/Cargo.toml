@@ -63,6 +63,10 @@ workspace = true
 default-features = false
 features = ["runtime-tokio-rustls", "sqlite", "time"]
 
+[dev-dependencies.sqlx]
+workspace = true
+default-features = false
+features = ["runtime-tokio-rustls", "sqlite", "time", "migrate"]
 
 [features]
 default = []

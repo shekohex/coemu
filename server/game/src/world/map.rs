@@ -1,7 +1,7 @@
 use super::{Character, Portal};
 use crate::systems::{Floor, Tile};
 use crate::{constants, Error};
-use num_enum::FromPrimitive;
+use num_enum::{FromPrimitive, IntoPrimitive};
 use parking_lot::RwLock;
 use primitives::{Point, Size};
 use std::collections::{HashMap, HashSet};
@@ -71,22 +71,30 @@ impl Map {
         f(&self.regions.read())
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn region(&self, x: u16, y: u16) -> Option<MapRegion> {
         let regions = self.regions.read();
+        let map_size = self.floor.boundaries();
         let region_size = MapRegion::SIZE;
         let region_x = x as u32 / region_size.width;
         let region_y = y as u32 / region_size.height;
-        let region_index = region_x * region_size.width + region_y;
+        let width =
+            (map_size.width as f32 / region_size.width as f32).ceil() as u32;
+        let region_index = region_x * width + region_y;
+        tracing::debug!(%x, %y, %region_x, %region_y, %region_index, "Querying Region");
         regions.get(region_index as usize).cloned()
     }
 
     /// Get a list of the regions that surround the given point.
     pub fn surrunding_regions(&self, x: u16, y: u16) -> Vec<MapRegion> {
         let regions = self.regions.read();
+        let map_size = self.floor.boundaries();
         let region_size = MapRegion::SIZE;
+        let width =
+            (map_size.width as f32 / region_size.width as f32).ceil() as u32;
         let region_x = x as u32 / region_size.width;
         let region_y = y as u32 / region_size.height;
-        let region_index = |x, y| x * region_size.width + y;
+        let region_index = |x, y| x * width + y;
         let mut result = Vec::new();
         for i in 0..constants::WALK_XCOORDS.len() {
             let view_x = region_x as i32 + constants::WALK_XCOORDS[i] as i32;
@@ -113,18 +121,31 @@ impl Map {
         self.floor.load().await?;
         let map_size = self.floor.boundaries();
         let region_size = MapRegion::SIZE;
-        let mut regions = Vec::new();
         // ceil division to get the number of regions
         let height =
             (map_size.height as f32 / region_size.height as f32).ceil() as u32;
         let width =
             (map_size.width as f32 / region_size.width as f32).ceil() as u32;
+        let number_of_regions = height * width;
+        tracing::trace!(
+            %map_size,
+            %region_size,
+            %height,
+            %width,
+            number_of_regions,
+            "Building regions",
+        );
+        let mut regions = vec![MapRegion::default(); number_of_regions as usize];
         for y in 0..height {
             for x in 0..width {
-                let region = MapRegion::new(Point::new(x, y));
-                regions.push(region);
+                let start_point = Point::new(x, y);
+                let region = MapRegion::new(start_point);
+                let i = x * width + y;
+                regions[i as usize] = region;
+                tracing::trace!(%start_point, "Region created");
             }
         }
+        assert_eq!(regions.len(), number_of_regions as usize);
         let mut lock = self.regions.write();
         *lock = regions;
         debug!("Map Loaded into memory");
@@ -233,7 +254,15 @@ impl Map {
             (None, Some(old_region)) => {
                 old_region.remove_character(me.id());
             },
-            (None, None) => {},
+            (None, None) => {
+                tracing::warn!(
+                    x = me.x(),
+                    y = me.y(),
+                    prev_x = me.prev_x(),
+                    prev_y = me.prev_y(),
+                    "Can not find a suitable region for character"
+                )
+            },
         }
     }
 }
@@ -297,7 +326,7 @@ impl MapRegion {
     }
 }
 
-#[derive(Debug, FromPrimitive)]
+#[derive(Debug, FromPrimitive, IntoPrimitive)]
 #[repr(u32)]
 #[allow(unused)]
 pub enum Maps {
@@ -409,4 +438,30 @@ pub enum Maps {
     QilingZ = 1067,
     Fairylandpk03 = 1764,
     IcecryptLev1 = 1762,
+}
+
+#[cfg(test)]
+mod tests {
+    use futures::FutureExt;
+
+    use super::*;
+    use crate::test_utils::*;
+
+    #[tokio::test]
+    async fn map_regions() -> Result<(), Error> {
+        with_test_env(tracing::Level::TRACE, |state, _actors| {
+            async move {
+                let test_map_id = Maps::Arena;
+                let map = state.try_map(test_map_id.into())?;
+                map.load().await?;
+                let my_region = map.region(50, 50);
+                assert!(my_region.is_some(), "Can't find a region on (50, 50)");
+                let my_region = map.region(67, 50);
+                assert!(my_region.is_some(), "Can't find a region on (67, 50)");
+                Ok(())
+            }
+            .boxed()
+        })
+        .await
+    }
 }

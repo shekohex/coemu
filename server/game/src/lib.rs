@@ -6,6 +6,9 @@ pub mod systems;
 pub mod utils;
 pub mod world;
 
+#[cfg(test)]
+pub mod test_utils;
+
 pub mod state;
 pub use state::{ActorState, State};
 

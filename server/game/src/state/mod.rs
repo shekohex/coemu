@@ -39,7 +39,10 @@ impl State {
             .min_connections(4)
             .connect(&db_url)
             .await?;
+        Self::with_pool(pool).await
+    }
 
+    pub async fn with_pool(pool: SqlitePool) -> Result<Self, Error> {
         debug!("Loading Maps from Database");
         let db_maps = tq_db::map::Map::load_all(&pool).await?;
         let mut maps = HashMap::with_capacity(db_maps.len());
@@ -50,6 +53,7 @@ impl State {
             let map = Map::new(map, portals);
             maps.insert(map.id(), map);
         }
+
         let state = Self {
             login_tokens: Default::default(),
             creation_tokens: Default::default(),
@@ -64,6 +68,10 @@ impl State {
     pub fn pool(&self) -> &SqlitePool { &self.pool }
 
     pub fn maps(&self) -> &Maps { &self.maps }
+
+    pub fn try_map(&self, map_id: u32) -> Result<&Map, Error> {
+        self.maps.get(&map_id).ok_or(Error::MapNotFound)
+    }
 
     pub fn insert_character(&self, character: Arc<Character>) {
         let mut characters = self.characters.write();

@@ -51,6 +51,10 @@ pub enum Error {
     TileNotFound(u16, u16),
     #[error("Invalid Scene File Name!")]
     InvalidSceneFileName,
+    #[error("Invalid Body Type!")]
+    InvalidBodyType,
+    #[error("Invalid Class!")]
+    InvalidClass,
 }
 
 impl<T> From<mpsc::error::SendError<T>> for Error {

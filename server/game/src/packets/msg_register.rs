@@ -26,10 +26,27 @@ impl MsgRegister {
         account_id: u32,
         realm_id: u32,
     ) -> Result<tq_db::character::Character, Error> {
+        Self::build_character_with(
+            self.character_name.to_string(),
+            BodyType::try_from(self.mesh)
+                .map_err(|_| Error::InvalidBodyType)?,
+            BaseClass::try_from(self.class).map_err(|_| Error::InvalidClass)?,
+            account_id,
+            realm_id,
+        )
+    }
+
+    pub fn build_character_with(
+        name: String,
+        mesh: BodyType,
+        class: BaseClass,
+        account_id: u32,
+        realm_id: u32,
+    ) -> Result<tq_db::character::Character, Error> {
         // Some Math for rand characher.
         let mut rng = rand::rngs::StdRng::from_entropy();
 
-        let avatar = match self.mesh {
+        let avatar = match u16::from(mesh) {
             // For Male
             m if m < 1005 => rng.gen_range(1..49),
 
@@ -39,16 +56,14 @@ impl MsgRegister {
 
         let hair_style = rng.gen_range(3..9) * 100
             + crate::constants::HAIR_STYLES[rng.gen_range(0..12)];
-        let strength = match self.class {
-            // Taoist
-            100 => 2,
+        let strength = match class {
+            BaseClass::Taoist => 2,
             _ => 4,
         };
         let agility = 6;
         let vitality = 12;
-        let spirit = match self.class {
-            // Taoist
-            100 => 10,
+        let spirit = match class {
+            BaseClass::Taoist => 10,
             _ => 0,
         };
 
@@ -59,13 +74,13 @@ impl MsgRegister {
         let c = tq_db::character::Character {
             account_id: account_id as i32,
             realm_id: realm_id as i32,
-            name: self.character_name.to_string(),
-            mesh: self.mesh as i32,
+            name,
+            mesh: u16::from(mesh) as i32,
             avatar,
             hair_style,
             silver: 1000,
             cps: 0,
-            current_class: self.class as i16,
+            current_class: u16::from(class) as i16,
             map_id: 1010,
             x: 61,
             y: 109,
@@ -82,7 +97,7 @@ impl MsgRegister {
     }
 }
 
-#[derive(Debug, TryFromPrimitive, IntoPrimitive)]
+#[derive(Copy, Clone, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(u16)]
 pub enum BodyType {
     AgileMale = 1003,
@@ -91,7 +106,7 @@ pub enum BodyType {
     MuscularFemale = 2002,
 }
 
-#[derive(Debug, TryFromPrimitive, IntoPrimitive)]
+#[derive(Copy, Clone, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(u16)]
 pub enum BaseClass {
     Trojan = 10,
@@ -149,7 +164,7 @@ impl PacketProcess for MsgRegister {
             .insert_character(actor.character())
             .await?;
         let screen = Screen::new(actor.handle(), actor.character());
-        actor.set_screen(screen).await;
+        actor.set_screen(screen);
 
         tracing::info!(
             "Account #{} Created Character #{} with Name {}",

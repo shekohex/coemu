@@ -53,7 +53,7 @@ impl PacketProcess for MsgConnect {
                 mymap.insert_character(actor.character()).await?;
                 state.insert_character(actor.character());
                 let screen = Screen::new(actor.handle(), actor.character());
-                actor.set_screen(screen).await;
+                actor.set_screen(screen);
                 actor.send(MsgTalk::login_ok()).await?;
                 actor.send(msg).await?;
             },

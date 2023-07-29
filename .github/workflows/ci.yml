@@ -13,6 +13,9 @@ on:
 
 name: CI
 
+env:
+  S3_ENDPOINT: https://pub-a119292fa58c4241b30d6ba460bf8231.r2.dev
+
 jobs:
   test:
     name: Compile and Test
@@ -32,8 +35,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "rust"
+
       - name: Setup mold Linker
         uses: rui314/setup-mold@v1
+
+      - name: Download Test Fixtures
+        runs: bash ./scripts/fetch-test-fixtures.bash
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1
@@ -44,7 +51,5 @@ jobs:
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
-        env:
-          DATA_URL: file::memory:?cache=shared
         with:
           command: test
