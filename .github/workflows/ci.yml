@@ -15,6 +15,7 @@ name: CI
 
 env:
   S3_ENDPOINT: https://pub-a119292fa58c4241b30d6ba460bf8231.r2.dev
+  RUST_BACKTRACE: 1
 
 jobs:
   test:
