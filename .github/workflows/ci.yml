@@ -20,9 +20,9 @@ env:
 jobs:
   test:
     name: Compile and Test
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-macos-latest
+      group: ${{ github.workflow }}-${{ github.ref }}-ubuntu-latest
       cancel-in-progress: true
     steps:
       - name: Checkout sources
