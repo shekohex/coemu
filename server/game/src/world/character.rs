@@ -212,9 +212,9 @@ impl BaseEntity for Character {
 
     #[tracing::instrument(skip(self, to), fields(me = self.id()))]
     async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {
-        let msg = MsgPlayer::from(self.clone());
+        let msg = MsgPlayer::from(self);
         to.send(msg).await?;
-        tracing::debug!("Sent Spawn");
+        tracing::trace!("Sent Spawn");
         Ok(())
     }
 }

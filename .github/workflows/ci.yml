@@ -43,7 +43,11 @@ jobs:
       - name: Fixtures Cache
         uses: actions/cache@v2
         with:
-          path: data/GameMaps
+          path: |
+            data/GameMaps/GameMap.dat
+            data/GameMaps/map/*.DMap
+            data/GameMaps/Scene/*.scene
+            data/GameMaps/ScenePart/*.Part
           key: fixtures-${{ hashFiles('scripts/fetch-test-fixtures.bash') }}
           restore-keys: |
             fixtures-
