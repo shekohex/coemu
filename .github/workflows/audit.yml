@@ -12,9 +12,9 @@ on:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-ubuntu-latest
+      group: ${{ github.workflow }}-${{ github.ref }}-macos-latest
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v3
