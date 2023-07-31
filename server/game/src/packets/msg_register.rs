@@ -154,17 +154,15 @@ impl PacketProcess for MsgRegister {
                 .await?;
         let map_id = character.map_id;
         let me = Character::new(actor.handle(), character);
-        actor.set_character(me);
+        let screen = Screen::new(actor.handle());
+        actor.update(me, screen);
         state.insert_character(actor.character());
         // Set player map.
         state
-            .maps()
-            .get(&(map_id as u32))
-            .ok_or_else(|| MsgTalk::register_invalid().error_packet())?
+            .try_map(map_id as _)
+            .map_err(|_| MsgTalk::register_invalid().error_packet())?
             .insert_character(actor.character())
             .await?;
-        let screen = Screen::new(actor.handle(), actor.character());
-        actor.set_screen(screen);
 
         tracing::info!(
             "Account #{} Created Character #{} with Name {}",

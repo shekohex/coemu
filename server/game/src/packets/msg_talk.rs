@@ -85,7 +85,7 @@ impl MsgTalk {
     pub fn from_system(
         character_id: u32,
         channel: TalkChannel,
-        message: String,
+        message: impl Into<String>,
     ) -> Self {
         MsgTalk {
             color: 0x00FF_FFFF,
@@ -98,7 +98,7 @@ impl MsgTalk {
             sender_name: SYSTEM.to_string(),
             recipient_name: ALL_USERS.to_string(),
             suffix: String::new(),
-            message,
+            message: message.into(),
         }
     }
 

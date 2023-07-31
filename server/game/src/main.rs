@@ -49,6 +49,7 @@ impl Server for GameServer {
                 .remove_character(&me)
                 .map_err(|e| tq_network::Error::Other(e.to_string()))?;
         }
+        let _ = actor.shutdown().await;
         Ok(())
     }
 }

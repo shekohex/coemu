@@ -7,11 +7,11 @@ use parking_lot::RwLock;
 use primitives::{Point, Size};
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tq_math::SCREEN_DISTANCE;
 use tracing::debug;
 
-type Characters = RwLock<HashMap<u32, Arc<Character>>>;
+type Characters = RwLock<HashMap<u32, Weak<Character>>>;
 type Portals = HashSet<Portal>;
 type MapRegions = RwLock<Vec<MapRegion>>;
 
@@ -327,31 +327,31 @@ impl MapRegion {
 
     pub fn is_empty(&self) -> bool { self.with_characters(|c| c.is_empty()) }
 
-    pub fn try_character(&self, id: u32) -> Option<Arc<Character>> {
+    pub fn try_character(&self, id: u32) -> Option<Weak<Character>> {
         self.with_characters(|c| c.get(&id).cloned())
     }
 
     pub fn with_characters<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&HashMap<u32, Arc<Character>>) -> R,
+        F: FnOnce(&HashMap<u32, Weak<Character>>) -> R,
     {
         f(&self.characters.read())
     }
 
     pub fn with_characters_mut<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&mut HashMap<u32, Arc<Character>>) -> R,
+        F: FnOnce(&mut HashMap<u32, Weak<Character>>) -> R,
     {
         f(&mut self.characters.write())
     }
 
     pub fn insert_character(&self, character: Arc<Character>) {
         self.with_characters_mut(|c| {
-            c.insert(character.id(), character);
+            c.insert(character.id(), Arc::downgrade(&character))
         });
     }
 
-    pub fn remove_character(&self, id: u32) -> Option<Arc<Character>> {
+    pub fn remove_character(&self, id: u32) -> Option<Weak<Character>> {
         self.with_characters_mut(|c| c.remove(&id))
     }
 }

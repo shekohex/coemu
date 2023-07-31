@@ -78,17 +78,19 @@ pub trait Server: Sized + Send + Sync {
                         continue;
                     },
                 };
-                Builder::new().name("TCP Stream Task").spawn(async {
+                Builder::new().name("TCP Stream").spawn(async {
                     tracing::trace!("Calling on_connected lifetime hook");
                     Self::on_connected(static_state, stream.peer_addr()?)
                         .await?;
-                    let (tx, rx) = mpsc::channel(50);
+                    let (tx, rx) = mpsc::channel(1024);
                     let actor = Actor::<Self::ActorState>::new(tx);
-                    if let Err(e) =
-                        handle_stream::<Self>(stream, static_state, &actor, rx)
-                            .await
-                    {
-                        tracing::error!("{e}");
+                    match handle_stream::<Self>(stream, static_state, &actor, rx).await {
+                        Err(e) => {
+                            tracing::error!("{e}");
+                        }
+                        Ok(_) => {
+                            tracing::debug!("Client Disconnected.");
+                        },
                     }
                     tracing::trace!("Calling on_disconnected lifetime hook");
                     Self::on_disconnected(static_state, actor).await?;
@@ -132,7 +134,7 @@ async fn handle_stream<S: Server>(
     let (encoder, mut decoder) = TQCodec::new(stream, cipher.clone()).split();
     // Start MsgHandler in a seprate task.
     let message_task = Builder::new()
-        .name("Message Handler task")
+        .name("Message Handler")
         .spawn(handle_msg(rx, encoder, cipher))?;
 
     while let Some(packet) = decoder.next().await {
@@ -145,16 +147,11 @@ async fn handle_stream<S: Server>(
                 .await
                 .map_err(|e| Error::Other(e.to_string()));
             if let Err(e) = result {
-                match e {
-                    Error::SendError => {
-                        tracing::error!("Actor is dead, stopping task.");
-                        break;
-                    },
-                    _ => {
-                        tracing::error!(?e, "Got Error while sending error packet, stopping task.");
-                        break;
-                    },
-                }
+                tracing::error!(
+                    ?e,
+                    "Got Error while sending error packet, stopping task."
+                );
+                break;
             }
         }
     }

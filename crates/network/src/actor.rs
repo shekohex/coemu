@@ -61,6 +61,15 @@ impl From<(u16, Bytes)> for Message {
     fn from((id, bytes): (u16, Bytes)) -> Self { Self::Packet(id, bytes) }
 }
 
+impl<S> Drop for Actor<S>
+where
+    S: ActorState,
+{
+    fn drop(&mut self) {
+        tracing::info!(id = self.id(), "Actor Dropped");
+    }
+}
+
 #[async_trait]
 pub trait ActorState: Send + Sync + Sized {
     fn init() -> Self;

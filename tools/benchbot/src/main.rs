@@ -6,7 +6,7 @@ use std::env;
 
 use error::Error;
 use futures::stream::FuturesUnordered;
-use game::packets::{ActionType, TalkChannel, TalkStyle, self};
+use game::packets::{self, ActionType, TalkChannel, TalkStyle};
 use game::utils::LoHi;
 use game::{constants, utils};
 use rand::{Rng, SeedableRng};

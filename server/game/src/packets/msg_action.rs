@@ -321,8 +321,15 @@ impl MsgAction {
         let other = mymap.with_regions(|r| {
             r.iter().find_map(|r| r.try_character(self.data1))
         });
-        if let Some(other) = other {
+        if let Some(other) = other.and_then(|o| o.upgrade()) {
             let msg = super::MsgPlayer::from(other.as_ref());
+            actor.send(msg).await?;
+        } else {
+            let msg = super::MsgTalk::from_system(
+                me.id(),
+                TalkChannel::System,
+                "Player not found",
+            );
             actor.send(msg).await?;
         }
         Ok(())

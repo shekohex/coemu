@@ -83,9 +83,8 @@ pub async fn make_test_actor(
             .await?
             .expect("Failed to load character");
     let character = Character::new(actor.handle(), inner_character);
-    actor.set_character(character);
-    let screen = Screen::new(actor.handle(), actor.character());
-    actor.set_screen(screen);
+    let screen = Screen::new(actor.handle());
+    actor.update(character, screen);
     state.insert_character(actor.character());
     Ok(actor)
 }
