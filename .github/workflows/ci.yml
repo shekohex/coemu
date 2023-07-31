@@ -41,7 +41,7 @@ jobs:
           shared-key: "rust"
 
       - name: Fixtures Cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             data/GameMaps/GameMap.dat
