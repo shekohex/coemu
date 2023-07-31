@@ -24,81 +24,46 @@ pub enum ActionType {
     Teleport = 86,
     LevelUp = 92,
     XpClear = 93,
-    Revive = 94,
+    Reborn = 94,
     DelRole = 95,
     SetKillMode = 96,
     ConfirmGuild = 97,
     Mine = 99,
-    /// [101]
-    /// Data2 = TeamMemberId,
-    /// Data3Low = PositionX,
-    /// Data3High = PositionY
-    TeamMemberPos = 101,
+    /// Not sure of the name...
+    BotCheckA = 100,
     QueryEntity = 102,
-    AbortMagic = 103,
+    /// to client only
     MapARGB = 104,
-    MapStatus = 105,
-    /// [106]
-    /// Data3Low = PositionX,
-    /// Data3High = PositionY
     QueryTeamMember = 106,
-    Kickback = 108,
+    /// to client idUser is Player ID, unPosX unPosY is Player pos
+    KickBack = 108,
+    // to client only, data is magic type
     DropMagic = 109,
+    // to client only, data is weapon skill type
     DropSkill = 110,
-    /// [111]
-    /// Data2 = BoothId,
-    /// Data3Low = PositionX,
-    /// Data3High = PositionY,
-    /// Data4 = Direction
     CreateBooth = 111,
     SuspendBooth = 112,
     ResumeBooth = 113,
     LeaveBooth = 114,
     PostCommand = 116,
-    /// [117]
-    /// Data2 = TargetId
     QueryEquipment = 117,
     AbortTransform = 118,
-    EndFly = 120,
-    /// [121]
-    /// Data2
+    // CombineSubSyn = 119,
+    // idTargetSyn
+    TakeOff = 120,
     GetMoney = 121,
-    QueryEnemy = 123,
+    CancelKeepBow = 122,
+    QueryEnemyInfo = 123,
     OpenDialog = 126,
+    // FlashStatus = 127,
     LoginCompeleted = 130,
     LeaveMap = 132,
-    GroundJump = 133,
-    /// [134]
-    /// Data1 = EntityId,
-    /// Data3Low = PositionX,
-    /// Data3High = PositionY
-    SpawnEffect = 134,
-    /// [135]
-    /// Data1 = EntityId
-    RemoveEntity = 135,
-    Jump = 137,
-    TeleportReply = 138,
-    DeathConfirmation = 145,
-    /// [148]
-    /// Data1 = FriendId
-    QueryAssociateInfo = 148,
-    ChangeFace = 151,
-    ItemsDetained = 155,
-    NinjaStep = 156,
-    HideInterface = 158,
-    OpenUpgrade = 160,
-    /// [161]
-    /// Data1 = Mode (0=none,1=away)
-    AwayFromKeyboard = 161,
-    PathFinding = 162,
-    DragonBallDropped = 165,
-    TableState = 233,
-    TablePot = 234,
-    TablePlayerCount = 235,
-    /// [310]
-    /// Data2 = FriendId
-    QueryFriendEquip = 310,
-    QueryStatInfo = 408,
+    Jump = 133,
+    Ghost = 137,
+    Synchro = 138,
+    QueryFriendInfo = 140,
+    // QueryLeaveWord = 141,
+    ChangeFace = 142,
 }
 
 /// Message containing a general action being performed by the client. Commonly
@@ -432,7 +397,7 @@ impl PacketProcess for MsgAction {
             ActionType::LoginCompeleted => {
                 self.handle_login_completed(state, actor).await
             },
-            ActionType::GroundJump => self.handle_jump(state, actor).await,
+            ActionType::Jump => self.handle_jump(state, actor).await,
             ActionType::ChangeFacing => self.handle_change_facing(actor).await,
             ActionType::QueryEntity => {
                 self.handle_query_entity(state, actor).await

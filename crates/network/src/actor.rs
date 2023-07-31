@@ -66,7 +66,7 @@ where
     S: ActorState,
 {
     fn drop(&mut self) {
-        tracing::info!(id = self.id(), "Actor Dropped");
+        tracing::debug!(id = self.id(), "Actor Dropped");
     }
 }
 

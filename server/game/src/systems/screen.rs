@@ -1,6 +1,5 @@
 use crate::entities::BaseEntity;
 use crate::packets::{ActionType, MsgAction};
-use crate::utils::LoHi;
 use crate::world::Character;
 use crate::Error;
 use arc_swap::ArcSwapWeak;
@@ -67,7 +66,12 @@ impl Screen {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
+    /// This method adds the screen object specified in the parameter arguments
+    /// to the owner's screen. If the object already exists in the screen,
+    /// it will not be added and this method will return false. If the
+    /// screen object is being added, and the object is of type character, then
+    /// the owner will be added to the observer's screen as well.
+    #[tracing::instrument(skip(self, observer), fields(me = self.owner.id()))]
     pub fn insert_charcter(
         &self,
         observer: Weak<Character>,
@@ -95,12 +99,14 @@ impl Screen {
         }
     }
 
+    /// This method removes a screen object from the owner's screen without
+    /// using force. It will not remove the spawn. This method is used for
+    /// characters who are actively removing themselves out of the screen.
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub fn remove_character(&self, observer: u32) -> Result<bool, Error> {
         let observer_character =
             self.with_characters_mut(|c| c.remove(&observer));
-        if let Some(other) = observer_character {
-            let observer = other.upgrade().ok_or(Error::CharacterNotFound)?;
+        if let Some(observer) = observer_character.and_then(|c| c.upgrade()) {
             debug!(observer = observer.id(), "Removed from Screen");
             let Ok(observer_screen) = observer.try_screen() else {
                 return Ok(false);
@@ -114,22 +120,25 @@ impl Screen {
         }
     }
 
+    /// This method deletes a screen object from the owner's screen. It uses the
+    /// entity removal subtype from the general action packet to forcefully
+    /// remove the entity from the owner's screen. It returns false if
+    /// the character was never in the owner's screen to begin with.
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub async fn delete_character(&self, observer: u32) -> Result<bool, Error> {
-        let deleted = self.with_characters_mut(|c| c.remove(&observer));
-        if let Some(other) = deleted {
-            let observer = other.upgrade().ok_or(Error::CharacterNotFound)?;
-            let location = u32::constract(observer.y(), observer.x());
+        let deleted =
+            self.with_characters_mut(|c| c.remove(&observer).is_some());
+        if deleted {
             self.owner
                 .send(MsgAction::new(
-                    observer.id(),
-                    observer.map_id(),
-                    location,
-                    observer.direction() as u16,
-                    ActionType::RemoveEntity,
+                    observer,
+                    observer,
+                    0,
+                    0,
+                    ActionType::LeaveMap,
                 ))
                 .await?;
-            debug!(observer = observer.id(), "Deleted from Screen");
+            debug!(%observer, "Deleted from Screen");
             Ok(true)
         } else {
             Ok(false)
@@ -147,13 +156,12 @@ impl Screen {
             let iter = c.values().filter_map(|v| v.upgrade());
             for observer in iter {
                 debug!(observer = observer.id(), "Found Observer");
-                let observer_owner = observer.owner();
                 let Ok(observer_screen) = observer.try_screen() else {
                     continue;
                 };
                 let fut = async move {
                     observer_screen.delete_character(me_id).await?;
-                    Result::<_, Error>::Ok(observer_owner.id())
+                    Result::<_, Error>::Ok(observer.id())
                 };
                 futures.push(fut);
             }
@@ -176,10 +184,13 @@ impl Screen {
         self.with_characters_mut(|c| {
             c.retain(|_, v| v.upgrade().is_some());
         });
-
         Ok(())
     }
 
+    /// This method removes the owner from all observers. It makes use of the
+    /// delete method (general action subtype packet) to forcefully remove
+    /// the owner from each screen within the owner's screen distance.
+    /// It then respawns the character in the observers' screens.
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub async fn refresh_spawn_for_observers(&self) -> Result<(), Error> {
         let me = self.try_character()?;

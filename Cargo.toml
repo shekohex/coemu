@@ -39,7 +39,7 @@ once_cell = "1.4"
 bitflags = "2.3"
 argh = "0.1"
 tokio-stream = "0.1.8"
-parking_lot = "0.12.1"
+parking_lot = { version = "0.12.1", default-features = false, features = ["deadlock_detection"] }
 rand = "0.8"
 arc-swap = { version = "1.6", features = ["weak"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

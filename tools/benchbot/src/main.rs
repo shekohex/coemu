@@ -18,7 +18,7 @@ use tq_db::account::Account;
 use tq_db::realm::Realm;
 use tq_network::{PacketDecode, PacketEncode, PacketID};
 
-const NUM_OF_BOTS: i64 = 100;
+const NUM_OF_BOTS: i64 = 1200;
 const MAX_ACTION_DELAY: Duration = Duration::from_millis(300);
 
 #[tokio::main]
@@ -288,13 +288,13 @@ async fn do_random_stuff(
                 }
             };
             let mut jump = msg.clone();
-            jump.action_type = ActionType::GroundJump.into();
+            jump.action_type = ActionType::Jump.into();
             jump.data1 = u32::constract(y, x);
             // Simulate a delay before sending the packet
             tokio::time::sleep(MAX_ACTION_DELAY).await;
             encoder.send(jump.encode()?).await?;
         },
-        ActionType::GroundJump => {
+        ActionType::Jump => {
             // that was a valid move, now jump again.
             let (my_x, my_y) = (msg.data1.lo(), msg.data1.hi());
             // random x, y but not too far
