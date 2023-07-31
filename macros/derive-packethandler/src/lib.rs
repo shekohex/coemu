@@ -78,7 +78,7 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
         .iter()
         .find(|a| a.path().is_ident("handle"))
         .ok_or_else( ||
-            syn::Error::new(name.span(),"Missing ActorState! please add #[handle(state = .., actor_state = ...)] on the enum"),
+            syn::Error::new(name.span(),"Missing State and ActorState! please add #[handle(state = .., actor_state = ...)] on the enum"),
         )?;
     let args: Args = attr.parse_args()?;
     let state = args.state;
@@ -109,10 +109,10 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
 
 fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
     let vars = e.variants.into_iter().filter(|v| v.fields.is_empty());
-    let if_stms = vars.into_iter().map(|v| {
+    let match_stms = vars.into_iter().map(|v| {
         let ident = v.ident;
         quote! {
-            if packet.0 == #ident::id() {
+            #ident::PACKET_ID => {
                 let maybe_msg = <#ident as tq_network::PacketDecode>::decode(&packet.1);
                 match maybe_msg {
                     Ok(msg) => {
@@ -125,12 +125,16 @@ fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
                     }
                 }
                 return Ok(());
-            }
+            },
         }
     });
     let tokens = quote! {
-            #(#if_stms)*
-            tracing::warn!(id = %packet.0, "Got Unknown Packet");
+        match packet.0 {
+            #(#match_stms)*
+            _ => {
+                tracing::warn!(id = %packet.0, "Got Unknown Packet");
+            }
+        }
     };
     Ok(tokens)
 }

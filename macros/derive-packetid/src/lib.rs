@@ -46,7 +46,7 @@ fn derive_packet_id(input: DeriveInput) -> syn::Result<TokenStream> {
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
         impl #impl_generics tq_network::PacketID for #name #ty_generics #where_clause {
-            fn id() -> u16 { #id as u16 }
+            const PACKET_ID: u16 = #id;
         }
     };
     Ok(expanded.into())

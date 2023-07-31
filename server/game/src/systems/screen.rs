@@ -262,7 +262,7 @@ impl Screen {
     /// act as "send to all" method, this method sends a packet to
     /// each observing client in the owner's screen; however, if the player
     /// is invisible, the message packet will be sent, regardless.
-    #[tracing::instrument(skip(self, packet), fields(me = self.character.id(), packet_id = P::id()))]
+    #[tracing::instrument(skip(self, packet), fields(me = self.character.id(), packet_id = P::PACKET_ID))]
     pub async fn send_message<P>(&self, packet: P) -> Result<(), P::Error>
     where
         P: PacketEncode + PacketID + Clone,
@@ -301,7 +301,7 @@ impl Screen {
     /// owner will send the movement packet to it. If the observer is not
     /// within the new screen distance, the method will attempt to remove it
     /// from the owner's screen.
-    #[tracing::instrument(skip(self, state, packet), fields(me = self.character.id(), packet_id = P::id()))]
+    #[tracing::instrument(skip(self, state, packet), fields(me = self.character.id(), packet_id = P::PACKET_ID))]
     pub async fn send_movement<P>(
         &self,
         state: &crate::State,

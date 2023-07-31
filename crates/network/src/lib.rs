@@ -19,8 +19,7 @@ mod server;
 pub use server::Server;
 
 pub trait PacketID {
-    /// Get the ID of that packet.
-    fn id() -> u16;
+    const PACKET_ID: u16;
 }
 
 #[async_trait]
@@ -81,7 +80,7 @@ where
     type Packet = T;
 
     fn encode(&self) -> Result<(u16, Bytes), Self::Error> {
-        let id = Self::id();
+        let id = Self::PACKET_ID;
         let bytes = tq_serde::to_bytes(&self)?;
         Ok((id, bytes.freeze()))
     }
@@ -100,7 +99,7 @@ where
 }
 
 impl PacketID for () {
-    fn id() -> u16 { 0 }
+    const PACKET_ID: u16 = 0;
 }
 
 pub struct ErrorPacket<T: PacketEncode>(pub T);
