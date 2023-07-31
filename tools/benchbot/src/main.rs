@@ -18,7 +18,7 @@ use tq_db::account::Account;
 use tq_db::realm::Realm;
 use tq_network::{PacketDecode, PacketEncode, PacketID};
 
-const NUM_OF_BOTS: i64 = 120;
+const NUM_OF_BOTS: i64 = 100;
 const MAX_ACTION_DELAY: Duration = Duration::from_millis(300);
 
 #[tokio::main]
@@ -31,6 +31,7 @@ async fn main() -> Result<(), Error> {
     let state = state::State::init().await?;
     let accounts = create_or_get_accounts(&state).await?;
     let maybe_realm = Realm::by_name(state.pool(), "CoEmu").await?;
+    let local_ip = local_ip_address::local_ip().expect("local ip");
     // Check if there is a realm with that name
     let realm = match maybe_realm {
         Some(realm) => realm,
@@ -44,9 +45,9 @@ async fn main() -> Result<(), Error> {
         let state = state.clone();
         let task = tokio::spawn(async move {
             // Try to connect to that realm's RPC first.
-            let ip = realm.game_ip_address.as_str();
+            // let ip = realm.game_ip_address.as_str();
             let port = realm.game_port;
-            let stream = TcpStream::connect(format!("{ip}:{port}")).await;
+            let stream = TcpStream::connect(format!("{local_ip}:{port}")).await;
             let stream = match stream {
                 Ok(s) => s,
                 Err(e) => {

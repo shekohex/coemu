@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 use std::ops::Deref;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio::sync::mpsc;
+use tokio::task::Builder;
 use tokio_stream::wrappers::{ReceiverStream, TcpListenerStream};
 use tokio_stream::StreamExt;
 use tq_codec::{TQCodec, TQEncoder};
@@ -53,7 +54,7 @@ pub trait Server: Sized + Send + Sync {
     {
         let listener = TcpListener::bind(addr).await?;
         let static_state = &*Box::leak(Box::new(state));
-        let main_loop_task = tokio::spawn(async {
+        let main_loop_task = Builder::new().name("Server Main Loop").spawn(async {
             let mut incoming = TcpListenerStream::new(listener);
             tracing::trace!("Starting Server main loop");
             tracing::info!("Server is Ready for New Connections.");
@@ -77,7 +78,7 @@ pub trait Server: Sized + Send + Sync {
                         continue;
                     },
                 };
-                tokio::spawn(async {
+                Builder::new().name("TCP Stream Task").spawn(async {
                     tracing::trace!("Calling on_connected lifetime hook");
                     Self::on_connected(static_state, stream.peer_addr()?)
                         .await?;
@@ -93,10 +94,10 @@ pub trait Server: Sized + Send + Sync {
                     Self::on_disconnected(static_state, actor).await?;
                     tracing::debug!("Task Ended.");
                     Result::<_, Error>::Ok(())
-                });
+                })?;
             }
             Result::<_, Error>::Ok(())
-        });
+        })?;
         let ctrl_c = tokio::signal::ctrl_c();
         tokio::select! {
             _ = ctrl_c => {
@@ -130,7 +131,9 @@ async fn handle_stream<S: Server>(
     let cipher = S::Cipher::default();
     let (encoder, mut decoder) = TQCodec::new(stream, cipher.clone()).split();
     // Start MsgHandler in a seprate task.
-    let message_task = tokio::spawn(handle_msg(rx, encoder, cipher));
+    let message_task = Builder::new()
+        .name("Message Handler task")
+        .spawn(handle_msg(rx, encoder, cipher))?;
 
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
