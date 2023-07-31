@@ -206,7 +206,7 @@ impl MsgAction {
             return Ok(());
         }
 
-        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
+        let mymap = state.try_map(me.map_id())?;
         let within_elevation = mymap.sample_elevation(
             (me.x(), me.y()),
             (new_x, new_y),
@@ -282,7 +282,7 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let me = actor.character();
-        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
+        let mymap = state.try_map(me.map_id())?;
         let other = mymap.with_regions(|r| {
             r.iter().find_map(|r| r.try_character(self.data1))
         });
@@ -321,15 +321,12 @@ impl MsgAction {
             return Ok(());
         }
         dbg!(portal_x, portal_y);
-        let mymap = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
+        let mymap = state.try_map(me.map_id())?;
         let maybe_portal = mymap.portals().iter().find(|p| {
             tq_math::in_circle((me.x(), me.y(), 5), (p.from_x(), p.from_y()))
         });
         if let Some(portal) = maybe_portal {
-            let portal_map = state
-                .maps()
-                .get(&portal.to_map_id())
-                .ok_or(Error::MapNotFound)?;
+            let portal_map = state.try_map(portal.to_map_id())?;
             portal_map.insert_character(me.clone()).await?;
             me.teleport(
                 state,

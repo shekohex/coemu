@@ -103,7 +103,7 @@ impl MsgTalk {
     }
 
     pub fn login_invalid() -> Self {
-        Self::from_system(0, TalkChannel::Login, String::from("Login Invalid"))
+        Self::from_system(0, TalkChannel::Login, "Login Invalid")
     }
 
     pub fn register_invalid() -> Self {

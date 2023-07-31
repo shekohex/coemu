@@ -36,10 +36,8 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::Teleport(info) => {
-            let old_map =
-                state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
-            let map =
-                state.maps().get(&info.map_id).ok_or(Error::MapNotFound)?;
+            let old_map = state.try_map(me.map_id())?;
+            let map = state.try_map(info.map_id)?;
             me.teleport(state, info.map_id, (info.x, info.y)).await?;
             map.insert_character(me.clone()).await?;
             old_map.remove_character(&me)?;
@@ -75,8 +73,7 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::FixPortal(fix) => {
-            let mymap =
-                state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
+            let mymap = state.try_map(me.map_id())?;
             let maybe_portal = mymap.portals().iter().find(|p| {
                 tq_math::in_circle(
                     (me.x(), me.y(), 10),
@@ -89,7 +86,7 @@ pub async fn parse_and_execute(
                     .send(MsgTalk::from_system(
                         me.id(),
                         TalkChannel::System,
-                        String::from("Portal Updated!"),
+                        "Portal Updated!",
                     ))
                     .await?;
             } else {
@@ -97,7 +94,7 @@ pub async fn parse_and_execute(
                     .send(MsgTalk::from_system(
                         me.id(),
                         TalkChannel::System,
-                        String::from("No Portals Near Your Current Location"),
+                        "No Portals Near Your Current Location",
                     ))
                     .await?;
             }

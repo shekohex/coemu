@@ -56,7 +56,7 @@ impl PacketProcess for MsgWalk {
         );
         let x = current_location.0.wrapping_add(offset.0);
         let y = current_location.1.wrapping_add(offset.1);
-        let map = state.maps().get(&me.map_id()).ok_or(Error::MapNotFound)?;
+        let map = state.try_map(me.map_id())?;
         match map.tile(x, y) {
             Some(tile) if tile.access > TileType::Npc => {
                 // The packet is valid. Assign character data:
@@ -72,7 +72,7 @@ impl PacketProcess for MsgWalk {
                 let msg = MsgTalk::from_system(
                     me.id(),
                     TalkChannel::TopLeft,
-                    String::from("Invalid Location"),
+                    "Invalid Location",
                 );
                 actor.send(msg).await?;
                 me.kick_back().await?;

@@ -3,6 +3,8 @@ use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tq_network::{ErrorPacket, PacketEncode};
 
+use crate::packets::MsgTalk;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
@@ -79,6 +81,105 @@ impl PacketEncode for Error {
     fn encode(&self) -> Result<(u16, Bytes), Self::Error> {
         match self {
             Self::Msg(id, bytes) => Ok((*id, bytes.clone())),
+            Self::MapNotFound => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::TopLeft,
+                    "Map not found!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::MapRegionNotFound => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::TopLeft,
+                    "Map Region not found!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::LoginTokenNotFound => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::Login,
+                    "Login Token not found!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::CreationTokenNotFound => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::Register,
+                    "Creation Token not found!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::RealmNotFound => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::Login,
+                    "Realm not found!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::CharacterNotFound => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::TopLeft,
+                    "Character not found!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::ScreenNotFound => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::TopLeft,
+                    "Screen not found!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::TileNotFound(x, y) => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::TopLeft,
+                    format!("Map Tile Not found at ({}, {})!", x, y),
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::InvalidSceneFileName => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::TopLeft,
+                    "Invalid Scene File Name!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::InvalidBodyType => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::Register,
+                    "Invalid Body Type!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
+            Self::InvalidClass => {
+                let msg = MsgTalk::from_system(
+                    0,
+                    crate::packets::TalkChannel::Register,
+                    "Invalid Class!",
+                );
+                let (id, bytes) = msg.encode()?;
+                Ok((id, bytes))
+            },
             e => Err(Self::Other(e.to_string())),
         }
     }
