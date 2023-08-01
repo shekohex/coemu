@@ -142,11 +142,14 @@ impl MsgAction {
     #[tracing::instrument(skip_all)]
     async fn handle_map_argb(
         &self,
+        state: &State,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let mut res = self.clone();
         let character = actor.character();
-        res.data1 = 0x00FF_FFFF;
+        let map_id = character.map_id();
+        let map = state.try_map(map_id)?;
+        res.data1 = map.color as _;
         res.data2 = u32::constract(character.y(), character.x());
         actor.send(res).await?;
         Ok(())
@@ -310,6 +313,7 @@ impl MsgAction {
         let portal_y = self.data1.hi();
         let me = actor.character();
         if !tq_math::in_screen((me.x(), me.y()), (portal_x, portal_y)) {
+            // TODO: Jail for using Portal Hack.
             debug!(
                 "Bad Location ({}, {}) -> ({}, {}) > 18",
                 portal_x,
@@ -320,7 +324,6 @@ impl MsgAction {
             me.kick_back().await?;
             return Ok(());
         }
-        dbg!(portal_x, portal_y);
         let mymap = state.try_map(me.map_id())?;
         let maybe_portal = mymap.portals().iter().find(|p| {
             tq_math::in_circle((me.x(), me.y(), 5), (p.from_x(), p.from_y()))
@@ -359,7 +362,7 @@ impl PacketProcess for MsgAction {
             ActionType::SendLocation => {
                 self.handle_send_location(state, actor).await
             },
-            ActionType::MapARGB => self.handle_map_argb(actor).await,
+            ActionType::MapARGB => self.handle_map_argb(state, actor).await,
             ActionType::LeaveBooth => {
                 self.handle_leave_booth(state, actor).await
             },

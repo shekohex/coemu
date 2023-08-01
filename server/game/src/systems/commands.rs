@@ -72,61 +72,6 @@ pub async fn parse_and_execute(
             }
             Ok(())
         },
-        SubCommands::FixPortal(fix) => {
-            let mymap = state.try_map(me.map_id())?;
-            let maybe_portal = mymap.portals().iter().find(|p| {
-                tq_math::in_circle(
-                    (me.x(), me.y(), 10),
-                    (p.from_x(), p.from_y()),
-                )
-            });
-            if let Some(portal) = maybe_portal {
-                portal.fix(state.pool(), me.x(), me.y()).await?;
-                actor
-                    .send(MsgTalk::from_system(
-                        me.id(),
-                        TalkChannel::System,
-                        "Portal Updated!",
-                    ))
-                    .await?;
-            } else {
-                actor
-                    .send(MsgTalk::from_system(
-                        me.id(),
-                        TalkChannel::System,
-                        "No Portals Near Your Current Location",
-                    ))
-                    .await?;
-            }
-
-            if let Some(pos) = fix.tele {
-                let maybe_portal = mymap.portals().iter().nth(pos as usize);
-                if let Some(portal) = maybe_portal {
-                    me.teleport(
-                        state,
-                        portal.from_map_id(),
-                        (portal.from_x() - 5, portal.from_y() - 5),
-                    )
-                    .await?;
-                    actor
-                        .send(MsgTalk::from_system(
-                            me.id(),
-                            TalkChannel::System,
-                            format!("Teleported to Portal {}", pos),
-                        ))
-                        .await?;
-                } else {
-                    actor
-                        .send(MsgTalk::from_system(
-                            me.id(),
-                            TalkChannel::System,
-                            format!("No Portals at {} try {}", pos, pos - 1),
-                        ))
-                        .await?;
-                }
-            }
-            Ok(())
-        },
         SubCommands::JumpBack(_) => {
             me.kick_back().await?;
             Ok(())
@@ -148,7 +93,6 @@ enum SubCommands {
     Which(WhichCmd),
     Teleport(TeleportCmd),
     JumpBack(JumpBackCmd),
-    FixPortal(FixPortalCmd),
 }
 
 /// Disconnect From Server
@@ -183,13 +127,4 @@ struct TeleportCmd {
     /// teleport all characters with you
     #[argh(option, default = "false")]
     all: bool,
-}
-
-/// Fix Nearnest Portal
-#[derive(Debug, Clone, PartialEq, FromArgs)]
-#[argh(subcommand, name = "fix")]
-struct FixPortalCmd {
-    /// teleport you to the nth portal
-    #[argh(positional)]
-    tele: Option<u8>,
 }

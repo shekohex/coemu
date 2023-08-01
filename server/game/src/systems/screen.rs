@@ -138,7 +138,7 @@ impl Screen {
                     ActionType::LeaveMap,
                 ))
                 .await?;
-            debug!(%observer, "Deleted from Screen");
+            tracing::trace!(%observer, "Deleted from Screen");
             Ok(true)
         } else {
             Ok(false)
@@ -155,7 +155,7 @@ impl Screen {
         self.with_characters(|c| {
             let iter = c.values().filter_map(|v| v.upgrade());
             for observer in iter {
-                debug!(observer = observer.id(), "Found Observer");
+                tracing::trace!(observer = observer.id(), "Found Observer");
                 let Ok(observer_screen) = observer.try_screen() else {
                     continue;
                 };
@@ -171,7 +171,7 @@ impl Screen {
             .for_each_concurrent(None, |res| async {
                match res {
                    Ok(observer) => {
-                       debug!(observer = observer, "Removed from Observer's Screen");
+                       tracing::trace!(observer = observer, "Removed from Observer's Screen");
                    },
                    Err(e) => {
                        tracing::error!(error = ?e, "Failed to delete from screen");
@@ -218,7 +218,7 @@ impl Screen {
             .for_each_concurrent(None, |res| async {
                 match res {
                     Ok(observer) => {
-                        debug!(%observer, "Refreshed Spawn");
+                        tracing::trace!(%observer, "Refreshed Spawn");
                     },
                     Err(e) => {
                         tracing::error!(error = ?e, "Failed to refresh spawn");
@@ -250,7 +250,7 @@ impl Screen {
         let myreagions = mymap.surrunding_regions(me.x(), me.y());
         let futures = FuturesUnordered::new();
         for region in myreagions {
-            debug!(%region, "Loading Surroundings");
+            tracing::trace!(%region, "Loading Surroundings");
             region.with_characters(|c| {
                 let iter = c.values().filter_map(|v| v.upgrade());
                 for observer in iter {
@@ -270,7 +270,7 @@ impl Screen {
                         let added =
                             self.insert_charcter(Arc::downgrade(&observer))?;
                         if added {
-                            debug!(
+                            tracing::trace!(
                                 observer = observer.id(),
                                 "Loaded Into Screen"
                             );
@@ -359,7 +359,7 @@ impl Screen {
         let myreagions = mymap.surrunding_regions(me.x(), me.y());
         let futures = FuturesUnordered::new();
         for region in myreagions {
-            debug!(%region, "Sending Movement");
+            tracing::trace!(%region, "Sending Movement");
             region.with_characters(|c| {
                 // For each possible observer on the region:
                 let iter = c.values().filter_map(|v| v.upgrade());
@@ -384,7 +384,7 @@ impl Screen {
                                 .insert_charcter(Arc::downgrade(&observer))?;
                             // new, let's exchange spawn packets
                             if added {
-                                debug!(
+                                tracing::trace!(
                                     observer = observer.id(),
                                     "Loaded Into Screen",
                                 );
@@ -414,7 +414,7 @@ impl Screen {
                             let removed =
                                 observer_screen.remove_character(me.id())?;
                             if removed {
-                                debug!(
+                                tracing::trace!(
                                     observer = observer_id,
                                     "UnLoaded Screen"
                                 );
@@ -426,7 +426,7 @@ impl Screen {
                             }
                             let removed = self.remove_character(observer_id)?;
                             if removed {
-                                debug!(
+                                tracing::trace!(
                                     observer = observer_id,
                                     "Removed from Screen"
                                 );
