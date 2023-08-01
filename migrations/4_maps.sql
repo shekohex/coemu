@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS maps(
+    map_id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL,
+    revive_point_x INTEGER NOT NULL,
+    revive_point_y INTEGER NOT NULL,
+    flags INTEGER NOT NULL DEFAULT 0,
+    weather INTEGER NOT NULL DEFAULT 0,
+    reborn_map INTEGER NOT NULL DEFAULT 0,
+    color INTEGER NOT NULL DEFAULT 4294967295
+);
