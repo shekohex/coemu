@@ -2,9 +2,11 @@
 name = "gamemap-decoder"
 version = "0.1.0"
 authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
-edition = "2018"
-
+edition.workspace = true
 
 [dependencies]
-dotenv = "0.15"
-bytes = "1.1"
+dotenvy.workspace = true
+bytes.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+csv = "1"
