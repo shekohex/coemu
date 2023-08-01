@@ -9,6 +9,9 @@ pub struct Map {
     pub revive_point_x: i32,
     pub revive_point_y: i32,
     pub flags: i32,
+    pub weather: i8,
+    pub reborn_map: i32,
+    pub color: i32,
 }
 
 impl Map {
@@ -42,33 +45,5 @@ impl Map {
                 .fetch_optional(pool)
                 .await?;
         Ok(maybe_map)
-    }
-
-    /// Save the map into the database, update it if it is already exists.
-    pub async fn save(self, pool: &SqlitePool) -> Result<i32, Error> {
-        sqlx::query(
-            "
-            INSERT INTO maps 
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT (map_id)
-            DO UPDATE SET
-              path = ?,
-              revive_point_x = ?,
-              revive_point_y = ?,
-              flags = ?;
-          ",
-        )
-        .bind(self.map_id)
-        .bind(&self.path)
-        .bind(self.revive_point_x)
-        .bind(self.revive_point_y)
-        .bind(self.flags)
-        .bind(&self.path)
-        .bind(self.revive_point_x)
-        .bind(self.revive_point_y)
-        .bind(self.flags)
-        .execute(pool)
-        .await?;
-        Ok(self.map_id)
     }
 }
