@@ -1,11 +1,10 @@
 use crate::utils::LoHi;
 use std::hash::Hash;
 use std::ops::Deref;
-use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Portal {
-    inner: Arc<tq_db::portal::Portal>,
+    inner: tq_db::portal::Portal,
 }
 
 impl Deref for Portal {
@@ -15,11 +14,7 @@ impl Deref for Portal {
 }
 
 impl Portal {
-    pub fn new(inner: tq_db::portal::Portal) -> Self {
-        Self {
-            inner: Arc::new(inner),
-        }
-    }
+    pub fn new(inner: tq_db::portal::Portal) -> Self { Self { inner } }
 
     pub fn uid(&self) -> u32 { self.inner.id as u32 }
 
@@ -50,18 +45,5 @@ impl Eq for Portal {}
 impl Hash for Portal {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         state.write_u32(self.id());
-    }
-}
-
-/// Used to access portal from a map
-impl From<(u16, u16)> for Portal {
-    fn from((x, y): (u16, u16)) -> Self {
-        Self {
-            inner: Arc::new(tq_db::portal::Portal {
-                from_x: x as i16,
-                from_y: y as i16,
-                ..Default::default()
-            }),
-        }
     }
 }
