@@ -1,5 +1,5 @@
 use super::{MsgTalk, TalkChannel};
-use crate::packets::MsgWeather;
+use crate::packets::{MsgMapInfo, MsgWeather};
 use crate::state::State;
 use crate::systems::TileType;
 use crate::{utils, ActorState, Error};
@@ -114,6 +114,7 @@ impl MsgAction {
                 res.data2 = u32::constract(character.y(), character.x());
                 mymap.insert_character(character).await?;
                 actor.send(res).await?;
+                actor.send(MsgMapInfo::from_map(mymap)).await?;
                 if mymap.weather != 0 {
                     actor
                         .send(MsgWeather::new((mymap.weather as u32).into()))

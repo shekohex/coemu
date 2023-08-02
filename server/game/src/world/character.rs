@@ -1,6 +1,7 @@
 use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
 use crate::packets::{
-    ActionType, MsgAction, MsgPlayer, MsgTalk, MsgWeather, TalkChannel,
+    ActionType, MsgAction, MsgMapInfo, MsgPlayer, MsgTalk, MsgWeather,
+    TalkChannel,
 };
 use crate::systems::Screen;
 use crate::utils::LoHi;
@@ -151,6 +152,7 @@ impl Character {
             self.owner
                 .send(MsgWeather::new((new_map.weather as u32).into()))
                 .await?;
+            self.owner.send(MsgMapInfo::from_map(new_map)).await?;
         } else {
             tracing::warn!("Invalid Map");
             self.owner

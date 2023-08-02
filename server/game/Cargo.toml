@@ -33,7 +33,7 @@ futures.workspace = true
 arc-swap.workspace = true
 parking_lot.workspace = true
 
-bitflags = "2.3"
+bitflags = { version = "2.3", features = ["serde"] }
 argh = "0.1"
 
 # Utils

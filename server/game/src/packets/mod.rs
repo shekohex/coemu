@@ -33,3 +33,6 @@ pub use msg_data::MsgData;
 
 mod msg_weather;
 pub use msg_weather::{MsgWeather, WeatherKind};
+
+mod msg_map_info;
+pub use msg_map_info::{MapFlags, MsgMapInfo};
