@@ -1,5 +1,7 @@
 use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
-use crate::packets::{ActionType, MsgAction, MsgPlayer, MsgTalk, TalkChannel};
+use crate::packets::{
+    ActionType, MsgAction, MsgPlayer, MsgTalk, MsgWeather, TalkChannel,
+};
 use crate::systems::Screen;
 use crate::utils::LoHi;
 use crate::{constants, Error};
@@ -146,6 +148,9 @@ impl Character {
             self.set_x(x).set_y(y).set_map_id(map_id);
             self.set_elevation(tile.elevation);
             self.owner.send(msg).await?;
+            self.owner
+                .send(MsgWeather::new((new_map.weather as u32).into()))
+                .await?;
         } else {
             tracing::warn!("Invalid Map");
             self.owner

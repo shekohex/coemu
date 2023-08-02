@@ -14,7 +14,6 @@ use std::ops::Deref;
 use std::sync::{Arc, Weak};
 use tq_math::SCREEN_DISTANCE;
 use tq_network::{PacketEncode, PacketID};
-use tracing::debug;
 
 type Characters = RwLock<HashMap<u32, Weak<Character>>>;
 type Portals = HashSet<Portal>;
@@ -137,7 +136,7 @@ impl Map {
         if self.loaded() {
             return Ok(());
         }
-        debug!("Loading into memory");
+        tracing::trace!("Loading into memory");
         self.floor.load().await?;
         let map_size = self.floor.boundaries();
         let region_size = MapRegion::SIZE;
@@ -169,16 +168,16 @@ impl Map {
         assert_eq!(regions.len(), number_of_regions as usize);
         let mut lock = self.regions.write();
         *lock = regions;
-        debug!("Map Loaded into memory");
+        tracing::trace!("Map Loaded into memory");
         Ok(())
     }
 
     #[tracing::instrument(skip_all, fields(map_id = self.id()))]
     pub fn unload(&self) -> Result<(), Error> {
-        debug!("Unload from memory");
+        tracing::trace!("Unload from memory");
         self.floor.unload();
         *self.regions.write() = Vec::new();
-        debug!("Unloaded from memory");
+        tracing::trace!("Unloaded from memory");
         Ok(())
     }
 
