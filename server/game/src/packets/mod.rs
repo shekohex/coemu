@@ -30,3 +30,6 @@ pub use msg_item_info::*;
 
 mod msg_data;
 pub use msg_data::MsgData;
+
+mod msg_weather;
+pub use msg_weather::{MsgWeather, WeatherKind};

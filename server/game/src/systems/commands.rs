@@ -76,6 +76,11 @@ pub async fn parse_and_execute(
             me.kick_back().await?;
             Ok(())
         },
+        SubCommands::Weather(weather) => {
+            let map = state.try_map(me.map_id())?;
+            map.change_weather(weather.kind.into()).await?;
+            Ok(())
+        },
     }
 }
 
@@ -93,6 +98,7 @@ enum SubCommands {
     Which(WhichCmd),
     Teleport(TeleportCmd),
     JumpBack(JumpBackCmd),
+    Weather(WeatherCmd),
 }
 
 /// Disconnect From Server
@@ -127,4 +133,13 @@ struct TeleportCmd {
     /// teleport all characters with you
     #[argh(option, default = "false")]
     all: bool,
+}
+
+/// Change the current map's weather
+#[derive(Debug, Clone, PartialEq, FromArgs)]
+#[argh(subcommand, name = "weather")]
+struct WeatherCmd {
+    /// weather type
+    #[argh(positional)]
+    kind: u32,
 }

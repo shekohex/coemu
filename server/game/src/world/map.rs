@@ -1,7 +1,11 @@
 use super::{Character, Portal};
+use crate::entities::BaseEntity;
+use crate::packets::{MsgWeather, WeatherKind};
 use crate::systems::{Floor, Tile};
 use crate::{constants, Error};
 use core::fmt;
+use futures::stream::FuturesUnordered;
+use futures::{StreamExt, TryFutureExt};
 use num_enum::{FromPrimitive, IntoPrimitive};
 use parking_lot::RwLock;
 use primitives::{Point, Size};
@@ -9,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
 use tq_math::SCREEN_DISTANCE;
+use tq_network::{PacketEncode, PacketID};
 use tracing::debug;
 
 type Characters = RwLock<HashMap<u32, Weak<Character>>>;
@@ -283,6 +288,46 @@ impl Map {
             },
         }
     }
+
+    /// act as "send to all" method, this method sends a packet to
+    /// all characters inside this map.
+    ///
+    /// Internally, this method will iterate over all regions and call
+    /// the `broadcast` method on each region.
+    #[tracing::instrument(skip(self, packet), fields(map_id = self.id(), packet_id = P::PACKET_ID))]
+    pub async fn broadcast<P>(&self, packet: P) -> Result<(), P::Error>
+    where
+        P: PacketEncode + PacketID + Clone,
+    {
+        let futs = FuturesUnordered::new();
+        self.with_regions(|regions| {
+            let regions = regions.iter().filter(|r| !r.is_empty()).cloned();
+            for region in regions {
+                let p = packet.clone();
+                let f = async move { region.broadcast(p).await };
+                futs.push(f);
+            }
+        });
+        // await all futures to complete.
+        futs.for_each_concurrent(None, |res| async {
+            match res {
+                Ok(_) => {},
+                Err(e) => {
+                    tracing::error!(error = ?e, "Failed to broadcast packet");
+                },
+            }
+        })
+        .await;
+        Ok(())
+    }
+
+    pub async fn change_weather(
+        &self,
+        weather: WeatherKind,
+    ) -> Result<(), Error> {
+        let msg = MsgWeather::new(weather);
+        self.broadcast(msg).map_err(Into::into).await
+    }
 }
 
 /// A region or a block is a set of the map which will hold a collection with
@@ -303,12 +348,9 @@ impl PartialEq for MapRegion {
 }
 impl fmt::Display for MapRegion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let width = (self.map_size.width as f32 / Self::SIZE.width as f32)
-            .ceil() as u32;
-        let Point { x, y } = self.start_point;
-        let i = x * width + y;
+        let id = self.id();
         let n = self.with_characters(|c| c.len());
-        write!(f, "Region #{i} with {n} characters")
+        write!(f, "Region #{id} with {n} characters")
     }
 }
 
@@ -323,6 +365,13 @@ impl MapRegion {
             map_size,
             characters: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    pub fn id(&self) -> usize {
+        let width = (self.map_size.width as f32 / Self::SIZE.width as f32)
+            .ceil() as u32;
+        let Point { x, y } = self.start_point;
+        (x * width + y) as usize
     }
 
     pub fn is_empty(&self) -> bool { self.with_characters(|c| c.is_empty()) }
@@ -353,6 +402,27 @@ impl MapRegion {
 
     pub fn remove_character(&self, id: u32) -> Option<Weak<Character>> {
         self.with_characters_mut(|c| c.remove(&id))
+    }
+
+    #[tracing::instrument(skip(self, packet), fields(region_id = self.id(), packet_id = P::PACKET_ID))]
+    pub async fn broadcast<P>(&self, packet: P) -> Result<(), P::Error>
+    where
+        P: PacketEncode + PacketID + Clone,
+    {
+        let futs = FuturesUnordered::new();
+        self.with_characters(|characters| {
+            for character in characters.values() {
+                let p = packet.clone();
+                let Some(owner) = character.upgrade().map(|c| c.owner()) else {
+                    continue;
+                };
+                let f = async move { owner.send(p).await };
+                futs.push(f);
+            }
+        });
+        // await all futures to complete.
+        futs.for_each_concurrent(None, |_| async {}).await;
+        Ok(())
     }
 }
 
