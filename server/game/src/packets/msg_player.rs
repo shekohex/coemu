@@ -41,23 +41,24 @@ pub struct MsgPlayer {
     pub character_name: String,
 }
 
-impl<'a> From<&'a Character> for MsgPlayer {
-    fn from(c: &'a Character) -> Self {
+impl From<&Character> for MsgPlayer {
+    fn from(c: &Character) -> Self {
+        let loc = c.entity().location();
         Self {
             character_id: c.id() as i32,
             character_id2: c.id() as i32,
-            mesh: (c.mesh() + (c.avatar() as u32 * 10_000)) as i32,
-            health_points: c.hp(),
+            mesh: (c.entity().mesh() + (c.avatar() as u32 * 10_000)) as i32,
+            health_points: c.entity().hp().current(),
             hair_style: c.hair_style() as i16,
-            level: c.level() as i16,
-            level2: c.level() as i16,
-            x: c.x(),
-            y: c.y(),
+            level: c.entity().level() as i16,
+            level2: c.entity().level() as i16,
+            x: loc.x,
+            y: loc.y,
+            direction: loc.direction,
             list_count: 1,
-            character_name: c.name(),
-            status_flags: c.flags().bits() as i64,
-            direction: c.direction(),
-            action: c.action() as u8,
+            character_name: c.entity().name().to_owned(),
+            status_flags: c.entity().flags().bits() as i64,
+            action: c.entity().action() as u8,
             ..Default::default()
         }
     }

@@ -1,16 +1,14 @@
 use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
 use crate::packets::{
-    ActionType, MsgAction, MsgMapInfo, MsgPlayer, MsgTalk, MsgWeather,
-    TalkChannel,
+    ActionType, MsgAction, MsgMapInfo, MsgPlayer, MsgWeather,
 };
 use crate::systems::Screen;
 use crate::utils::LoHi;
-use crate::{constants, Error};
+use crate::Error;
 use arc_swap::ArcSwapWeak;
-use std::ops::Deref;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::{Arc, Weak};
-use tq_network::{ActorHandle, IntoErrorPacket};
+use tq_network::ActorHandle;
 
 /// This struct encapsulates the game character for a player. The player
 /// controls the character as the protagonist of the Conquer Online storyline.
@@ -26,25 +24,9 @@ pub struct Character {
     screen: ArcSwapWeak<Screen>,
 }
 
-impl Deref for Character {
-    type Target = Entity;
-
-    fn deref(&self) -> &Self::Target { &self.entity }
-}
-
 impl Character {
     pub fn new(owner: ActorHandle, inner: tq_db::character::Character) -> Self {
-        let entity = Entity::new(
-            inner.character_id as u32 + constants::CHARACTER_BASE_ID,
-            inner.name.clone(),
-        );
-        entity
-            .set_x(inner.x as u16)
-            .set_y(inner.y as u16)
-            .set_map_id(inner.map_id as u32)
-            .set_level(inner.level as u16)
-            .set_action(100)
-            .set_mesh(inner.mesh as u32);
+        let entity = Entity::from(&inner);
         Self {
             entity,
             owner,
@@ -62,13 +44,20 @@ impl Character {
         self.screen.load().upgrade().ok_or(Error::ScreenNotFound)
     }
 
+    #[inline]
+    pub fn owner(&self) -> ActorHandle { self.owner.clone() }
+
+    #[inline]
+    pub fn entity(&self) -> &Entity { &self.entity }
+
+    #[inline]
+    pub fn id(&self) -> u32 { self.entity.id() }
+
     pub fn elevation(&self) -> u16 { self.elevation.load(Ordering::Relaxed) }
 
     pub fn set_elevation(&self, value: u16) {
         self.elevation.store(value, Ordering::Relaxed);
     }
-
-    pub fn hp(&self) -> u16 { self.inner.health_points as u16 }
 
     pub fn hair_style(&self) -> u16 { self.inner.hair_style as u16 }
 
@@ -103,70 +92,56 @@ impl Character {
     pub fn rebirths(&self) -> u8 { self.inner.rebirths as u8 }
 
     pub async fn kick_back(&self) -> Result<(), Error> {
-        let location = u32::constract(self.y(), self.x());
+        let location = self.entity.location();
+        let xy = u32::constract(location.y, location.x);
         let msg = MsgAction::new(
-            self.id(),
-            self.map_id(),
-            location,
-            self.direction() as u16,
+            self.entity.id(),
+            self.entity.map_id(),
+            xy,
+            location.direction as u16,
             ActionType::Teleport,
         );
         self.owner.send(msg).await?;
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, state), fields(me = self.id()))]
+    #[tracing::instrument(skip(self, state), fields(me = self.entity.id()))]
     pub async fn teleport(
         &self,
         state: &crate::State,
         map_id: u32,
         (x, y): (u16, u16),
     ) -> Result<(), Error> {
-        let location = u32::constract(y, x);
+        let mut location = self.entity.location();
+        let xy = u32::constract(y, x);
         let msg = MsgAction::new(
-            self.id(),
+            self.entity.id(),
             map_id,
-            location,
-            self.direction() as u16,
+            xy,
+            location.direction as u16,
             ActionType::Teleport,
         );
-        if let Ok(new_map) = state.try_map(map_id) {
-            new_map.load().await?;
-            let tile = new_map.tile(x, y).ok_or_else(|| {
-                tracing::warn!("Invalid Location");
-                MsgTalk::from_system(
-                    self.id(),
-                    TalkChannel::TopLeft,
-                    String::from("Invalid Location"),
-                )
-                .error_packet()
-            })?;
-            // remove from old map
-            if let Ok(old_map) = state.try_map(self.map_id()) {
-                old_map.remove_character(self)?;
-                self.try_screen()?.remove_from_observers().await?;
-            }
-            self.set_x(x).set_y(y).set_map_id(map_id);
-            self.set_elevation(tile.elevation);
-            self.owner.send(msg).await?;
-            self.owner
-                .send(MsgWeather::new((new_map.weather as u32).into()))
-                .await?;
-            self.owner.send(MsgMapInfo::from_map(new_map)).await?;
-        } else {
-            tracing::warn!("Invalid Map");
-            self.owner
-                .send(MsgTalk::from_system(
-                    self.id(),
-                    TalkChannel::TopLeft,
-                    format!("Invalid Map {map_id}"),
-                ))
-                .await?;
+        let new_map = state.try_map(map_id)?;
+        new_map.load().await?;
+        let tile = new_map.tile(x, y).ok_or(Error::TileNotFound(x, y))?;
+        // remove from old map
+        if let Ok(old_map) = state.try_map(self.entity.map_id()) {
+            old_map.remove_character(self)?;
+            self.try_screen()?.remove_from_observers().await?;
         }
+        location.x = x;
+        location.y = y;
+        self.entity.set_location(location).set_map_id(map_id);
+        self.set_elevation(tile.elevation);
+        self.owner.send(msg).await?;
+        self.owner
+            .send(MsgWeather::new((new_map.weather as u32).into()))
+            .await?;
+        self.owner.send(MsgMapInfo::from_map(new_map)).await?;
         Ok(())
     }
 
-    #[tracing::instrument(skip_all, fields(me = self.id()))]
+    #[tracing::instrument(skip_all, fields(me = self.entity.id()))]
     pub async fn exchange_spawn_packets(
         &self,
         observer: impl BaseEntity,
@@ -176,14 +151,15 @@ impl Character {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, state), fields(me = self.id()))]
+    #[tracing::instrument(skip(self, state), fields(me = self.entity.id()))]
     pub async fn save(&self, state: &crate::State) -> Result<(), Error> {
+        let location = self.entity.location();
         let e = tq_db::character::Character {
             character_id: self.inner.character_id,
             account_id: self.inner.account_id,
             realm_id: self.inner.realm_id,
-            name: self.name(),
-            mesh: self.mesh() as _,
+            name: self.entity.name().to_string(),
+            mesh: self.entity.mesh() as _,
             avatar: self.avatar() as _,
             hair_style: self.hair_style() as _,
             silver: self.silver() as _,
@@ -191,11 +167,11 @@ impl Character {
             current_class: self.current_class() as _,
             previous_class: self.previous_class() as _,
             rebirths: self.rebirths() as _,
-            level: self.level() as _,
+            level: self.entity.level() as _,
             experience: self.experience() as _,
-            map_id: self.map_id() as _,
-            x: self.x() as _,
-            y: self.y() as _,
+            map_id: self.entity.map_id() as _,
+            x: location.x as _,
+            y: location.y as _,
             virtue: self.inner.virtue,
             strength: self.strength() as _,
             agility: self.agility() as _,
@@ -217,7 +193,7 @@ impl BaseEntity for Character {
 
     fn entity_type(&self) -> EntityTypeFlag { EntityTypeFlag::PLAYER }
 
-    #[tracing::instrument(skip(self, to), fields(me = self.id()))]
+    #[tracing::instrument(skip(self, to), fields(me = self.entity.id()))]
     async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {
         let msg = MsgPlayer::from(self);
         to.send(msg).await?;

@@ -44,9 +44,9 @@ impl PacketProcess for MsgConnect {
         match maybe_character {
             Some(character) => {
                 let me = Character::new(actor.handle(), character);
+                let mymap_id = me.entity().map_id();
                 let screen = Screen::new(actor.handle());
                 let msg = MsgUserInfo::from(&me);
-                let mymap_id = me.map_id();
                 actor.update(me, screen);
                 let mymap = state
                     .try_map(mymap_id)

@@ -5,10 +5,11 @@ use crate::systems::TileType;
 use crate::{utils, ActorState, Error};
 use async_trait::async_trait;
 use num_enum::{FromPrimitive, IntoPrimitive};
+use primitives::Location;
 use serde::{Deserialize, Serialize};
 use tq_network::{Actor, PacketID, PacketProcess};
-use tracing::{debug, warn};
 use utils::LoHi;
+
 #[derive(Debug, FromPrimitive, IntoPrimitive)]
 #[repr(u16)]
 pub enum ActionType {
@@ -108,10 +109,12 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let mut res = self.clone();
         let character = actor.character();
-        match state.try_map(character.map_id()) {
+        let map_id = character.entity().map_id();
+        let location = character.entity().location();
+        match state.try_map(map_id) {
             Ok(mymap) => {
-                res.data1 = character.map_id();
-                res.data2 = u32::constract(character.y(), character.x());
+                res.data1 = map_id;
+                res.data2 = u32::constract(location.y, location.x);
                 mymap.insert_character(character).await?;
                 actor.send(res).await?;
                 actor.send(MsgMapInfo::from_map(mymap)).await?;
@@ -124,13 +127,14 @@ impl MsgAction {
                 screen.load_surroundings(state).await?;
             },
             Err(_) => {
-                warn!(
+                tracing::warn!(
                     character_id = character.id(),
-                    map_id = character.map_id(),
+                    %map_id,
                     "map not found",
                 );
                 // Set default map and location.
-                character.set_map_id(1002).set_x(430).set_y(378);
+                let location = Location::new(430, 378, 0);
+                character.entity().set_map_id(1002).set_location(location);
                 actor
                     .send(MsgTalk::from_system(
                         character.id(),
@@ -154,10 +158,11 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let mut res = self.clone();
         let character = actor.character();
-        let map_id = character.map_id();
+        let map_id = character.entity().map_id();
+        let location = character.entity().location();
         let map = state.try_map(map_id)?;
         res.data1 = map.color as _;
-        res.data2 = u32::constract(character.y(), character.x());
+        res.data2 = u32::constract(location.y, location.x);
         actor.send(res).await?;
         Ok(())
     }
@@ -197,48 +202,40 @@ impl MsgAction {
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
         let me = actor.character();
+        let loc = me.entity().location();
+        let mymap_id = me.entity().map_id();
         // Starting to validate this jump.
-        if current_x != me.x() || current_y != me.y() {
-            debug!(%current_x, %current_y, my_x = %me.x(), my_y = %me.y(),"Bad Jump Packet");
+        if current_x != loc.x || current_y != loc.y {
+            tracing::debug!(%current_x, %current_y, %loc.x, %loc.y, "Bad Jump Packet");
             me.kick_back().await?;
             return Ok(());
         }
 
-        if !tq_math::in_screen((me.x(), me.y()), (new_x, new_y)) {
-            debug!(
-                "Bad Location ({}, {}) -> ({}, {}) > 18",
-                new_x,
-                new_y,
-                me.x(),
-                me.y()
-            );
+        if !tq_math::in_screen((loc.x, loc.y), (new_x, new_y)) {
+            tracing::debug!(%loc.x, %loc.y, %new_x, %new_y, "Bad Location Distance > 18");
             me.kick_back().await?;
             return Ok(());
         }
 
-        let mymap = state.try_map(me.map_id())?;
+        let mymap = state.try_map(mymap_id)?;
         let within_elevation = mymap.sample_elevation(
-            (me.x(), me.y()),
+            (loc.x, loc.y),
             (new_x, new_y),
             me.elevation(),
         );
         if !within_elevation {
-            debug!(
-                "Cannot jump that high. new elevation {} diff > 210",
-                me.elevation()
-            );
+            tracing::debug!(%loc.x, %loc.y, %new_x, %new_y, "Elevation diff > 210");
             me.kick_back().await?;
             return Ok(());
         }
 
         let direction =
-            tq_math::get_direction_sector((me.x(), me.y()), (new_x, new_y));
+            tq_math::get_direction_sector((loc.x, loc.y), (new_x, new_y));
         match mymap.tile(new_x, new_y) {
             Some(tile) if tile.access > TileType::Npc => {
                 // I guess everything seems to be valid .. send the jump.
-                me.set_x(new_x)
-                    .set_y(new_y)
-                    .set_direction(direction)
+                me.entity()
+                    .set_location(Location::new(new_x, new_y, direction))
                     .set_action(100);
                 me.set_elevation(tile.elevation);
                 mymap.update_region_for(me.clone());
@@ -255,7 +252,7 @@ impl MsgAction {
                 );
                 actor.send(msg).await?;
                 me.kick_back().await?;
-                tracing::debug!(id = %me.id(), x = %me.x(), y = %me.y(), %new_x, %new_y, "Invalid Location");
+                tracing::debug!(id = %me.id(), %loc.x, %loc.y, %new_x, %new_y, "Invalid Location");
                 return Ok(());
             },
         };
@@ -270,15 +267,17 @@ impl MsgAction {
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
         let me = actor.character();
+        let mut loc = me.entity().location();
 
         // Starting to validate this action.
-        if current_x != me.x() || current_y != me.y() {
+        if current_x != loc.x || current_y != loc.y {
             // Kick Back.
             me.kick_back().await?;
             return Ok(());
         }
 
-        me.set_direction(self.details as u8);
+        loc.direction = self.details as u8;
+        me.entity().set_location(loc);
         actor.send(self.clone()).await?;
         let myscreen = actor.screen();
         myscreen.send_message(self.clone()).await?;
@@ -292,7 +291,8 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let me = actor.character();
-        let mymap = state.try_map(me.map_id())?;
+        let mymap_id = me.entity().map_id();
+        let mymap = state.try_map(mymap_id)?;
         let other = mymap.with_regions(|r| {
             r.iter().find_map(|r| r.try_character(self.data1))
         });
@@ -319,35 +319,34 @@ impl MsgAction {
         let portal_x = self.data1.lo();
         let portal_y = self.data1.hi();
         let me = actor.character();
-        if !tq_math::in_screen((me.x(), me.y()), (portal_x, portal_y)) {
+        let loc = me.entity().location();
+        let mymap_id = me.entity().map_id();
+        if !tq_math::in_screen((loc.x, loc.y), (portal_x, portal_y)) {
             // TODO: Jail for using Portal Hack.
-            debug!(
-                "Bad Location ({}, {}) -> ({}, {}) > 18",
-                portal_x,
-                portal_y,
-                me.x(),
-                me.y()
-            );
+            tracing::debug!(%portal_x, %portal_y, %loc.x, %loc.y, "Using Portal Hack");
             me.kick_back().await?;
             return Ok(());
         }
-        let mymap = state.try_map(me.map_id())?;
+        let mymap = state.try_map(mymap_id)?;
         let maybe_portal = mymap.portals().iter().find(|p| {
-            tq_math::in_circle((me.x(), me.y(), 5), (p.from_x(), p.from_y()))
+            tq_math::in_circle((loc.x, loc.y, 5), (p.from_x(), p.from_y()))
         });
-        if let Some(portal) = maybe_portal {
-            let portal_map = state.try_map(portal.to_map_id())?;
-            portal_map.insert_character(me.clone()).await?;
-            me.teleport(
-                state,
-                portal.to_map_id(),
-                (portal.to_x(), portal.to_y()),
-            )
-            .await?;
-            mymap.remove_character(&me)?;
-        } else {
-            me.teleport(state, me.map_id(), (me.prev_x(), me.prev_y()))
+        match maybe_portal {
+            Some(portal) => {
+                let portal_map = state.try_map(portal.to_map_id())?;
+                portal_map.insert_character(me.clone()).await?;
+                me.teleport(
+                    state,
+                    portal.to_map_id(),
+                    (portal.to_x(), portal.to_y()),
+                )
                 .await?;
+                mymap.remove_character(&me)?;
+            },
+            None => {
+                tracing::debug!(%portal_x, %portal_y, %loc.x, %loc.y, "Portal not found");
+                me.kick_back().await?;
+            },
         }
         Ok(())
     }
@@ -422,7 +421,11 @@ impl PacketProcess for MsgAction {
                 actor.send(p).await?;
                 let res = self.clone();
                 actor.send(res).await?;
-                warn!("Missing Action Type {:?} = {}", ty, self.action_type);
+                tracing::warn!(
+                    "Missing Action Type {:?} = {}",
+                    ty,
+                    self.action_type
+                );
                 Ok(())
             },
         }

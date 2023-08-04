@@ -1,6 +1,6 @@
+use bytemuck::NoUninit;
 use core::fmt;
 use num_traits::PrimInt;
-use std::sync::atomic::{AtomicU16, AtomicU8};
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
 pub struct Size<I: PrimInt> {
@@ -36,16 +36,78 @@ impl<I: PrimInt + fmt::Display> fmt::Display for Point<I> {
     }
 }
 
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, NoUninit)]
+#[repr(C, align(8))]
 pub struct Location {
+    /// Entity X coordinate
     pub x: u16,
+    /// Entity Y coordinate
     pub y: u16,
+    /// Entity direction
     pub direction: u8,
+
+    /// Padding to align to 8 bytes
+    _padding: [u8; 3],
 }
 
-#[derive(Debug, Default)]
-pub struct AtomicLocation {
-    pub x: AtomicU16,
-    pub y: AtomicU16,
-    pub direction: AtomicU8,
+impl fmt::Debug for Location {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Location")
+            .field("x", &self.x)
+            .field("y", &self.y)
+            .field("direction", &self.direction)
+            .finish()
+    }
+}
+
+impl Location {
+    pub fn new(x: u16, y: u16, direction: u8) -> Self {
+        Self {
+            x,
+            y,
+            direction,
+            _padding: [0; 3],
+        }
+    }
+}
+
+/// A Gauge is a value that can be incremented and decremented, but never
+/// exceeds a maximum value.
+///
+/// Gauges are used to represent health, mana, and stamina.
+#[derive(
+    Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, NoUninit,
+)]
+#[repr(C, align(4))]
+pub struct Gauge {
+    /// Current value
+    pub current: u16,
+    /// Maximum value
+    pub max: u16,
+}
+
+impl Gauge {
+    pub fn new(current: u16, max: u16) -> Self { Self { current, max } }
+
+    pub fn full(max: u16) -> Self { Self { current: max, max } }
+
+    pub fn current(&self) -> u16 { self.current }
+
+    pub fn max(&self) -> u16 { self.max }
+
+    pub fn make_full(&mut self) { self.current = self.max }
+
+    pub fn is_full(&self) -> bool { self.current == self.max }
+
+    pub fn is_empty(&self) -> bool { self.current == 0 }
+
+    pub fn increment(&mut self, amount: u16) {
+        self.current = (self.current + amount).min(self.max);
+    }
+
+    pub fn decrement(&mut self, amount: u16) {
+        self.current = self.current.saturating_sub(amount);
+    }
+
+    pub fn set(&mut self, value: u16) { self.current = value.min(self.max); }
 }

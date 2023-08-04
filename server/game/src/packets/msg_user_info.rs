@@ -65,11 +65,11 @@ impl Default for MsgUserInfo {
     }
 }
 
-impl<'a> From<&'a Character> for MsgUserInfo {
-    fn from(c: &'a Character) -> Self {
+impl From<&Character> for MsgUserInfo {
+    fn from(c: &Character) -> Self {
         Self {
             character_id: c.id(),
-            mesh: (c.mesh() + (c.avatar() as u32 * 10_000)),
+            mesh: (c.entity().mesh() + (c.avatar() as u32 * 10_000)),
             hair_style: c.hair_style(),
             silver: c.silver() as u32,
             cps: c.cps() as u32,
@@ -84,13 +84,13 @@ impl<'a> From<&'a Character> for MsgUserInfo {
             health_points: c.health_points(),
             mana_points: c.mana_points(),
             kill_points: c.kill_points(),
-            level: c.level() as u8,
+            level: c.entity().level() as u8,
             current_class: c.current_class(),
             previous_class: c.previous_class(),
             rebirths: c.rebirths(),
             show_name: true,
             list_count: 2,
-            character_name: c.name(),
+            character_name: c.entity().name().to_owned(),
             spouse: "None".to_owned(),
         }
     }

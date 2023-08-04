@@ -246,8 +246,9 @@ impl Screen {
     ) -> Result<(), Error> {
         // Load Players from the Map
         let me = &self.try_character()?;
-        let mymap = state.try_map(me.map_id())?;
-        let myreagions = mymap.surrunding_regions(me.x(), me.y());
+        let mymap = state.try_map(me.entity().map_id())?;
+        let loc = me.entity().location();
+        let myreagions = mymap.surrunding_regions(loc.x, loc.y);
         let futures = FuturesUnordered::new();
         for region in myreagions {
             tracing::trace!(%region, "Loading Surroundings");
@@ -258,9 +259,10 @@ impl Screen {
                     if is_myself {
                         continue;
                     }
+                    let observer_loc = observer.entity().location();
                     let in_screen = tq_math::in_screen(
-                        (observer.x(), observer.y()),
-                        (me.x(), me.y()),
+                        (observer_loc.x, observer_loc.y),
+                        (loc.x, loc.y),
                     );
                     if !in_screen {
                         continue;
@@ -355,8 +357,9 @@ impl Screen {
         P: PacketEncode + PacketID + Clone + Send + Sync + 'static,
     {
         let me = &self.try_character()?;
-        let mymap = state.try_map(me.map_id())?;
-        let myreagions = mymap.surrunding_regions(me.x(), me.y());
+        let mymap = state.try_map(me.entity().map_id())?;
+        let loc = me.entity().location();
+        let myreagions = mymap.surrunding_regions(loc.x, loc.y);
         let futures = FuturesUnordered::new();
         for region in myreagions {
             tracing::trace!(%region, "Sending Movement");
@@ -372,9 +375,10 @@ impl Screen {
                     }
                     // If the character is in screen, make sure it's in the
                     // owner's screen:
+                    let observer_loc = observer.entity().location();
                     let in_screen = tq_math::in_screen(
-                        (observer.x(), observer.y()),
-                        (me.x(), me.y()),
+                        (observer_loc.x, observer_loc.y),
+                        (loc.x, loc.y),
                     );
                     if in_screen {
                         let packet = packet.clone();

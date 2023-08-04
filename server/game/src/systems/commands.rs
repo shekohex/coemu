@@ -36,7 +36,7 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::Teleport(info) => {
-            let old_map = state.try_map(me.map_id())?;
+            let old_map = state.try_map(me.entity().map_id())?;
             let map = state.try_map(info.map_id)?;
             me.teleport(state, info.map_id, (info.x, info.y)).await?;
             map.insert_character(me.clone()).await?;
@@ -57,7 +57,7 @@ pub async fn parse_and_execute(
         },
         SubCommands::Which(which) => {
             if which.map {
-                let map_id = me.map_id();
+                let map_id = me.entity().map_id();
                 actor
                     .send(MsgTalk::from_system(
                         me.id(),
@@ -77,7 +77,7 @@ pub async fn parse_and_execute(
             Ok(())
         },
         SubCommands::Weather(weather) => {
-            let map = state.try_map(me.map_id())?;
+            let map = state.try_map(me.entity().map_id())?;
             map.change_weather(weather.kind.into()).await?;
             Ok(())
         },

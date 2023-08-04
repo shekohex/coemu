@@ -4,6 +4,7 @@ use crate::systems::TileType;
 use crate::{ActorState, Error};
 use async_trait::async_trait;
 use num_enum::FromPrimitive;
+use primitives::Location;
 use serde::{Deserialize, Serialize};
 use tq_network::{Actor, PacketID, PacketProcess};
 
@@ -49,19 +50,20 @@ impl PacketProcess for MsgWalk {
     ) -> Result<(), Self::Error> {
         let direction = (self.direction % 8) as usize;
         let me = actor.character();
-        let current_location = (me.x(), me.y());
+        let current_location = me.entity().location();
         let offset = (
             (WALK_XCOORDS[direction] as u16),
             (WALK_YCOORDS[direction] as u16),
         );
-        let x = current_location.0.wrapping_add(offset.0);
-        let y = current_location.1.wrapping_add(offset.1);
-        let map = state.try_map(me.map_id())?;
+        let x = current_location.x.wrapping_add(offset.0);
+        let y = current_location.y.wrapping_add(offset.1);
+        let map = state.try_map(me.entity().map_id())?;
         match map.tile(x, y) {
             Some(tile) if tile.access > TileType::Npc => {
                 // The packet is valid. Assign character data:
                 // Send the movement back to the message server and client:
-                me.set_x(x).set_y(y).set_direction(direction as u8);
+                me.entity()
+                    .set_location(Location::new(x, y, direction as _));
                 me.set_elevation(tile.elevation);
                 actor.send(self.clone()).await?;
                 map.update_region_for(me.clone());

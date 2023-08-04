@@ -210,7 +210,8 @@ impl Map {
     #[tracing::instrument(skip(self, character), fields(map_id = self.id(), character_id = character.id()))]
     pub fn remove_character(&self, character: &Character) -> Result<(), Error> {
         // Remove the player from the current map
-        let region = self.region(character.x(), character.y());
+        let loc = character.entity().location();
+        let region = self.region(loc.x, loc.y);
         if let Some(region) = region {
             region.remove_character(character.id());
         }
@@ -260,8 +261,10 @@ impl Map {
 
     #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
     pub fn update_region_for(&self, me: Arc<Character>) {
-        let region = self.region(me.x(), me.y());
-        let old_region = self.region(me.prev_x(), me.prev_y());
+        let loc = me.entity().location();
+        let prev_loc = me.entity().prev_location();
+        let region = self.region(loc.x, loc.y);
+        let old_region = self.region(prev_loc.x, prev_loc.y);
         match (region, old_region) {
             (Some(region), Some(old_region)) if region != old_region => {
                 region.insert_character(me.clone());
@@ -278,10 +281,10 @@ impl Map {
             },
             (None, None) => {
                 tracing::warn!(
-                    x = me.x(),
-                    y = me.y(),
-                    prev_x = me.prev_x(),
-                    prev_y = me.prev_y(),
+                    %loc.x,
+                    %loc.y,
+                    %prev_loc.x,
+                    %prev_loc.y,
                     "Can not find a suitable region for character"
                 )
             },
@@ -345,6 +348,7 @@ impl Eq for MapRegion {}
 impl PartialEq for MapRegion {
     fn eq(&self, other: &Self) -> bool { self.start_point == other.start_point }
 }
+
 impl fmt::Display for MapRegion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let id = self.id();

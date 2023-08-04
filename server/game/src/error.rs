@@ -184,3 +184,7 @@ impl PacketEncode for Error {
         }
     }
 }
+
+impl From<Error> for tq_network::Error {
+    fn from(v: Error) -> Self { Self::Other(v.to_string()) }
+}

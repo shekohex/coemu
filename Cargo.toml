@@ -43,6 +43,8 @@ tokio-stream = "0.1.8"
 parking_lot = { version = "0.12.1", default-features = false, features = [] }
 rand = "0.8"
 arc-swap = { version = "1.6", features = ["weak"] }
+atomic = "0.6"
+bytemuck = { version = "1.13", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 num_enum = { version = "0.6", default-features = false }
 bcrypt = "0.15"

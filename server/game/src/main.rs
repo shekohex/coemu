@@ -6,7 +6,6 @@
 //! server as well.
 
 use async_trait::async_trait;
-use futures::TryFutureExt;
 use std::env;
 use tq_network::{Actor, ActorState as _, PacketHandler, Server, TQCipher};
 
@@ -29,25 +28,13 @@ impl Server for GameServer {
         actor: Actor<Self::ActorState>,
     ) -> Result<(), tq_network::Error> {
         if let Ok(me) = actor.try_character() {
-            me.save(state)
-                .map_err(|e| tq_network::Error::Other(e.to_string()))
-                .await?;
-            me.try_screen()
-                .map_err(|e| tq_network::Error::Other(e.to_string()))?
-                .remove_from_observers()
-                .map_err(|e| tq_network::Error::Other(e.to_string()))
-                .await?;
+            let mymap_id = me.entity().map_id();
+            me.save(state).await?;
+            me.try_screen()?.remove_from_observers().await?;
             ActorState::dispose(&actor, actor.handle()).await?;
             state.remove_character(me.id());
-            let mymap = state.try_map(me.map_id()).map_err(|_| {
-                tq_network::Error::Other(format!(
-                    "Map {} not found!",
-                    me.map_id()
-                ))
-            })?;
-            mymap
-                .remove_character(&me)
-                .map_err(|e| tq_network::Error::Other(e.to_string()))?;
+            let mymap = state.try_map(mymap_id)?;
+            mymap.remove_character(&me)?;
         }
         let _ = actor.shutdown().await;
         Ok(())

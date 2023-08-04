@@ -6,3 +6,4 @@ edition.workspace = true
 
 [dependencies]
 num-traits = "0.2"
+bytemuck.workspace = true
