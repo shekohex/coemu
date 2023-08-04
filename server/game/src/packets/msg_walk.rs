@@ -49,7 +49,8 @@ impl PacketProcess for MsgWalk {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         let direction = (self.direction % 8) as usize;
-        let me = actor.character();
+        let entity = actor.entity();
+        let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let current_location = me.entity().location();
         let offset = (
             (WALK_XCOORDS[direction] as u16),
@@ -66,7 +67,7 @@ impl PacketProcess for MsgWalk {
                     .set_location(Location::new(x, y, direction as _));
                 me.set_elevation(tile.elevation);
                 actor.send(self.clone()).await?;
-                map.update_region_for(me.clone());
+                map.update_region_for(actor.entity());
                 let myscreen = actor.screen();
                 myscreen.send_movement(state, self.clone()).await?;
             },

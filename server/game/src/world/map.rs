@@ -1,21 +1,22 @@
-use super::{Character, Portal};
-use crate::entities::BaseEntity;
-use crate::packets::{MsgWeather, WeatherKind};
-use crate::systems::{Floor, Tile};
-use crate::{constants, Error};
 use core::fmt;
 use futures::stream::FuturesUnordered;
 use futures::{StreamExt, TryFutureExt};
 use num_enum::{FromPrimitive, IntoPrimitive};
 use parking_lot::RwLock;
-use primitives::{Point, Size};
+use primitives::{Location, Point, Size};
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::{Arc, Weak};
 use tq_math::SCREEN_DISTANCE;
 use tq_network::{PacketEncode, PacketID};
 
-type Characters = RwLock<HashMap<u32, Weak<Character>>>;
+use super::Portal;
+use crate::entities::GameEntity;
+use crate::packets::{MsgWeather, WeatherKind};
+use crate::systems::{Floor, Tile};
+use crate::{constants, Error};
+
+type Entities = RwLock<HashMap<u32, Weak<GameEntity>>>;
 type Portals = HashSet<Portal>;
 type MapRegions = RwLock<Vec<MapRegion>>;
 
@@ -186,40 +187,31 @@ impl Map {
         self.floor.loaded() && !self.regions.read().is_empty()
     }
 
-    /// This method adds the client specified in the parameters to the map pool.
-    /// It does this by removing the player from the previous map, then
-    /// adding it to the current map. As the character is added, its map,
-    /// current tile, and current elevation are changed.
-    #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
-    pub async fn insert_character(
-        &self,
-        me: Arc<Character>,
-    ) -> Result<(), Error> {
+    /// Insert an entity into the map. If the map is not loaded in memory, it
+    /// will be loaded.
+    #[tracing::instrument(skip_all, fields(map_id = self.id(), entity_id = e.id()))]
+    pub async fn insert_entity(&self, e: Arc<GameEntity>) -> Result<(), Error> {
         // if the map is not loaded in memory, load it.
         if !self.loaded() {
             self.load().await?;
         }
-        // Add the player to the current map
-        self.update_region_for(me);
+        self.update_region_for(e);
         Ok(())
     }
 
-    /// This method removes the client specified in the parameters from the map.
-    /// If the screen of the character still exists, it will remove the
-    /// character from each observer's screen.
-    #[tracing::instrument(skip(self, character), fields(map_id = self.id(), character_id = character.id()))]
-    pub fn remove_character(&self, character: &Character) -> Result<(), Error> {
-        // Remove the player from the current map
-        let loc = character.entity().location();
-        let region = self.region(loc.x, loc.y);
+    #[tracing::instrument(skip(self, e), fields(map_id = self.id(), entity_id = e.id()))]
+    pub fn remove_entity(&self, e: &GameEntity) -> Result<(), Error> {
+        self.remove_entity_by_id_and_location(e.id(), e.basic().location())
+    }
+
+    pub fn remove_entity_by_id_and_location(
+        &self,
+        id: u32,
+        Location { x, y, .. }: Location,
+    ) -> Result<(), Error> {
+        let region = self.region(x, y);
         if let Some(region) = region {
-            region.remove_character(character.id());
-        }
-        // No One in this map?
-        let is_empty = self.with_regions(|r| r.iter().all(|r| r.is_empty()));
-        if is_empty {
-            // Unload the map from the wrold.
-            self.unload()?;
+            region.remove_entity(id);
         }
         Ok(())
     }
@@ -259,25 +251,25 @@ impl Map {
         true
     }
 
-    #[tracing::instrument(skip_all, fields(map_id = self.id(), character_id = me.id()))]
-    pub fn update_region_for(&self, me: Arc<Character>) {
-        let loc = me.entity().location();
-        let prev_loc = me.entity().prev_location();
+    #[tracing::instrument(skip_all, fields(map_id = self.id(), entity_id = e.as_ref().id()))]
+    pub fn update_region_for(&self, e: Arc<GameEntity>) {
+        let loc = e.basic().location();
+        let prev_loc = e.basic().prev_location();
         let region = self.region(loc.x, loc.y);
         let old_region = self.region(prev_loc.x, prev_loc.y);
         match (region, old_region) {
             (Some(region), Some(old_region)) if region != old_region => {
-                region.insert_character(me.clone());
-                old_region.remove_character(me.id());
+                region.insert_entity(e.clone());
+                old_region.remove_entity(e.id());
             },
             (Some(_), Some(_)) => {
                 // it is the same region, do nothing
             },
             (Some(region), None) => {
-                region.insert_character(me.clone());
+                region.insert_entity(e.clone());
             },
             (None, Some(old_region)) => {
-                old_region.remove_character(me.id());
+                old_region.remove_entity(e.id());
             },
             (None, None) => {
                 tracing::warn!(
@@ -341,7 +333,7 @@ impl Map {
 pub struct MapRegion {
     start_point: Point<u32>,
     map_size: Size<i32>,
-    characters: Arc<Characters>,
+    entities: Arc<Entities>,
 }
 
 impl Eq for MapRegion {}
@@ -352,7 +344,7 @@ impl PartialEq for MapRegion {
 impl fmt::Display for MapRegion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let id = self.id();
-        let n = self.with_characters(|c| c.len());
+        let n = self.with_entities(|c| c.len());
         write!(f, "Region #{id} with {n} characters")
     }
 }
@@ -366,7 +358,7 @@ impl MapRegion {
         Self {
             start_point,
             map_size,
-            characters: Arc::new(RwLock::new(HashMap::new())),
+            entities: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -377,34 +369,34 @@ impl MapRegion {
         (x * width + y) as usize
     }
 
-    pub fn is_empty(&self) -> bool { self.with_characters(|c| c.is_empty()) }
+    pub fn is_empty(&self) -> bool { self.with_entities(|c| c.is_empty()) }
 
-    pub fn try_character(&self, id: u32) -> Option<Weak<Character>> {
-        self.with_characters(|c| c.get(&id).cloned())
+    pub fn try_entities(&self, id: u32) -> Option<Weak<GameEntity>> {
+        self.with_entities(|c| c.get(&id).cloned())
     }
 
-    pub fn with_characters<F, R>(&self, f: F) -> R
+    pub fn with_entities<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&HashMap<u32, Weak<Character>>) -> R,
+        F: FnOnce(&HashMap<u32, Weak<GameEntity>>) -> R,
     {
-        f(&self.characters.read())
+        f(&self.entities.read())
     }
 
-    pub fn with_characters_mut<F, R>(&self, f: F) -> R
+    pub fn with_entities_mut<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&mut HashMap<u32, Weak<Character>>) -> R,
+        F: FnOnce(&mut HashMap<u32, Weak<GameEntity>>) -> R,
     {
-        f(&mut self.characters.write())
+        f(&mut self.entities.write())
     }
 
-    pub fn insert_character(&self, character: Arc<Character>) {
-        self.with_characters_mut(|c| {
-            c.insert(character.id(), Arc::downgrade(&character))
+    pub fn insert_entity(&self, entity: Arc<GameEntity>) {
+        self.with_entities_mut(|c| {
+            c.insert(entity.id(), Arc::downgrade(&entity))
         });
     }
 
-    pub fn remove_character(&self, id: u32) -> Option<Weak<Character>> {
-        self.with_characters_mut(|c| c.remove(&id))
+    pub fn remove_entity(&self, id: u32) -> Option<Weak<GameEntity>> {
+        self.with_entities_mut(|c| c.remove(&id))
     }
 
     #[tracing::instrument(skip(self, packet), fields(region_id = self.id(), packet_id = P::PACKET_ID))]
@@ -413,10 +405,11 @@ impl MapRegion {
         P: PacketEncode + PacketID + Clone,
     {
         let futs = FuturesUnordered::new();
-        self.with_characters(|characters| {
-            for character in characters.values() {
+        self.with_entities(|entities| {
+            for character in entities.values() {
                 let p = packet.clone();
-                let Some(owner) = character.upgrade().map(|c| c.owner()) else {
+                let Some(owner) = character.upgrade().and_then(|c| c.owner())
+                else {
                     continue;
                 };
                 let f = async move { owner.send(p).await };

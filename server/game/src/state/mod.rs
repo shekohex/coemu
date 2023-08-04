@@ -1,4 +1,5 @@
-use crate::world::{Character, Map};
+use crate::entities::Character;
+use crate::world::Map;
 use crate::Error;
 use parking_lot::{Mutex, RwLock};
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};

@@ -1,4 +1,4 @@
-use crate::entities::{BaseEntity, Entity, EntityTypeFlag};
+use crate::entities::{Entity, GameEntity};
 use crate::packets::{
     ActionType, MsgAction, MsgMapInfo, MsgPlayer, MsgWeather,
 };
@@ -126,7 +126,10 @@ impl Character {
         let tile = new_map.tile(x, y).ok_or(Error::TileNotFound(x, y))?;
         // remove from old map
         if let Ok(old_map) = state.try_map(self.entity.map_id()) {
-            old_map.remove_character(self)?;
+            old_map.remove_entity_by_id_and_location(
+                self.id(),
+                self.entity().location(),
+            )?;
             self.try_screen()?.remove_from_observers().await?;
         }
         location.x = x;
@@ -142,12 +145,19 @@ impl Character {
     }
 
     #[tracing::instrument(skip_all, fields(me = self.entity.id()))]
-    pub async fn exchange_spawn_packets(
+    pub async fn exchange_spawn_packets<E: AsRef<GameEntity>>(
         &self,
-        observer: impl BaseEntity,
+        observer: &E,
     ) -> Result<(), Error> {
-        self.send_spawn(&observer.owner()).await?;
-        observer.send_spawn(&self.owner).await?;
+        match observer.as_ref() {
+            GameEntity::Character(c) => {
+                self.send_spawn(&c.owner()).await?;
+                c.send_spawn(&self.owner).await?;
+            },
+            _ => {
+                // We only exchange spawn packets with characters
+            },
+        }
         Ok(())
     }
 
@@ -185,16 +195,12 @@ impl Character {
         e.update(state.pool()).await?;
         Ok(())
     }
-}
-
-#[async_trait::async_trait]
-impl BaseEntity for Character {
-    fn owner(&self) -> ActorHandle { self.owner.clone() }
-
-    fn entity_type(&self) -> EntityTypeFlag { EntityTypeFlag::PLAYER }
 
     #[tracing::instrument(skip(self, to), fields(me = self.entity.id()))]
-    async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {
+    pub(super) async fn send_spawn(
+        &self,
+        to: &ActorHandle,
+    ) -> Result<(), Error> {
         let msg = MsgPlayer::from(self);
         to.send(msg).await?;
         tracing::trace!("Sent Spawn");

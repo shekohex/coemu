@@ -1,6 +1,6 @@
 use super::MsgTalk;
+use crate::entities::Character;
 use crate::systems::Screen;
-use crate::world::Character;
 use crate::{ActorState, Error, State};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rand::{Rng, SeedableRng};
@@ -156,12 +156,13 @@ impl PacketProcess for MsgRegister {
         let me = Character::new(actor.handle(), character);
         let screen = Screen::new(actor.handle());
         actor.update(me, screen);
-        state.insert_character(actor.character());
+        // TODO: insert character into global state.
+        // state.insert_character(actor.entity());
         // Set player map.
         state
             .try_map(map_id as _)
             .map_err(|_| MsgTalk::register_invalid().error_packet())?
-            .insert_character(actor.character())
+            .insert_entity(actor.entity())
             .await?;
 
         tracing::info!(

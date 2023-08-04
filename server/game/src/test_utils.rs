@@ -3,9 +3,9 @@ use sqlx::sqlite::SqlitePoolOptions;
 use tq_network::Actor;
 use tracing_subscriber::prelude::*;
 
+use crate::entities::Character;
 use crate::packets::MsgRegister;
 use crate::systems::Screen;
-use crate::world::Character;
 use crate::ActorState;
 
 pub async fn with_test_env<'a, F>(
@@ -85,6 +85,7 @@ pub async fn make_test_actor(
     let character = Character::new(actor.handle(), inner_character);
     let screen = Screen::new(actor.handle());
     actor.update(character, screen);
-    state.insert_character(actor.character());
+    // TODO: insert character into world
+    // state.insert_character(actor.entity());
     Ok(actor)
 }

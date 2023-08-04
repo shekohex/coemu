@@ -1,6 +1,5 @@
-use crate::entities::BaseEntity;
+use crate::entities::GameEntity;
 use crate::packets::{ActionType, MsgAction};
-use crate::world::Character;
 use crate::Error;
 use arc_swap::ArcSwapWeak;
 use futures::stream::FuturesUnordered;
@@ -12,7 +11,7 @@ use std::sync::{Arc, Weak};
 use tq_network::{ActorHandle, PacketEncode, PacketID};
 use tracing::debug;
 
-type Characters = RwLock<HashMap<u32, Weak<Character>>>;
+type Entities = RwLock<HashMap<u32, Weak<GameEntity>>>;
 /// This struct encapsulates the client's screen system. It handles screen
 /// objects that the player can currently see in the client window as they
 /// enter, move, and leave the screen. It controls the distribution of packets
@@ -21,8 +20,8 @@ type Characters = RwLock<HashMap<u32, Weak<Character>>>;
 #[derive(Debug)]
 pub struct Screen {
     owner: ActorHandle,
-    character: ArcSwapWeak<Character>,
-    characters: Characters,
+    character: ArcSwapWeak<GameEntity>,
+    entities: Entities,
 }
 
 impl Screen {
@@ -31,38 +30,39 @@ impl Screen {
         Self {
             owner,
             character: Default::default(),
-            characters: RwLock::new(HashMap::new()),
+            entities: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn try_character(&self) -> Result<Arc<Character>, Error> {
+    pub fn character_id(&self) -> Result<u32, Error> {
         self.character
             .load()
             .upgrade()
             .ok_or(Error::CharacterNotFound)
+            .map(|c| c.id())
     }
 
-    pub fn set_character(&self, character: Weak<Character>) {
+    pub fn set_character(&self, character: Weak<GameEntity>) {
         self.character.store(character);
     }
 
-    pub fn with_characters<F, R>(&self, f: F) -> R
+    pub fn with_entities<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&HashMap<u32, Weak<Character>>) -> R,
+        F: FnOnce(&HashMap<u32, Weak<GameEntity>>) -> R,
     {
-        f(&self.characters.read())
+        f(&self.entities.read())
     }
 
-    pub fn with_characters_mut<F, R>(&self, f: F) -> R
+    pub fn with_entities_mut<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&mut HashMap<u32, Weak<Character>>) -> R,
+        F: FnOnce(&mut HashMap<u32, Weak<GameEntity>>) -> R,
     {
-        f(&mut self.characters.write())
+        f(&mut self.entities.write())
     }
 
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub fn clear(&self) -> Result<(), Error> {
-        *self.characters.write() = HashMap::new();
+        *self.entities.write() = HashMap::new();
         Ok(())
     }
 
@@ -72,26 +72,27 @@ impl Screen {
     /// screen object is being added, and the object is of type character, then
     /// the owner will be added to the observer's screen as well.
     #[tracing::instrument(skip(self, observer), fields(me = self.owner.id()))]
-    pub fn insert_charcter(
+    pub fn insert_entity(
         &self,
-        observer: Weak<Character>,
+        observer: Weak<GameEntity>,
     ) -> Result<bool, Error> {
-        let me = self.try_character()?;
-        let observer_character =
-            observer.upgrade().ok_or(Error::CharacterNotFound)?;
-        let observer_id = observer_character.id();
-        let added = self.with_characters_mut(|c| {
-            c.insert(observer_character.id(), observer).is_none()
+        let o = observer.upgrade().ok_or(Error::CharacterNotFound)?;
+        let oid = o.id();
+        let added = self.with_entities_mut(|c| {
+            c.insert(o.id(), Arc::downgrade(&o)).is_none()
         });
+        let me = self
+            .character
+            .load()
+            .upgrade()
+            .ok_or(Error::CharacterNotFound)?;
         if added {
-            debug!(observer = observer_id, "Added to Screen");
-            let res = match observer_character.try_screen() {
-                Ok(observer_screen) => {
-                    observer_screen.with_characters_mut(|c| {
-                        c.insert(me.id(), Arc::downgrade(&me)).is_none()
-                    })
-                },
-                Err(_) => false,
+            debug!(observer = oid, "Added to Screen");
+            let res = match o.as_character().and_then(|c| c.try_screen().ok()) {
+                Some(oscreen) => oscreen.with_entities_mut(|c| {
+                    c.insert(me.id(), Arc::downgrade(&me)).is_none()
+                }),
+                None => false,
             };
             Ok(res)
         } else {
@@ -104,16 +105,17 @@ impl Screen {
     /// characters who are actively removing themselves out of the screen.
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub fn remove_character(&self, observer: u32) -> Result<bool, Error> {
-        let observer_character =
-            self.with_characters_mut(|c| c.remove(&observer));
-        if let Some(observer) = observer_character.and_then(|c| c.upgrade()) {
-            debug!(observer = observer.id(), "Removed from Screen");
-            let Ok(observer_screen) = observer.try_screen() else {
-                return Ok(false);
-            };
-            let me = self.try_character()?;
-            let removed = observer_screen
-                .with_characters_mut(|c| c.remove(&me.id()).is_some());
+        let o = self.with_entities_mut(|c| c.remove(&observer));
+        if let Some(o) = o.and_then(|c| c.upgrade()) {
+            debug!(observer = o.id(), "Removed from Screen");
+            let oscreen =
+                match o.as_character().and_then(|c| c.try_screen().ok()) {
+                    Some(oscreen) => oscreen,
+                    None => return Ok(false),
+                };
+            let myid = self.character_id()?;
+            let removed =
+                oscreen.with_entities_mut(|c| c.remove(&myid).is_some());
             Ok(removed)
         } else {
             Ok(false)
@@ -126,8 +128,7 @@ impl Screen {
     /// the character was never in the owner's screen to begin with.
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub async fn delete_character(&self, observer: u32) -> Result<bool, Error> {
-        let deleted =
-            self.with_characters_mut(|c| c.remove(&observer).is_some());
+        let deleted = self.with_entities_mut(|c| c.remove(&observer).is_some());
         if deleted {
             self.owner
                 .send(MsgAction::new(
@@ -150,14 +151,18 @@ impl Screen {
     /// the owner from each screen within the owner's screen distance.
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub async fn remove_from_observers(&self) -> Result<(), Error> {
-        let me_id = self.try_character()?.id();
+        let me_id = self.character_id()?;
         let futures = FuturesUnordered::new();
-        self.with_characters(|c| {
+        self.with_entities(|c| {
             let iter = c.values().filter_map(|v| v.upgrade());
             for observer in iter {
                 tracing::trace!(observer = observer.id(), "Found Observer");
-                let Ok(observer_screen) = observer.try_screen() else {
-                    continue;
+                let observer_screen = match observer
+                    .as_character()
+                    .and_then(|c| c.try_screen().ok())
+                {
+                    Some(observer_screen) => observer_screen,
+                    None => continue,
                 };
                 let fut = async move {
                     observer_screen.delete_character(me_id).await?;
@@ -181,7 +186,7 @@ impl Screen {
             .await;
         // take a moment to clean up any weak references that may have been
         // dropped.
-        self.with_characters_mut(|c| {
+        self.with_entities_mut(|c| {
             c.retain(|_, v| v.upgrade().is_some());
         });
         Ok(())
@@ -193,21 +198,26 @@ impl Screen {
     /// It then respawns the character in the observers' screens.
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub async fn refresh_spawn_for_observers(&self) -> Result<(), Error> {
-        let me = self.try_character()?;
+        let me = self
+            .character
+            .load()
+            .upgrade()
+            .ok_or(Error::CharacterNotFound)?;
         let futures = FuturesUnordered::new();
-        self.with_characters(|c| {
+        self.with_entities(|c| {
             let iter = c.values().filter_map(|v| v.upgrade());
-            for observer in iter {
-                debug!(observer = observer.id(), "Found Observer");
-                let observer_owner = observer.owner();
-                let Ok(observer_screen) = observer.try_screen() else {
-                    continue;
-                };
+            for o in iter {
+                debug!(observer = o.id(), "Found Observer");
+                let oscreen =
+                    match o.as_character().and_then(|c| c.try_screen().ok()) {
+                        Some(oscreen) => oscreen,
+                        None => continue,
+                    };
                 let me = me.clone();
                 let fut = async move {
-                    observer_screen.delete_character(me.id()).await?;
-                    me.send_spawn(&observer_owner).await?;
-                    Result::<_, Error>::Ok(observer_owner.id())
+                    oscreen.delete_character(me.id()).await?;
+                    me.send_spawn(&o).await?;
+                    Result::<_, Error>::Ok(o.id())
                 };
                 futures.push(fut);
             }
@@ -228,7 +238,7 @@ impl Screen {
             .await;
         // take a moment to clean up any weak references that may have been
         // dropped.
-        self.with_characters_mut(|c| {
+        self.with_entities_mut(|c| {
             c.retain(|_, v| v.upgrade().is_some());
         });
 
@@ -245,21 +255,26 @@ impl Screen {
         state: &crate::State,
     ) -> Result<(), Error> {
         // Load Players from the Map
-        let me = &self.try_character()?;
+        let entity = self
+            .character
+            .load()
+            .upgrade()
+            .ok_or(Error::CharacterNotFound)?;
+        let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let mymap = state.try_map(me.entity().map_id())?;
         let loc = me.entity().location();
         let myreagions = mymap.surrunding_regions(loc.x, loc.y);
         let futures = FuturesUnordered::new();
         for region in myreagions {
             tracing::trace!(%region, "Loading Surroundings");
-            region.with_characters(|c| {
+            region.with_entities(|c| {
                 let iter = c.values().filter_map(|v| v.upgrade());
-                for observer in iter {
-                    let is_myself = me.id() == observer.id();
+                for o in iter {
+                    let is_myself = me.id() == o.id();
                     if is_myself {
                         continue;
                     }
-                    let observer_loc = observer.entity().location();
+                    let observer_loc = o.basic().location();
                     let in_screen = tq_math::in_screen(
                         (observer_loc.x, observer_loc.y),
                         (loc.x, loc.y),
@@ -267,16 +282,15 @@ impl Screen {
                     if !in_screen {
                         continue;
                     }
-                    let observer = observer.clone();
+                    let o = o.clone();
                     let fut = async move {
-                        let added =
-                            self.insert_charcter(Arc::downgrade(&observer))?;
+                        let added = self.insert_entity(Arc::downgrade(&o))?;
                         if added {
                             tracing::trace!(
-                                observer = observer.id(),
+                                observer = o.id(),
                                 "Loaded Into Screen"
                             );
-                            me.exchange_spawn_packets(observer).await?;
+                            me.exchange_spawn_packets(&o).await?;
                         }
                         Result::<_, Error>::Ok(())
                     };
@@ -308,10 +322,12 @@ impl Screen {
         P: PacketEncode + PacketID + Clone,
     {
         let futures = FuturesUnordered::new();
-        self.with_characters(|c| {
+        self.with_entities(|c| {
             let iter = c.values().filter_map(|v| v.upgrade());
             for observer in iter {
-                let observer_owner = observer.owner();
+                let Some(observer_owner) = observer.owner() else {
+                    continue;
+                };
                 let packet = packet.clone();
                 let fut = async move {
                     observer_owner.send(packet).await?;
@@ -333,7 +349,7 @@ impl Screen {
             .await;
         // take a moment to clean up any weak references that may have been
         // dropped.
-        self.with_characters_mut(|c| {
+        self.with_entities_mut(|c| {
             c.retain(|_, v| v.upgrade().is_some());
         });
         Ok(())
@@ -356,50 +372,55 @@ impl Screen {
     where
         P: PacketEncode + PacketID + Clone + Send + Sync + 'static,
     {
-        let me = &self.try_character()?;
+        let entity = self
+            .character
+            .load()
+            .upgrade()
+            .ok_or(Error::CharacterNotFound)?;
+        let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
+
         let mymap = state.try_map(me.entity().map_id())?;
         let loc = me.entity().location();
         let myreagions = mymap.surrunding_regions(loc.x, loc.y);
         let futures = FuturesUnordered::new();
         for region in myreagions {
             tracing::trace!(%region, "Sending Movement");
-            region.with_characters(|c| {
+            region.with_entities(|c| {
                 // For each possible observer on the region:
                 let iter = c.values().filter_map(|v| v.upgrade());
-                for observer in iter {
-                    let is_myself = me.id() == observer.id();
-                    let observer_owner = observer.owner();
+                for o in iter {
+                    let is_myself = me.id() == o.id();
+                    let Some(oowner) = o.owner() else {
+                        continue;
+                    };
                     // skip myself
                     if is_myself {
                         continue;
                     }
                     // If the character is in screen, make sure it's in the
                     // owner's screen:
-                    let observer_loc = observer.entity().location();
+                    let observer_loc = o.basic().location();
                     let in_screen = tq_math::in_screen(
                         (observer_loc.x, observer_loc.y),
                         (loc.x, loc.y),
                     );
                     if in_screen {
                         let packet = packet.clone();
-                        let observer = observer.clone();
+                        let o = o.clone();
                         let fut = async move {
-                            let added = self
-                                .insert_charcter(Arc::downgrade(&observer))?;
+                            let added =
+                                self.insert_entity(Arc::downgrade(&o))?;
                             // new, let's exchange spawn packets
                             if added {
                                 tracing::trace!(
-                                    observer = observer.id(),
+                                    observer = o.id(),
                                     "Loaded Into Screen",
                                 );
-                                me.exchange_spawn_packets(observer).await?;
+                                me.exchange_spawn_packets(&o).await?;
                             } else {
                                 // observer is already there, send the movement
                                 // packet
-                                observer_owner
-                                    .send(packet)
-                                    .await
-                                    .unwrap_or_default();
+                                oowner.send(packet).await.unwrap_or_default();
                             }
                             Result::<_, Error>::Ok(())
                         }
@@ -407,26 +428,28 @@ impl Screen {
                         futures.push(fut);
                     } else {
                         let packet = packet.clone();
-                        let observer_owner = observer.owner();
-                        let observer_id = observer.id();
-                        let Ok(observer_screen) = observer.try_screen() else {
+                        let Some(oowner) = o.owner() else {
                             continue;
+                        };
+                        let observer_id = o.id();
+                        let oscreen = match o
+                            .as_character()
+                            .and_then(|c| c.try_screen().ok())
+                        {
+                            Some(oscreen) => oscreen,
+                            None => continue,
                         };
                         let fut = async move {
                             // Else, remove the observer and send the last
                             // packet.
-                            let removed =
-                                observer_screen.remove_character(me.id())?;
+                            let removed = oscreen.remove_character(me.id())?;
                             if removed {
                                 tracing::trace!(
                                     observer = observer_id,
                                     "UnLoaded Screen"
                                 );
                                 // send the last packet.
-                                observer_owner
-                                    .send(packet)
-                                    .await
-                                    .unwrap_or_default();
+                                oowner.send(packet).await.unwrap_or_default();
                             }
                             let removed = self.remove_character(observer_id)?;
                             if removed {
@@ -456,7 +479,7 @@ impl Screen {
             .await;
         // take a moment to clean up any weak references that may have been
         // dropped.
-        self.with_characters_mut(|c| {
+        self.with_entities_mut(|c| {
             c.retain(|_, v| v.upgrade().is_some());
         });
         Ok(())

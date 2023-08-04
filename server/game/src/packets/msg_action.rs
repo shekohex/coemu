@@ -108,14 +108,16 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let mut res = self.clone();
-        let character = actor.character();
+        let entity = actor.try_entity()?;
+        let character =
+            entity.as_character().ok_or(Error::CharacterNotFound)?;
         let map_id = character.entity().map_id();
         let location = character.entity().location();
         match state.try_map(map_id) {
             Ok(mymap) => {
                 res.data1 = map_id;
                 res.data2 = u32::constract(location.y, location.x);
-                mymap.insert_character(character).await?;
+                mymap.insert_entity(entity).await?;
                 actor.send(res).await?;
                 actor.send(MsgMapInfo::from_map(mymap)).await?;
                 if mymap.weather != 0 {
@@ -157,7 +159,9 @@ impl MsgAction {
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
         let mut res = self.clone();
-        let character = actor.character();
+        let entity = actor.try_entity()?;
+        let character =
+            entity.as_character().ok_or(Error::CharacterNotFound)?;
         let map_id = character.entity().map_id();
         let location = character.entity().location();
         let map = state.try_map(map_id)?;
@@ -201,7 +205,8 @@ impl MsgAction {
         let new_y = self.data1.hi();
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
-        let me = actor.character();
+        let entity = actor.try_entity()?;
+        let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let loc = me.entity().location();
         let mymap_id = me.entity().map_id();
         // Starting to validate this jump.
@@ -238,7 +243,7 @@ impl MsgAction {
                     .set_location(Location::new(new_x, new_y, direction))
                     .set_action(100);
                 me.set_elevation(tile.elevation);
-                mymap.update_region_for(me.clone());
+                mymap.update_region_for(entity.clone());
                 actor.send(self.clone()).await?;
                 let myscreen = actor.screen();
                 myscreen.send_movement(state, self.clone()).await?;
@@ -266,7 +271,8 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
-        let me = actor.character();
+        let entity = actor.try_entity()?;
+        let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let mut loc = me.entity().location();
 
         // Starting to validate this action.
@@ -290,14 +296,19 @@ impl MsgAction {
         state: &State,
         actor: &Actor<ActorState>,
     ) -> Result<(), Error> {
-        let me = actor.character();
+        let entity = actor.try_entity()?;
+        let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let mymap_id = me.entity().map_id();
         let mymap = state.try_map(mymap_id)?;
         let other = mymap.with_regions(|r| {
-            r.iter().find_map(|r| r.try_character(self.data1))
+            r.iter().find_map(|r| r.try_entities(self.data1))
         });
-        if let Some(other) = other.and_then(|o| o.upgrade()) {
-            let msg = super::MsgPlayer::from(other.as_ref());
+        if let Some(other) = other
+            .and_then(|o| o.upgrade())
+            .as_ref()
+            .and_then(|o| o.as_character())
+        {
+            let msg = super::MsgPlayer::from(other);
             actor.send(msg).await?;
         } else {
             let msg = super::MsgTalk::from_system(
@@ -318,7 +329,8 @@ impl MsgAction {
     ) -> Result<(), Error> {
         let portal_x = self.data1.lo();
         let portal_y = self.data1.hi();
-        let me = actor.character();
+        let entity = actor.try_entity()?;
+        let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let loc = me.entity().location();
         let mymap_id = me.entity().map_id();
         if !tq_math::in_screen((loc.x, loc.y), (portal_x, portal_y)) {
@@ -334,14 +346,14 @@ impl MsgAction {
         match maybe_portal {
             Some(portal) => {
                 let portal_map = state.try_map(portal.to_map_id())?;
-                portal_map.insert_character(me.clone()).await?;
+                mymap.remove_entity(&entity)?;
+                portal_map.insert_entity(entity.clone()).await?;
                 me.teleport(
                     state,
                     portal.to_map_id(),
                     (portal.to_x(), portal.to_y()),
                 )
                 .await?;
-                mymap.remove_character(&me)?;
             },
             None => {
                 tracing::debug!(%portal_x, %portal_y, %loc.x, %loc.y, "Portal not found");

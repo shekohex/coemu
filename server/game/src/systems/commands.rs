@@ -9,7 +9,8 @@ pub async fn parse_and_execute(
     actor: &Actor<ActorState>,
     args: &[&str],
 ) -> Result<(), Error> {
-    let me = actor.character();
+    let entity = actor.entity();
+    let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
     let c = match Command::from_args(&["commands"], args) {
         Ok(cmd) => cmd,
         Err(e) => {
@@ -39,19 +40,10 @@ pub async fn parse_and_execute(
             let old_map = state.try_map(me.entity().map_id())?;
             let map = state.try_map(info.map_id)?;
             me.teleport(state, info.map_id, (info.x, info.y)).await?;
-            map.insert_character(me.clone()).await?;
-            old_map.remove_character(&me)?;
+            map.insert_entity(actor.entity()).await?;
+            old_map.remove_entity(&actor.entity())?;
             if info.all {
-                let others = state.characters();
-                for other in others {
-                    if other.id() != me.id() {
-                        other
-                            .teleport(state, info.map_id, (info.x, info.y))
-                            .await?;
-                        map.insert_character(other.clone()).await?;
-                        old_map.remove_character(&other)?;
-                    }
-                }
+                // TODO: teleport all
             }
             Ok(())
         },

@@ -1,7 +1,7 @@
 use super::{MsgTalk, MsgUserInfo};
+use crate::entities::Character;
 use crate::packets::MsgData;
 use crate::systems::Screen;
-use crate::world::Character;
 use crate::{ActorState, Error, State};
 use serde::{Deserialize, Serialize};
 use tq_network::{Actor, IntoErrorPacket, PacketID, PacketProcess};
@@ -51,8 +51,9 @@ impl PacketProcess for MsgConnect {
                 let mymap = state
                     .try_map(mymap_id)
                     .map_err(|_| MsgTalk::login_invalid().error_packet())?;
-                mymap.insert_character(actor.character()).await?;
-                state.insert_character(actor.character());
+                mymap.insert_entity(actor.entity()).await?;
+                // TODO: add actor's entity to the global state
+                // state.insert_character(actor.entity());
                 actor.send(MsgTalk::login_ok()).await?;
                 actor.send(msg).await?;
                 actor.send(MsgData::now()).await?;

@@ -1,4 +1,4 @@
-use crate::world::Character;
+use crate::entities::Character;
 use serde::{Deserialize, Serialize};
 use tq_network::PacketID;
 

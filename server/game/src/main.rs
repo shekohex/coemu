@@ -27,14 +27,15 @@ impl Server for GameServer {
         state: &<Self::PacketHandler as PacketHandler>::State,
         actor: Actor<Self::ActorState>,
     ) -> Result<(), tq_network::Error> {
-        if let Ok(me) = actor.try_character() {
+        if let Ok(entity) = actor.try_entity() {
+            let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
             let mymap_id = me.entity().map_id();
             me.save(state).await?;
             me.try_screen()?.remove_from_observers().await?;
             ActorState::dispose(&actor, actor.handle()).await?;
             state.remove_character(me.id());
             let mymap = state.try_map(mymap_id)?;
-            mymap.remove_character(&me)?;
+            mymap.remove_entity(&entity)?;
         }
         let _ = actor.shutdown().await;
         Ok(())
