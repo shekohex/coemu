@@ -5,7 +5,7 @@ use tq_network::PacketID;
 
 /// These enumeration type values are hard-coded into the client and server,
 /// sent when the [`MsgWeather`] packet.
-#[derive(Debug, Clone, Copy, FromPrimitive, IntoPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive, IntoPrimitive)]
 #[repr(u32)]
 pub enum WeatherKind {
     #[num_enum(default)]
@@ -19,6 +19,20 @@ pub enum WeatherKind {
     CherryBlossomPetalsWind = 8,
     BlowingCotten = 9,
     Atoms = 10,
+}
+
+impl WeatherKind {
+    /// Returns `true` if the weather kind is [`None`].
+    ///
+    /// [`None`]: WeatherKind::None
+    #[must_use]
+    pub fn is_none(&self) -> bool { matches!(self, Self::None) }
+
+    /// Returns `true` if the weather kind is [`Unknwon`].
+    ///
+    /// [`Unknwon`]: WeatherKind::Unknwon
+    #[must_use]
+    pub fn is_unknwon(&self) -> bool { matches!(self, Self::Unknwon) }
 }
 
 /// This packet is sent from the game server to the client for invoking weather

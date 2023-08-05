@@ -120,10 +120,8 @@ impl MsgAction {
                 mymap.insert_entity(entity).await?;
                 actor.send(res).await?;
                 actor.send(MsgMapInfo::from_map(mymap)).await?;
-                if mymap.weather != 0 {
-                    actor
-                        .send(MsgWeather::new((mymap.weather as u32).into()))
-                        .await?;
+                if !mymap.weather().is_unknwon() {
+                    actor.send(MsgWeather::new(mymap.weather())).await?;
                 }
                 let screen = actor.screen();
                 screen.load_surroundings(state).await?;
@@ -165,7 +163,7 @@ impl MsgAction {
         let map_id = character.entity().map_id();
         let location = character.entity().location();
         let map = state.try_map(map_id)?;
-        res.data1 = map.color as _;
+        res.data1 = map.color();
         res.data2 = u32::constract(location.y, location.x);
         actor.send(res).await?;
         Ok(())

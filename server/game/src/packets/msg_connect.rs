@@ -52,8 +52,7 @@ impl PacketProcess for MsgConnect {
                     .try_map(mymap_id)
                     .map_err(|_| MsgTalk::login_invalid().error_packet())?;
                 mymap.insert_entity(actor.entity()).await?;
-                // TODO: add actor's entity to the global state
-                // state.insert_character(actor.entity());
+                state.insert_entity(actor.entity());
                 actor.send(MsgTalk::login_ok()).await?;
                 actor.send(msg).await?;
                 actor.send(MsgData::now()).await?;

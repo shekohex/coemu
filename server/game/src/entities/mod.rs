@@ -59,6 +59,9 @@ impl GameEntity {
             (Self::Character(from), Self::Character(to)) => {
                 from.send_spawn(&to.owner()).await
             },
+            (Self::Npc(from), Self::Character(to)) => {
+                from.send_spawn(&to.owner()).await
+            },
             _ => todo!("send_spawn for non-character entities"),
         }
     }
@@ -68,14 +71,6 @@ impl GameEntity {
     /// [`Character`]: GameEntity::Character
     #[must_use]
     pub fn is_character(&self) -> bool { matches!(self, Self::Character(..)) }
-
-    pub fn try_into_character(self) -> Result<Character, Self> {
-        if let Self::Character(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
-        }
-    }
 
     pub fn as_character(&self) -> Option<&Character> {
         if let Self::Character(v) = self {
@@ -96,14 +91,6 @@ impl GameEntity {
             Some(v)
         } else {
             None
-        }
-    }
-
-    pub fn try_into_npc(self) -> Result<Npc, Self> {
-        if let Self::Npc(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
         }
     }
 }

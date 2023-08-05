@@ -5,19 +5,19 @@ use num_enum::{FromPrimitive, IntoPrimitive};
 use parking_lot::RwLock;
 use primitives::{Location, Point, Size};
 use std::collections::{HashMap, HashSet};
-use std::ops::Deref;
 use std::sync::{Arc, Weak};
 use tq_math::SCREEN_DISTANCE;
 use tq_network::{PacketEncode, PacketID};
 
 use super::Portal;
-use crate::entities::GameEntity;
-use crate::packets::{MsgWeather, WeatherKind};
+use crate::entities::{GameEntity, Npc};
+use crate::packets::{MapFlags, MsgWeather, WeatherKind};
 use crate::systems::{Floor, Tile};
 use crate::{constants, Error};
 
 type Entities = RwLock<HashMap<u32, Weak<GameEntity>>>;
 type Portals = HashSet<Portal>;
+type Npcs = HashMap<u32, Arc<GameEntity>>;
 type MapRegions = RwLock<Vec<MapRegion>>;
 
 /// This struct encapsulates map information from a compressed map and the
@@ -30,28 +30,29 @@ pub struct Map {
     /// The Inner map loaded from the database
     inner: tq_db::map::Map,
     /// where should the player get revived on this map
-    #[allow(dead_code)]
     revive_point: Point<u32>,
     /// defines the map's coordinate tile grid.
     floor: Floor,
     /// Holds all Portals in that map.
     portals: Portals,
+    /// Holds all Npcs in that map.
+    npcs: Npcs,
     /// Holds all MapRegions in that map.
     regions: MapRegions,
-}
-
-impl Deref for Map {
-    type Target = tq_db::map::Map;
-
-    fn deref(&self) -> &Self::Target { &self.inner }
 }
 
 impl Map {
     pub fn new(
         inner: tq_db::map::Map,
         portals: Vec<tq_db::portal::Portal>,
+        npcs: Vec<tq_db::npc::Npc>,
     ) -> Self {
         let portals = portals.into_iter().map(Portal::new).collect();
+        let npcs = npcs
+            .into_iter()
+            .filter(|npc| !constants::is_terrain_npc(npc.id as _))
+            .map(|v| (v.id as u32, Arc::new(GameEntity::from(Npc::from(v)))))
+            .collect();
         Self {
             floor: Floor::new(inner.path.clone()),
             revive_point: Point::new(
@@ -59,12 +60,31 @@ impl Map {
                 inner.revive_point_y as u32,
             ),
             regions: RwLock::new(Vec::new()),
+            npcs,
             portals,
             inner,
         }
     }
 
-    pub fn id(&self) -> u32 { self.inner.map_id as u32 }
+    pub fn id(&self) -> u32 { self.inner.id as u32 }
+
+    pub fn map_id(&self) -> u32 { self.inner.map_id as u32 }
+
+    pub fn weather(&self) -> WeatherKind {
+        WeatherKind::from(self.inner.weather as u32)
+    }
+
+    pub fn flags(&self) -> MapFlags {
+        MapFlags::from_bits(self.inner.flags as u32).unwrap_or_default()
+    }
+
+    pub fn color(&self) -> u32 { self.inner.color as u32 }
+
+    pub fn revive_point(&self) -> Point<u32> { self.revive_point }
+
+    pub fn is_static(&self) -> bool { self.inner.id == self.inner.map_id }
+
+    pub fn is_copy(&self) -> bool { self.inner.id == self.inner.map_id }
 
     pub fn portals(&self) -> &Portals { &self.portals }
 
@@ -167,8 +187,11 @@ impl Map {
             }
         }
         assert_eq!(regions.len(), number_of_regions as usize);
-        let mut lock = self.regions.write();
-        *lock = regions;
+        {
+            let mut lock = self.regions.write();
+            *lock = regions;
+        }
+        self.insert_batch(self.npcs.values().cloned()).await?;
         tracing::trace!("Map Loaded into memory");
         Ok(())
     }
@@ -213,6 +236,11 @@ impl Map {
         if let Some(region) = region {
             region.remove_entity(id);
         }
+        // if all entities are removed from the map, unload it.
+        let empty = self.with_regions(|r| r.iter().all(|r| r.is_empty()));
+        if empty {
+            self.unload()?;
+        }
         Ok(())
     }
 
@@ -251,6 +279,9 @@ impl Map {
         true
     }
 
+    /// Updates the region for an entity. This method is called when an entity
+    /// moves. It will remove the entity from the old region and insert it
+    /// into the new region.
     #[tracing::instrument(skip_all, fields(map_id = self.id(), entity_id = e.as_ref().id()))]
     pub fn update_region_for(&self, e: Arc<GameEntity>) {
         let loc = e.basic().location();
@@ -322,6 +353,18 @@ impl Map {
         let msg = MsgWeather::new(weather);
         self.broadcast(msg).map_err(Into::into).await
     }
+
+    /// A batched version of [`Self::insert_entity`].
+    #[tracing::instrument(skip_all, fields(map_id = self.id()))]
+    async fn insert_batch<I>(&self, entities: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = Arc<GameEntity>>,
+    {
+        for e in entities {
+            self.update_region_for(e);
+        }
+        Ok(())
+    }
 }
 
 /// A region or a block is a set of the map which will hold a collection with
@@ -345,7 +388,7 @@ impl fmt::Display for MapRegion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let id = self.id();
         let n = self.with_entities(|c| c.len());
-        write!(f, "Region #{id} with {n} characters")
+        write!(f, "Region #{id} with {n} entity")
     }
 }
 
@@ -389,12 +432,14 @@ impl MapRegion {
         f(&mut self.entities.write())
     }
 
+    #[tracing::instrument(skip_all, fields(map_id = self.id(), entity_id = entity.as_ref().id()))]
     pub fn insert_entity(&self, entity: Arc<GameEntity>) {
         self.with_entities_mut(|c| {
             c.insert(entity.id(), Arc::downgrade(&entity))
         });
     }
 
+    #[tracing::instrument(skip_all, fields(map_id = self.id(), entity_id = id))]
     pub fn remove_entity(&self, id: u32) -> Option<Weak<GameEntity>> {
         self.with_entities_mut(|c| c.remove(&id))
     }

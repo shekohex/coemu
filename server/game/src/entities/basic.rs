@@ -177,12 +177,34 @@ impl From<&tq_db::character::Character> for Entity {
             level: AtomicU16::new(v.level as _),
             action: AtomicU16::new(100),
             prev_map_id: AtomicU32::new(v.map_id as _),
-            prev_location: Atomic::new(Location::new(v.x as _, v.y as _, 0)),
+            prev_location: Atomic::new(Location::default()),
             hp: Atomic::new(Gauge {
                 current: v.health_points as _,
                 // TODO: handle max hp.
                 max: v.health_points as _,
             }),
+        }
+    }
+}
+
+impl From<&tq_db::npc::Npc> for Entity {
+    fn from(v: &tq_db::npc::Npc) -> Self {
+        Self {
+            id: (v.id as u32),
+            mesh: AtomicU32::new(v.look as _),
+            name: v.name.clone(),
+            map_id: AtomicU32::new(v.map_id as _),
+            location: Atomic::new(Location::new(
+                v.x as _,
+                v.y as _,
+                (v.look % 10) as _,
+            )),
+            flags: AtomicU64::new(Flags::NONE.bits()),
+            level: AtomicU16::new(v.level as _),
+            action: AtomicU16::new(100),
+            prev_map_id: AtomicU32::new(v.map_id as _),
+            prev_location: Atomic::new(Location::default()),
+            hp: Atomic::new(Gauge::default()),
         }
     }
 }

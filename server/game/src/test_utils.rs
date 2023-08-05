@@ -85,7 +85,6 @@ pub async fn make_test_actor(
     let character = Character::new(actor.handle(), inner_character);
     let screen = Screen::new(actor.handle());
     actor.update(character, screen);
-    // TODO: insert character into world
-    // state.insert_character(actor.entity());
+    state.insert_entity(actor.entity());
     Ok(actor)
 }

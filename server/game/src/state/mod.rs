@@ -1,4 +1,4 @@
-use crate::entities::Character;
+use crate::entities::GameEntity;
 use crate::world::Map;
 use crate::Error;
 use parking_lot::{Mutex, RwLock};
@@ -13,7 +13,7 @@ mod actor_state;
 pub use actor_state::ActorState;
 
 type Maps = HashMap<u32, Map>;
-type Characters = RwLock<HashMap<u32, Arc<Character>>>;
+type Entites = RwLock<HashMap<u32, Arc<GameEntity>>>;
 type LoginTokens = Mutex<HashMap<u64, LoginToken>>;
 type CreationTokens = Mutex<HashMap<u32, CreationToken>>;
 
@@ -21,7 +21,7 @@ type CreationTokens = Mutex<HashMap<u32, CreationToken>>;
 pub struct State {
     login_tokens: LoginTokens,
     creation_tokens: CreationTokens,
-    characters: Characters,
+    entities: Entites,
     maps: Maps,
     pool: SqlitePool,
 }
@@ -49,16 +49,18 @@ impl State {
         let mut maps = HashMap::with_capacity(db_maps.len());
         debug!("Loaded #{} Map From Database", db_maps.len());
         for map in db_maps {
-            let portals =
-                tq_db::portal::Portal::by_map(&pool, map.map_id).await?;
-            let map = Map::new(map, portals);
+            let portals = tq_db::portal::Portal::by_map(&pool, map.id).await?;
+            tracing::trace!(%map.id, portals = %portals.len(), "Loaded Portals");
+            let npcs = tq_db::npc::Npc::by_map(&pool, map.id).await?;
+            tracing::trace!(%map.id, npcs = %npcs.len(), "Loaded Npcs");
+            let map = Map::new(map, portals, npcs);
             maps.insert(map.id(), map);
         }
 
         let state = Self {
             login_tokens: Default::default(),
             creation_tokens: Default::default(),
-            characters: Default::default(),
+            entities: Default::default(),
             maps,
             pool,
         };
@@ -74,26 +76,26 @@ impl State {
         self.maps.get(&map_id).ok_or(Error::MapNotFound)
     }
 
-    pub fn insert_character(&self, character: Arc<Character>) {
-        let mut characters = self.characters.write();
-        characters.insert(character.id(), character);
+    pub fn insert_entity(&self, entity: Arc<GameEntity>) {
+        let mut entities = self.entities.write();
+        entities.insert(entity.id(), entity);
     }
 
-    pub fn remove_character(&self, character_id: u32) {
-        let mut characters = self.characters.write();
-        characters.remove(&character_id);
+    pub fn remove_entity(&self, id: u32) {
+        let mut entities = self.entities.write();
+        entities.remove(&id);
     }
 
-    pub fn with_character<F, R>(&self, character_id: u32, f: F) -> Option<R>
+    pub fn with_entity<F, R>(&self, id: u32, f: F) -> Option<R>
     where
-        F: FnOnce(&Character) -> R,
+        F: FnOnce(&GameEntity) -> R,
     {
-        let characters = self.characters.read();
-        characters.get(&character_id).map(|v| f(v))
+        let entities = self.entities.read();
+        entities.get(&id).map(|v| f(v))
     }
 
-    pub fn characters(&self) -> Vec<Arc<Character>> {
-        let lock = self.characters.read();
+    pub fn entities(&self) -> Vec<Arc<GameEntity>> {
+        let lock = self.entities.read();
         let values = lock.values();
         values.cloned().collect()
     }
@@ -159,19 +161,26 @@ impl State {
             .ok_or(crate::Error::CreationTokenNotFound)
     }
 
-    fn drain_characters(&self) -> Vec<Arc<Character>> {
-        let mut characters = self.characters.write();
-        let values = characters.drain();
+    fn drain_entities(&self) -> Vec<Arc<GameEntity>> {
+        let mut entities = self.entities.write();
+        let values = entities.drain();
         values.map(|(_, v)| v).collect()
     }
 
     /// Cleanup the state, close all connections and updating the database.
     pub async fn clean_up(self) -> Result<(), Error> {
         debug!("Clean up ..");
-        debug!("Saving Characters data ..");
-        let characters = self.drain_characters();
-        for character in characters {
-            character.save(&self).await?;
+        debug!("Saving Entities data ..");
+        let entities = self.drain_entities();
+        for e in entities {
+            match e.as_ref() {
+                GameEntity::Character(character) => {
+                    character.save(&self).await?
+                },
+                GameEntity::Npc(_) => {
+                    // Do nothing for now
+                },
+            }
         }
         self.pool().close().await;
         debug!("Closed Database Connection ..");

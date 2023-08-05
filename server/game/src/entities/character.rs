@@ -137,9 +137,7 @@ impl Character {
         self.entity.set_location(location).set_map_id(map_id);
         self.set_elevation(tile.elevation);
         self.owner.send(msg).await?;
-        self.owner
-            .send(MsgWeather::new((new_map.weather as u32).into()))
-            .await?;
+        self.owner.send(MsgWeather::new(new_map.weather())).await?;
         self.owner.send(MsgMapInfo::from_map(new_map)).await?;
         Ok(())
     }

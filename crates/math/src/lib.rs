@@ -9,8 +9,13 @@ pub const MAX_DIFFERENCE_IN_ELEVATION: u16 = 210;
 /// This function returns true if an object is within the bounds of another
 /// object's screen.
 pub fn in_screen(p1: (u16, u16), p2: (u16, u16)) -> bool {
+    in_range(p1, p2, SCREEN_DISTANCE)
+}
+
+/// This function returns true if an object is within the range.
+pub fn in_range(p1: (u16, u16), p2: (u16, u16), range: u16) -> bool {
     let (delta_x, delta_y) = delta(p1, p2);
-    delta_x <= SCREEN_DISTANCE && delta_y <= SCREEN_DISTANCE
+    delta_x <= range && delta_y <= range
 }
 
 /// This function returns delta (x, y).

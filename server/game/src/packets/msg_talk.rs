@@ -164,6 +164,15 @@ impl PacketProcess for MsgTalk {
             let args: Vec<_> = command.split_whitespace().collect();
             commands::parse_and_execute(state, actor, &args).await?;
         }
+        // For now, we just broadcast the message to all players in our region.
+        // TODO: Implement this properly.
+        let map_id = actor.entity().basic().map_id();
+        let loc = actor.entity().basic().location();
+        let mymap = state.try_map(map_id)?;
+        let myregion = mymap
+            .region(loc.x, loc.y)
+            .ok_or(crate::Error::MapRegionNotFound)?;
+        myregion.broadcast(self.clone()).await?;
         Ok(())
     }
 }

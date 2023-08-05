@@ -39,27 +39,4 @@ impl Portal {
         }
         Ok(portals)
     }
-
-    #[tracing::instrument(skip(self))]
-    pub async fn fix(
-        &self,
-        pool: &SqlitePool,
-        x: u16,
-        y: u16,
-    ) -> Result<(), Error> {
-        sqlx::query(
-            "UPDATE portals
-            SET 
-                to_x = ?, to_y = ?
-            WHERE
-                from_map_id = ? AND to_map_id = ?;",
-        )
-        .bind(x)
-        .bind(y)
-        .bind(self.from_map_id)
-        .bind(self.to_map_id)
-        .execute(pool)
-        .await?;
-        Ok(())
-    }
 }

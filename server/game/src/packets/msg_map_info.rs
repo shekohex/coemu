@@ -5,7 +5,7 @@ use crate::world::Map;
 
 bitflags::bitflags! {
   #[repr(transparent)]
-  #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+  #[derive(Default, Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
   pub struct MapFlags: u32 {
     const NONE = 0;
     /// No PkPoints, Not Flashing.
@@ -58,10 +58,9 @@ pub struct MsgMapInfo {
 impl MsgMapInfo {
     pub fn from_map(map: &Map) -> Self {
         Self {
-            uid: map.map_id as _,
-            map_id: map.map_id as _,
-            flags: MapFlags::from_bits(map.flags as _)
-                .unwrap_or(MapFlags::NONE),
+            uid: map.id(),
+            map_id: map.map_id(),
+            flags: map.flags(),
         }
     }
 

@@ -33,7 +33,7 @@ impl Server for GameServer {
             me.save(state).await?;
             me.try_screen()?.remove_from_observers().await?;
             ActorState::dispose(&actor, actor.handle()).await?;
-            state.remove_character(me.id());
+            state.remove_entity(me.id());
             let mymap = state.try_map(mymap_id)?;
             mymap.remove_entity(&entity)?;
         }

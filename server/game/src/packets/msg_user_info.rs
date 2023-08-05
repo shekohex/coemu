@@ -29,6 +29,10 @@ pub struct MsgUserInfo {
     previous_class: u8,
     rebirths: u8,
     show_name: bool,
+    /// Number of Strings to follow
+    /// 1: Character Name
+    /// 2: Spouse Name
+    /// Total: 2
     list_count: u8,
     pub character_name: String,
     spouse: String,

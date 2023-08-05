@@ -4,6 +4,7 @@ use tokio_stream::StreamExt;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Map {
+    pub id: i32,
     pub map_id: i32,
     pub path: String,
     pub revive_point_x: i32,
@@ -37,11 +38,11 @@ impl Map {
 
     pub async fn load(
         pool: &SqlitePool,
-        map_id: i32,
+        id: i32,
     ) -> Result<Option<Self>, Error> {
         let maybe_map =
-            sqlx::query_as::<_, Self>("SELECT * FROM maps WHERE map_id = ?;")
-                .bind(map_id)
+            sqlx::query_as::<_, Self>("SELECT * FROM maps WHERE id = ?;")
+                .bind(id)
                 .fetch_optional(pool)
                 .await?;
         Ok(maybe_map)

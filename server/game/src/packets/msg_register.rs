@@ -156,8 +156,7 @@ impl PacketProcess for MsgRegister {
         let me = Character::new(actor.handle(), character);
         let screen = Screen::new(actor.handle());
         actor.update(me, screen);
-        // TODO: insert character into global state.
-        // state.insert_character(actor.entity());
+        state.insert_entity(actor.entity());
         // Set player map.
         state
             .try_map(map_id as _)

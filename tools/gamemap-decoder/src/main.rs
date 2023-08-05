@@ -20,15 +20,6 @@ struct Map {
     reborn_map: u32,
     color: u32,
 }
-impl Map {
-    fn new(id: u32, path: String) -> Self {
-        Self {
-            id,
-            path,
-            ..Default::default()
-        }
-    }
-}
 
 impl Default for Map {
     fn default() -> Self {
@@ -74,7 +65,7 @@ fn main() -> anyhow::Result<()> {
     let mut maps = csv_reader
         .into_deserialize::<Map>()
         .filter_map(Result::ok)
-        .map(|m| (m.id, m))
+        .map(|m| (m.uid, m))
         .collect::<HashMap<_, _>>();
     let csv_reader = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -89,6 +80,7 @@ fn main() -> anyhow::Result<()> {
     reader.read_to_end(&mut buffer)?;
     let mut buffer = Bytes::from(buffer);
     let amount = buffer.get_u32_le();
+    let mut map_with_path = HashMap::with_capacity(amount as usize);
     for _ in 0..amount {
         let map_id = buffer.get_u32_le();
         let path_len = buffer.get_u32_le() as usize;
@@ -96,13 +88,21 @@ fn main() -> anyhow::Result<()> {
         let mut path = String::from_utf8(path_buf.into())?;
         path.replace_range(0..8, "");
         let path = path.replace(".DMap", ".cmap");
-        maps.entry(map_id)
-            .and_modify(|m| m.path = path.clone())
-            .or_insert_with(|| Map::new(map_id, path.clone()));
+        map_with_path.insert(map_id, path);
         buffer.advance(4); // puzzle
     }
-    assert!(maps.len() >= amount as usize);
+    assert!(map_with_path.len() >= amount as usize);
+    // For maps without a path, we need to repair these
+    // by using the path of the map with the same id but having a different uid.
+    for (_, map) in maps.iter_mut() {
+        if map.path.is_empty() {
+            if let Some(path) = map_with_path.get(&map.id) {
+                map.path = path.clone();
+            }
+        }
+    }
     for Map {
+        uid,
         id,
         path,
         flags,
@@ -116,12 +116,12 @@ fn main() -> anyhow::Result<()> {
     {
         if path.is_empty() {
             println!(
-                r#"-- INSERT INTO maps VALUES ({id}, '{path}', {portal_x}, {portal_y}, {flags}, {weather}, {reborn_map}, {color});"#,
+                r#"-- INSERT INTO maps VALUES ({uid}, {id}, '{path}', {portal_x}, {portal_y}, {flags}, {weather}, {reborn_map}, {color});"#,
             );
             continue;
         }
         println!(
-            r#"INSERT INTO maps VALUES ({id}, '{path}', {portal_x}, {portal_y}, {flags}, {weather}, {reborn_map}, {color});"#,
+            r#"INSERT INTO maps VALUES ({uid}, {id}, '{path}', {portal_x}, {portal_y}, {flags}, {weather}, {reborn_map}, {color});"#,
         );
     }
     println!();

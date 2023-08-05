@@ -23,6 +23,8 @@ pub enum Error {
     Db(#[from] tq_db::Error),
     #[error("State Error: {}", _0)]
     State(&'static str),
+    #[error(transparent)]
+    Runtime(#[from] tokio::task::JoinError),
     #[error("Channel Send Error!")]
     SendError,
     #[error("Channel Recv Error!")]
