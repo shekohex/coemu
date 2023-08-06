@@ -87,11 +87,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, TQSerdeError>
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
-        Err(TQSerdeError::Unspported)
+        let value = self.input.get_u8();
+        visitor.visit_char(value as char)
     }
 
     fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value, TQSerdeError>
@@ -112,21 +113,28 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_string(val.to_string())
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, TQSerdeError>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
-        Err(TQSerdeError::Unspported)
+        // This implementation assumes that these bytes are stringlist bytes.
+        // This means that the first byte is the length of the stringlist
+        // and the rest of the bytes are the strings.
+        // With that being said, we can just copy the bytes and pass it to the
+        // visitor.
+        Visitor::visit_bytes(visitor, self.input.chunk())
     }
 
     fn deserialize_byte_buf<V>(
         self,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
-        Err(TQSerdeError::Unspported)
+        let length = self.input.get_u8();
+        let bytes = self.input.copy_to_bytes(length as usize);
+        visitor.visit_byte_buf(bytes.to_vec())
     }
 
     fn deserialize_option<V>(
@@ -140,11 +148,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     // In Serde, unit means an anonymous value containing no data.
-    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, TQSerdeError>
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
-        Err(TQSerdeError::Unspported)
+        Visitor::visit_unit(visitor)
     }
 
     // Unit struct means a named value containing no data.

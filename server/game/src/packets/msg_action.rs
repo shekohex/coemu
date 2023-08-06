@@ -1,4 +1,5 @@
 use super::{MsgTalk, TalkChannel};
+use crate::entities::Character;
 use crate::packets::{MsgMapInfo, MsgWeather};
 use crate::state::State;
 use crate::systems::TileType;
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use tq_network::{Actor, PacketID, PacketProcess};
 use utils::LoHi;
 
-#[derive(Debug, FromPrimitive, IntoPrimitive)]
+#[derive(Copy, Clone, Debug, Default, FromPrimitive, IntoPrimitive)]
 #[repr(u16)]
 pub enum ActionType {
     #[default]
@@ -68,6 +69,16 @@ pub enum ActionType {
     ChangeFace = 142,
 }
 
+#[derive(Copy, Clone, Debug, Default, FromPrimitive, IntoPrimitive)]
+#[repr(u16)]
+pub enum KillMode {
+    #[default]
+    Free = 0,
+    Safe = 1,
+    Team = 2,
+    Arrestment = 3,
+}
+
 /// Message containing a general action being performed by the client. Commonly
 /// used as a request-response protocol for question and answer like exchanges.
 /// For example, walk requests are responded to with an answer as to if the step
@@ -99,6 +110,18 @@ impl MsgAction {
             details,
             action_type: action_type as u16,
         }
+    }
+
+    pub fn from_character(
+        character: &Character,
+        data1: u32,
+        action_type: ActionType,
+    ) -> Self {
+        let character_id = character.id();
+        let (x, y, d) = character.entity().location().into();
+        let data2 = u32::constract(y, x);
+        let details = d as u16;
+        Self::new(character_id, data1, data2, details, action_type)
     }
 
     #[tracing::instrument(skip_all)]
@@ -146,7 +169,6 @@ impl MsgAction {
                 return Ok(());
             },
         };
-        // TODO(shekohex): send MsgMapInfo
         Ok(())
     }
 
@@ -360,6 +382,31 @@ impl MsgAction {
         }
         Ok(())
     }
+
+    #[tracing::instrument(skip_all)]
+    async fn handle_set_kill_mode(
+        &self,
+        _state: &State,
+        actor: &Actor<ActorState>,
+    ) -> Result<(), Error> {
+        let kill_mode = KillMode::from(self.data1 as u16);
+        // TODO: Update player kill mode.
+        // TODO: handle i18n
+        let notice = match kill_mode {
+            KillMode::Free => "In free mode, you can attack everybody.",
+            KillMode::Safe => "In safe mode, you can only attack monsters.",
+            KillMode::Team => "In team mode, you can attack everybody, except your friends, your teammates, and your guildmates.",
+            KillMode::Arrestment => "In arrestment mode, you can only attack monsters and black name players.",
+        };
+        actor.send(self.clone()).await?;
+        let msg = super::MsgTalk::from_system(
+            actor.entity().id(),
+            TalkChannel::System,
+            notice,
+        );
+        actor.send(msg).await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -379,34 +426,37 @@ impl PacketProcess for MsgAction {
                 self.handle_send_location(state, actor).await
             },
             ActionType::MapARGB => self.handle_map_argb(state, actor).await,
+            ActionType::SetKillMode => {
+                self.handle_set_kill_mode(state, actor).await
+            },
             ActionType::LeaveBooth => {
                 self.handle_leave_booth(state, actor).await
             },
             ActionType::SendItems => {
-                // TODO(shekohex): send MsgItemInfo
+                // TODO: send MsgItemInfo
                 actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::SendAssociates => {
                 // Friends.
-                // TODO(shekohex): send MsgFriend
+                // TODO: send MsgFriend
                 actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::SendProficiencies => {
                 // Skils
-                // TODO(shekohex): send MsgWeaponSkill
+                // TODO: send MsgWeaponSkill
                 actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::SendSpells => {
                 // Magic Spells
-                // TODO(shekohex): send MsgMagicInfo
+                // TODO: send MsgMagicInfo
                 actor.send(self.clone()).await?;
                 Ok(())
             },
             ActionType::ConfirmGuild => {
-                // TODO(shekohex): send MsgSyndicateAttributeInfo
+                // TODO: send MsgSyndicateAttributeInfo
                 actor.send(self.clone()).await?;
                 Ok(())
             },
@@ -424,16 +474,15 @@ impl PacketProcess for MsgAction {
                     self.character_id,
                     TalkChannel::Talk,
                     format!(
-                        "Missing Action Type {:?} = {}",
-                        ty, self.action_type
+                        "Missing Action Type {ty:?} = {}",
+                        self.action_type
                     ),
                 );
                 actor.send(p).await?;
                 let res = self.clone();
                 actor.send(res).await?;
                 tracing::warn!(
-                    "Missing Action Type {:?} = {}",
-                    ty,
+                    "Missing Action Type {ty:?} = {}",
                     self.action_type
                 );
                 Ok(())

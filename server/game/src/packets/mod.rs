@@ -39,3 +39,9 @@ pub use msg_map_info::{MapFlags, MsgMapInfo};
 
 mod msg_npc_info;
 pub use msg_npc_info::MsgNpcInfo;
+
+mod msg_npc;
+pub use msg_npc::MsgNpc;
+
+mod msg_task_dialog;
+pub use msg_task_dialog::MsgTaskDialog;

@@ -61,15 +61,6 @@ impl From<(u16, Bytes)> for Message {
     fn from((id, bytes): (u16, Bytes)) -> Self { Self::Packet(id, bytes) }
 }
 
-impl<S> Drop for Actor<S>
-where
-    S: ActorState,
-{
-    fn drop(&mut self) {
-        tracing::debug!(id = self.id(), "Actor Dropped");
-    }
-}
-
 #[async_trait]
 pub trait ActorState: Send + Sync + Sized {
     fn init() -> Self;
@@ -113,6 +104,17 @@ impl<S: ActorState> Actor<S> {
         self.handle.send(packet).await
     }
 
+    /// Enqueue the packets and send it all at once to the client connected to
+    /// this actor
+    #[instrument(skip(self, packets))]
+    pub async fn send_all<P, I>(&self, packets: I) -> Result<(), P::Error>
+    where
+        P: PacketEncode,
+        I: IntoIterator<Item = P>,
+    {
+        self.handle.send_all(packets).await
+    }
+
     #[instrument(skip(self))]
     pub async fn generate_keys(&self, seed: u64) -> Result<(), Error> {
         self.handle.generate_keys(seed).await
@@ -137,6 +139,25 @@ impl ActorHandle {
     ) -> Result<(), P::Error> {
         let msg = packet.encode()?;
         self.tx.send(msg.into()).map_err(Into::into).await?;
+        Ok(())
+    }
+
+    /// Enqueue the packets and send it all at once to the client connected to
+    /// this actor
+    #[instrument(skip(self, packets))]
+    pub async fn send_all<P, I>(&self, packets: I) -> Result<(), P::Error>
+    where
+        P: PacketEncode,
+        I: IntoIterator<Item = P>,
+    {
+        let tasks = packets
+            .into_iter()
+            .flat_map(|packet| packet.encode().map(|msg| msg.into()))
+            .map(|msg| self.tx.send(msg).map_err(crate::Error::from));
+        // Wait for all the messages to be sent (in order)
+        for task in tasks {
+            task.await?;
+        }
         Ok(())
     }
 

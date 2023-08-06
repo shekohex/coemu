@@ -90,6 +90,10 @@ impl Map {
 
     pub fn tile(&self, x: u16, y: u16) -> Option<Tile> { self.floor.tile(x, y) }
 
+    pub fn npc(&self, id: u32) -> Option<&Npc> {
+        self.npcs.get(&id).and_then(|v| v.as_npc())
+    }
+
     pub fn with_regions<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&Vec<MapRegion>) -> R,

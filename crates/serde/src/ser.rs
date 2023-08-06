@@ -80,13 +80,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
+        self.serialize_u8(v.len() as u8)?;
         let val_encoded = v.as_bytes();
-        self.serialize_bytes(val_encoded)?;
+        self.output.put_slice(val_encoded);
         Ok(())
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.serialize_u8(v.len() as u8)?;
         self.output.put_slice(v);
         Ok(())
     }

@@ -11,7 +11,7 @@ mod character;
 pub use character::Character;
 
 mod npc;
-pub use npc::Npc;
+pub use npc::{Npc, NpcBase, NpcKind, NpcSort};
 
 #[derive(Debug)]
 pub enum GameEntity {

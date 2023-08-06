@@ -71,6 +71,26 @@ impl Location {
     }
 }
 
+impl From<(u16, u16, u8)> for Location {
+    fn from((x, y, direction): (u16, u16, u8)) -> Self {
+        Self::new(x, y, direction)
+    }
+}
+
+impl From<(u16, u16)> for Location {
+    fn from((x, y): (u16, u16)) -> Self { Self::new(x, y, 0) }
+}
+
+impl From<Location> for (u16, u16, u8) {
+    fn from(location: Location) -> Self {
+        (location.x, location.y, location.direction)
+    }
+}
+
+impl From<Location> for (u16, u16) {
+    fn from(location: Location) -> Self { (location.x, location.y) }
+}
+
 /// A Gauge is a value that can be incremented and decremented, but never
 /// exceeds a maximum value.
 ///

@@ -52,6 +52,8 @@ pub enum Handler {
     MsgItem,
     MsgWalk,
     MsgTransfer,
+    MsgNpc,
+    MsgTaskDialog,
 }
 
 #[tokio::main]
