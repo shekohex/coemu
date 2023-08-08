@@ -56,37 +56,12 @@ impl std::fmt::Debug for StringList {
     }
 }
 
-impl From<Vec<String>> for StringList {
-    fn from(strings: Vec<String>) -> Self { StringList::from_vec(strings) }
-}
-
-impl From<StringList> for Vec<String> {
-    fn from(string_list: StringList) -> Self { string_list.inner }
-}
-
 impl StringList {
     /// Creates a new empty StringList.
     pub fn new() -> Self { StringList { inner: Vec::new() } }
 
     /// Pushes a new string onto the StringList.
     pub fn push(&mut self, s: String) { self.inner.push(s); }
-
-    /// Creates a new StringList from a Vec<String>.
-    ///
-    /// # Arguments
-    ///
-    /// * `strings` - A Vec<String> to create the StringList from.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the number of strings in the Vec is greater than 255 or if the
-    /// length of any string in the Vec is greater than 250 bytes.
-    pub fn from_vec(strings: Vec<String>) -> Self {
-        assert!(strings.len() <= 255);
-        let all_are_valid = strings.iter().all(|s| s.len() <= 250);
-        assert!(all_are_valid, "All strings must be less than 250 bytes");
-        StringList { inner: strings }
-    }
 
     /// Returns the number of strings in the StringList.
     pub fn len(&self) -> usize { self.inner.len() }
@@ -98,6 +73,17 @@ impl StringList {
     pub fn as_vec(&self) -> &Vec<String> { &self.inner }
 
     pub fn iter(&self) -> impl Iterator<Item = &String> { self.inner.iter() }
+}
+
+impl<T> From<Vec<T>> for StringList
+where
+    T: Into<String>,
+{
+    fn from(strings: Vec<T>) -> Self { StringList::from_iter(strings) }
+}
+
+impl From<StringList> for Vec<String> {
+    fn from(string_list: StringList) -> Self { string_list.inner }
 }
 
 impl AsRef<Vec<String>> for StringList {
@@ -116,13 +102,15 @@ impl AsMut<[String]> for StringList {
     fn as_mut(&mut self) -> &mut [String] { &mut self.inner }
 }
 
-impl FromIterator<String> for StringList {
-    fn from_iter<T: IntoIterator<Item = String>>(iter: T) -> Self {
-        let mut strings = Vec::new();
-        for s in iter {
-            strings.push(s);
+impl<T: Into<String>> FromIterator<T> for StringList {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        StringList {
+            inner: iter
+                .into_iter()
+                .take((u8::MAX - 1) as _)
+                .map(|s| s.into())
+                .collect(),
         }
-        StringList::from_vec(strings)
     }
 }
 
@@ -131,16 +119,6 @@ impl IntoIterator for StringList {
     type Item = String;
 
     fn into_iter(self) -> Self::IntoIter { self.inner.into_iter() }
-}
-
-impl<'a> FromIterator<&'a str> for StringList {
-    fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
-        let mut strings = Vec::new();
-        for s in iter {
-            strings.push(s.to_string());
-        }
-        StringList::from_vec(strings)
-    }
 }
 
 impl serde::Serialize for StringList {
@@ -233,7 +211,7 @@ mod tests {
     #[test]
     fn test_from_vec() {
         let vec = vec!["hello".to_string(), "world".to_string()];
-        let list = StringList::from_vec(vec.clone());
+        let list = StringList::from(vec.clone());
         assert_eq!(list.len(), 2);
         assert_eq!(list.as_vec(), &vec);
     }
@@ -241,7 +219,7 @@ mod tests {
     #[test]
     fn test_iter() {
         let vec = vec!["hello".to_string(), "world".to_string()];
-        let list = StringList::from_vec(vec.clone());
+        let list = StringList::from_iter(vec.clone());
         let mut iter = list.iter();
         assert_eq!(iter.next(), Some(&"hello".to_string()));
         assert_eq!(iter.next(), Some(&"world".to_string()));
@@ -259,10 +237,8 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let list = StringList::from_vec(vec![
-            "hello".to_string(),
-            "world".to_string(),
-        ]);
+        let list =
+            StringList::from(vec!["hello".to_string(), "world".to_string()]);
         let serialized = crate::to_bytes(&list).unwrap();
         let deserialized: StringList = crate::from_bytes(&serialized).unwrap();
         assert_eq!(list, deserialized);
@@ -283,10 +259,7 @@ mod tests {
             avatar: 2,
             option_id: 3,
             action: 4,
-            msgs: StringList::from_vec(vec![
-                "hello".to_string(),
-                "world".to_string(),
-            ]),
+            msgs: StringList::from(vec!["hello", "world"]),
         };
         let serialized = crate::to_bytes(&msg).unwrap();
         let deserialized: MsgTaskDialog =

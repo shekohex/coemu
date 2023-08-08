@@ -128,7 +128,7 @@ impl MultiTaskDialogBuilder<AddingOptionOrEdit> {
             avatar: 0,
             option_id,
             action: action.into(),
-            msgs: vec![option_text.to_string()].into(),
+            msgs: vec![option_text].into(),
         });
         self
     }
