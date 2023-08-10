@@ -48,12 +48,24 @@ Copyright 2020-2022 Shady Khalifa (@shekohex)
     );
     tracing::info!("Starting Auth Server");
     tracing::info!("Initializing State ..");
-    let state = State::init().await?;
+    let static_state = {
+        let state = State::init().await?;
+        Box::leak(Box::new(state)) as *mut _
+    };
     tracing::info!("Initializing server...");
     let auth_port = env::var("AUTH_PORT")?;
     tracing::info!("Auth Server will be available on {auth_port}");
-    let _state =
-        AuthServer::run(format!("0.0.0.0:{}", auth_port), state).await?;
+    // SAFETY: We are the only owner of this Box, and we are deref
+    // it. This happens only once, so no one else can access.
+    let state = unsafe { &*static_state };
+    AuthServer::run(format!("0.0.0.0:{}", auth_port), state).await?;
+    unsafe {
+        // SAFETY: We are the only owner of this Box, and we are dropping
+        // it. This happens at the end of the program, so no one
+        // else can access.
+        let _ = Box::from_raw(static_state);
+    };
+    tracing::info!("Shutdown.");
     Ok(())
 }
 

@@ -81,16 +81,30 @@ Copyright 2020 Shady Khalifa (@shekohex)
     tracing::info!("Initializing server...");
 
     tracing::info!("Initializing State ..");
-    let state = State::init().await?;
+
+    let static_state = {
+        let state = State::init().await?;
+        Box::leak(Box::new(state)) as *mut State
+    };
+
+    // SAFETY: We are the only owner of this Box, and we are deref
+    // it. This happens only once, so no one else can access.
+    let state = unsafe { &*static_state };
     let realm = tq_db::realm::Realm::by_name(state.pool(), "CoEmu")
         .await?
         .ok_or(Error::RealmNotFound)?;
     let game_port = realm.game_port;
     tracing::info!("Game Server will be available on {}", game_port);
 
-    let state =
-        GameServer::run(format!("0.0.0.0:{}", game_port), state).await?;
-    state.clean_up().await?;
+    GameServer::run(format!("0.0.0.0:{}", game_port), state).await?;
+    unsafe {
+        // SAFETY: We are the only owner of this Box, and we are dropping
+        // it. This happens at the end of the program, so no one
+        // else can access.
+        let state = Box::from_raw(static_state);
+        state.clean_up().await?;
+        // State dropped here.
+    };
     tracing::info!("Shutdown.");
     Ok(())
 }

@@ -47,13 +47,12 @@ pub trait Server: Sized + Send + Sync {
     #[tracing::instrument(skip(state))]
     async fn run<A>(
         addr: A,
-        state: <Self::PacketHandler as PacketHandler>::State,
-    ) -> Result<<Self::PacketHandler as PacketHandler>::State, Error>
+        state: &'static <Self::PacketHandler as PacketHandler>::State,
+    ) -> Result<(), Error>
     where
         A: Debug + ToSocketAddrs + Send + Sync,
     {
         let listener = TcpListener::bind(addr).await?;
-        let static_state = &*Box::leak(Box::new(state));
         let main_loop_task = Builder::new().name("Server Main Loop").spawn(async {
             let mut incoming = TcpListenerStream::new(listener);
             tracing::trace!("Starting Server main loop");
@@ -80,11 +79,11 @@ pub trait Server: Sized + Send + Sync {
                 };
                 Builder::new().name("TCP Stream").spawn(async {
                     tracing::trace!("Calling on_connected lifetime hook");
-                    Self::on_connected(static_state, stream.peer_addr()?)
+                    Self::on_connected(state, stream.peer_addr()?)
                         .await?;
                     let (tx, rx) = mpsc::channel(1024);
                     let actor = Actor::<Self::ActorState>::new(tx);
-                    match handle_stream::<Self>(stream, static_state, &actor, rx).await {
+                    match handle_stream::<Self>(stream, state, &actor, rx).await {
                         Err(e) => {
                             tracing::error!("{e}");
                         }
@@ -93,7 +92,7 @@ pub trait Server: Sized + Send + Sync {
                         },
                     }
                     tracing::trace!("Calling on_disconnected lifetime hook");
-                    Self::on_disconnected(static_state, actor).await?;
+                    Self::on_disconnected(state, actor).await?;
                     tracing::debug!("Task Ended.");
                     Result::<_, Error>::Ok(())
                 })?;
@@ -110,16 +109,7 @@ pub trait Server: Sized + Send + Sync {
             },
         };
         tracing::debug!("Server is shutting down.");
-        let non_static_state = unsafe {
-            // Cast to a mutable pointer.
-            // SAFETY: We are the only owner of this Box, and we are dropping
-            // it. This happens at the end of the program, so no one
-            // else can access.
-            let static_state_mut = static_state as *const _
-                as *mut <Self::PacketHandler as PacketHandler>::State;
-            *Box::from_raw(static_state_mut)
-        };
-        Ok(non_static_state)
+        Ok(())
     }
 }
 
