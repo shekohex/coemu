@@ -34,7 +34,7 @@ arc-swap.workspace = true
 atomic.workspace = true
 parking_lot.workspace = true
 
-bitflags = { version = "2.3", features = ["serde"] }
+bitflags = { version = "2.4", features = ["serde"] }
 argh = "0.1"
 
 # Utils
