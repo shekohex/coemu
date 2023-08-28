@@ -83,22 +83,19 @@ impl PacketProcess for MsgNpc {
                 .await?;
             return Ok(());
         }
+        let npc_id = npc.id();
+        let npc_name = npc.entity().name();
         // For now, lets try sending a dummy dialog
-        actor
-            .send_all(
-                MsgTaskDialog::builder()
-                    .text(format!(
-                        "Hello, My name is {} and my id is {}",
-                        npc.entity().name(),
-                        npc.id()
-                    ))
-                    .with_edit(1, "What is your name?")
-                    .with_option(255, "Nice to meet you")
-                    .and()
-                    .with_avatar(47)
-                    .build(),
-            )
-            .await?;
+        let dialog = MsgTaskDialog::builder()
+            .text(format!(
+                "Hello, My name is {npc_name} and my id is {npc_id}",
+            ))
+            .with_edit(1, "What is your name?")
+            .with_option(255, "Nice to meet you")
+            .and()
+            .with_avatar(47)
+            .build();
+        actor.send_all(dialog).await?;
         Ok(())
     }
 }
