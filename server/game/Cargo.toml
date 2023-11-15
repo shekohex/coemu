@@ -47,7 +47,7 @@ features = ["env-filter", "ansi", "fmt", "smallvec"]
 
 # Debugging
 [dependencies.console-subscriber]
-version = "0.1"
+version = "0.2"
 optional = true
 default-features = false
 features = ["env-filter", "parking_lot"]
