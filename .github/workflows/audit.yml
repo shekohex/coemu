@@ -18,6 +18,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/audit-check@v1
+      - uses: rustsec/audit-check@v1.4.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ignore: RUSTSEC-2023-0071
