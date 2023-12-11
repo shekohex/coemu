@@ -55,7 +55,7 @@ default-features = false
 
 [workspace.dependencies.sqlx]
 default-features = false
-version = "0.7.2"
+version = "0.7.3"
 
 [profile.dev]
 split-debuginfo = 'packed'
