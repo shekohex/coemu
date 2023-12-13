@@ -134,12 +134,11 @@ impl<'de> Deserialize<'de> for FixedString<16, Encrypted> {
     fn deserialize<D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Self, D::Error> {
-        let slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
+        let mut slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
         let rc5 = TQRC5::new();
-        let mut pass_decrypted_bytes = [0u8; 16];
-        rc5.decrypt(&slice, &mut pass_decrypted_bytes);
-        let result = std::str::from_utf8(&pass_decrypted_bytes)
-            .map_err(serde::de::Error::custom)?;
+        rc5.decrypt(&mut slice);
+        let result =
+            std::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }

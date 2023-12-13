@@ -32,6 +32,11 @@ use tokio::io::{
 use tokio_stream::Stream;
 use tq_crypto::Cipher;
 
+const KB: usize = 1024;
+const MB: usize = 1024 * KB;
+const MAX_PACKET_SIZE: u16 = 2 * KB as u16;
+const MAX_CAPACITY: usize = 10 * MB;
+
 /// A simple State Machine for Decoding the Stream.
 #[derive(Debug, Clone, Copy)]
 enum DecodeState {
@@ -93,18 +98,18 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
             return Ok(None);
         }
         let (n, packet_type) = {
-            let mut len = [0u8; 2];
-            let mut ty = [0u8; 2];
+            let mut len = self.buf.split_to(2);
+            let mut ty = self.buf.split_to(2);
             // Get the decrypted head len.
-            self.cipher.decrypt(&self.buf[0..2], &mut len);
+            self.cipher.decrypt(&mut len);
             // Get the decrypted head packet type.
-            self.cipher.decrypt(&self.buf[2..4], &mut ty);
+            self.cipher.decrypt(&mut ty);
             // get length
             let n = len.as_ref().get_u16_le();
             // get type
             let packet_id = ty.as_ref().get_u16_le();
             tracing::trace!(%n, %packet_id, "decoded head");
-            if n > 2048 {
+            if n > MAX_PACKET_SIZE {
                 tracing::warn!(%n, %packet_id, "Frame too big!");
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -116,8 +121,6 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
         // Ensure that the buffer has enough space to read the incoming
         // payload
         self.buf.reserve(n - 4);
-        // Drop the header
-        let _ = self.buf.split_to(4);
 
         Ok(Some((n - 4, packet_type)))
     }
@@ -137,12 +140,9 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
             tracing::trace!("Buffer too small, skipping");
             return Ok(None);
         }
-        let buf = &mut self.buf.split_to(n);
-        let mut data = BytesMut::with_capacity(n);
-        data.resize(n, 0);
-        // Decrypt the data
-        self.cipher.decrypt(buf, &mut data);
-        Ok(Some(data))
+        let mut buf = self.buf.split_to(n);
+        self.cipher.decrypt(&mut buf);
+        Ok(Some(buf))
     }
 }
 
@@ -183,7 +183,7 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
         result.put_u16_le(n as u16); // packet length (0) -> (2)
         result.put_u16_le(packet_id); // packet type (2) -> (4)
         result.extend_from_slice(&body); // packet_body (4) -> (packet_length)
-        let full_packet = result.freeze();
+        let mut full_packet = result;
         let config = HexConfig {
             title: false,
             ..Default::default()
@@ -192,11 +192,9 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
             "\nServer -> Client ID({packet_id}) Length({n})\n{:?}",
             body.as_ref().hex_conf(config)
         );
-        let mut encrypted_data = BytesMut::with_capacity(n);
-        encrypted_data.resize(n, 0);
         // encrypt data
-        self.cipher.encrypt(&full_packet, &mut encrypted_data);
-        Ok(encrypted_data.freeze())
+        self.cipher.encrypt(&mut full_packet);
+        Ok(full_packet.freeze())
     }
 
     /// Buffer a packet.
@@ -207,7 +205,11 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
     fn buffer(&mut self, buf: &[u8]) {
         // Ensure the buffer has capacity. Ideally this would not be unbounded,
         // but to keep the example simple, we will not limit this.
-        self.buf.reserve(64);
+        if self.buf.capacity() <= buf.len()
+            && self.buf.capacity() < MAX_CAPACITY
+        {
+            self.buf.reserve(buf.len());
+        }
 
         // Push the packet onto the end of the write buffer.
         //

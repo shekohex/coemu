@@ -25,13 +25,11 @@ pub trait Cipher: Clone + Default + Send + Sync + Unpin + 'static {
     fn generate_keys(&self, seed: u64);
     /// Decrypts data from the client.
     ///
-    /// * `src` - Source span that requires decrypting.
-    /// * `dst` - Destination span to contain the decrypted result.
-    fn decrypt(&self, src: &[u8], dst: &mut [u8]);
+    /// * `data` - data that requires decrypting.
+    fn decrypt(&self, data: &mut [u8]);
 
     /// Encrypts data to send to the client.
     ///
-    /// * `src` - Source span that requires encrypting.
-    /// * `dst` - Destination span to contain the encrypted result.
-    fn encrypt(&self, src: &[u8], dst: &mut [u8]);
+    /// * `data` - data that requires encrypting.
+    fn encrypt(&self, data: &mut [u8]);
 }

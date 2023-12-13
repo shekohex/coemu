@@ -100,22 +100,15 @@ impl TQCipher {
     }
 
     #[inline(always)]
-    fn xor(
-        &self,
-        src: &[u8],
-        dst: &mut [u8],
-        key: &[u8; KEY_SIZE],
-        counter: &AtomicU16,
-    ) {
-        assert_eq!(src.len(), dst.len(), "src.len() != dst.len()");
+    fn xor_in_place(src: &mut [u8], key: &[u8; KEY_SIZE], counter: &AtomicU16) {
         let mut x = counter.fetch_add(src.len() as u16, Ordering::SeqCst);
-        for i in 0..src.len() {
-            dst[i] = src[i] ^ 0xAB;
-            dst[i] = dst[i] >> 4 | dst[i] << 4;
-            dst[i] ^= key[(x & 0xff) as usize];
-            dst[i] ^= key[((x >> 8) + 0x100) as usize];
+        (0..src.len()).for_each(|i| {
+            src[i] ^= 0xAB;
+            src[i] = src[i] >> 4 | src[i] << 4;
+            src[i] ^= key[(x & 0xff) as usize];
+            src[i] ^= key[((x >> 8) + 0x100) as usize];
             x = x.wrapping_add(1);
-        }
+        });
     }
 }
 
@@ -143,23 +136,21 @@ impl super::Cipher for TQCipher {
     }
 
     /// Decrypts the specified slice by XORing the source slice with the
-    /// cipher's keystream. The source and destination may be the same
-    /// slice, but otherwise should not overlap.
-    fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
+    /// cipher's keystream.
+    fn decrypt(&self, data: &mut [u8]) {
         let active_key = self.active_key.load(Ordering::SeqCst);
         let key = match ActiveKey::from(active_key) {
             ActiveKey::Key1 => self.key1.read(),
             ActiveKey::Key2 => self.key2.read(),
         };
-        self.xor(src, dst, &key, &self.decrypt_counter);
+        Self::xor_in_place(data, &key, &self.decrypt_counter);
     }
 
     /// Encrypt the specified slice by XORing the source slice with the cipher's
-    /// keystream. The source and destination may be the same slice, but
-    /// otherwise should not overlap.
-    fn encrypt(&self, src: &[u8], dst: &mut [u8]) {
+    /// keystream.
+    fn encrypt(&self, data: &mut [u8]) {
         let key = self.key1.read();
-        self.xor(src, dst, &key, &self.encrypt_counter);
+        Self::xor_in_place(data, &key, &self.encrypt_counter);
     }
 }
 
@@ -177,17 +168,16 @@ mod tests {
     fn tq_cipher() {
         let tq_cipher = TQCipher::new();
         tq_cipher.generate_keys(0x1234);
-        let buffer = [
+        let mut buffer = [
             0x22, 0x00, 0x1F, 0x04, 0x61, 0xFF, 0xC3, 0xA6, 0x3A, 0x6D, 0xD3,
             0x90, 0x31, 0x39, 0x32, 0x2E, 0x31, 0x36, 0x38, 0x2E, 0x31, 0x2E,
             0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB8, 0x16, 0x00, 0x00, 0x00,
             0x00,
         ];
-        let mut encrypted = vec![0u8; buffer.len()];
-        tq_cipher.encrypt(&buffer, &mut encrypted);
+        tq_cipher.encrypt(&mut buffer);
         assert_eq!(
-            encrypted,
-            vec![
+            buffer,
+            [
                 0x67, 0x48, 0xAA, 0x12, 0x1F, 0xAB, 0x3, 0x44, 0x5E, 0x26, 0xE,
                 0x53, 0x52, 0x2F, 0x74, 0x14, 0xE6, 0xFB, 0x88, 0xC0, 0x2A,
                 0x86, 0x4C, 0x3E, 0x6D, 0x0, 0xE3, 0x2A, 0xFA, 0x2D, 0x87,

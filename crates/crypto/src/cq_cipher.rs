@@ -110,46 +110,44 @@ impl super::Cipher for CQCipher {
     }
 
     /// Decrypts data with the COCAC algorithm.
-    fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
-        assert_eq!(src.len(), dst.len(), "src.len() != dst.len()");
+    fn decrypt(&self, data: &mut [u8]) {
         let key1 = self.key1.read();
         let mut x = self
             .decrypt_counter
-            .fetch_add(src.len() as u16, Ordering::SeqCst);
-        for i in 0..src.len() {
-            dst[i] = src[i] ^ key1[((x >> 8) + 0x100) as usize];
-            dst[i] ^= key1[(x & 0xff) as usize];
-            dst[i] = dst[i] >> 4 | dst[i] << 4;
-            dst[i] ^= 0xAB;
+            .fetch_add(data.len() as u16, Ordering::SeqCst);
+        (0..data.len()).for_each(|i| {
+            data[i] ^= key1[((x >> 8) + 0x100) as usize];
+            data[i] ^= key1[(x & 0xff) as usize];
+            data[i] = data[i] >> 4 | data[i] << 4;
+            data[i] ^= 0xAB;
             x = x.wrapping_add(1);
-        }
+        });
     }
 
     /// Encrypts data with the COCAC algorithm..
-    fn encrypt(&self, src: &[u8], dst: &mut [u8]) {
-        assert_eq!(src.len(), dst.len(), "src.len() != dst.len()");
+    fn encrypt(&self, data: &mut [u8]) {
         let active_key_value = self.active_key.load(Ordering::SeqCst);
         let active_key = ActiveKey::from(active_key_value);
         let mut x = self
             .encrypt_counter
-            .fetch_add(src.len() as u16, Ordering::SeqCst);
+            .fetch_add(data.len() as u16, Ordering::SeqCst);
         let key1 = self.key1.read();
         let key2 = self.key2.read();
-        for i in 0..src.len() {
+        (0..data.len()).for_each(|i| {
             match active_key {
                 ActiveKey::Key1 => {
-                    dst[i] = src[i] ^ key1[((x >> 8) + 0x100) as usize];
-                    dst[i] ^= key1[(x & 0xff) as usize];
+                    data[i] ^= key1[((x >> 8) + 0x100) as usize];
+                    data[i] ^= key1[(x & 0xff) as usize];
                 },
                 ActiveKey::Key2 => {
-                    dst[i] = src[i] ^ key2[((x >> 8) + 0x100) as usize];
-                    dst[i] ^= key2[(x & 0xff) as usize];
+                    data[i] ^= key2[((x >> 8) + 0x100) as usize];
+                    data[i] ^= key2[(x & 0xff) as usize];
                 },
             }
-            dst[i] = dst[i] >> 4 | dst[i] << 4;
-            dst[i] ^= 0xAB;
+            data[i] = data[i] >> 4 | data[i] << 4;
+            data[i] ^= 0xAB;
             x = x.wrapping_add(1);
-        }
+        });
     }
 }
 
@@ -169,21 +167,17 @@ mod tests {
         let cq_cipher = CQCipher::new();
         let tq_cipher = TQCipher::new();
         let src = "Hello, World!";
-        let mut dst = vec![0u8; src.len()];
-        cq_cipher.encrypt(src.as_bytes(), &mut dst);
-        let mut dst2 = vec![0u8; dst.len()];
-        tq_cipher.decrypt(&dst, &mut dst2);
-        let val = String::from_utf8_lossy(&dst2);
-        assert_eq!(src.len(), dst2.len(), "src.len() != dst.len()");
+        let mut dst = src.as_bytes().to_vec();
+        cq_cipher.encrypt(&mut dst);
+        tq_cipher.decrypt(&mut dst);
+        let val = String::from_utf8_lossy(&dst);
         assert_eq!(src, &val);
         // ---
         let src = "Welcome";
-        let mut dst = vec![0u8; src.len()];
-        tq_cipher.encrypt(src.as_bytes(), &mut dst);
-        let mut dst2 = vec![0u8; dst.len()];
-        cq_cipher.decrypt(&dst, &mut dst2);
-        let val = String::from_utf8_lossy(&dst2);
-        assert_eq!(src.len(), dst2.len(), "src.len() != dst.len()");
+        let mut dst = src.as_bytes().to_vec();
+        tq_cipher.encrypt(&mut dst);
+        cq_cipher.decrypt(&mut dst);
+        let val = String::from_utf8_lossy(&dst);
         assert_eq!(src, &val);
     }
 
@@ -192,31 +186,25 @@ mod tests {
         let cq_cipher = CQCipher::new();
         let tq_cipher = TQCipher::new();
         let src = [0u8; 28];
-        let mut dst = vec![0u8; src.len()];
-        cq_cipher.encrypt(&src, &mut dst);
-        let mut dst2 = vec![0u8; dst.len()];
-        tq_cipher.decrypt(&dst, &mut dst2);
-        assert_eq!(src.len(), dst2.len(), "src.len() != dst.len()");
-        assert_eq!(src.as_slice(), &dst2);
+        let mut dst = src.to_vec();
+        cq_cipher.encrypt(&mut dst);
+        tq_cipher.decrypt(&mut dst);
+        assert_eq!(src.as_slice(), &dst);
         // Exchange keys
         let seed: u64 = 0xc0ffeebabe;
         cq_cipher.generate_keys(seed);
         tq_cipher.generate_keys(seed);
         // --
         let src = [0u8; 52];
-        let mut dst = vec![0u8; src.len()];
-        tq_cipher.encrypt(&src, &mut dst);
-        let mut dst2 = vec![0u8; dst.len()];
-        cq_cipher.decrypt(&dst, &mut dst2);
-        assert_eq!(src.len(), dst2.len(), "src.len() != dst.len()");
-        assert_eq!(src.as_slice(), &dst2);
+        let mut dst = src.to_vec();
+        tq_cipher.encrypt(&mut dst);
+        cq_cipher.decrypt(&mut dst);
+        assert_eq!(src.as_slice(), &dst);
         // --
         let src = [0u8; 28];
-        let mut dst = vec![0u8; src.len()];
-        cq_cipher.encrypt(&src, &mut dst);
-        let mut dst2 = vec![0u8; dst.len()];
-        tq_cipher.decrypt(&dst, &mut dst2);
-        assert_eq!(src.len(), dst2.len(), "src.len() != dst.len()");
-        assert_eq!(src.as_slice(), &dst2);
+        let mut dst = src.to_vec();
+        cq_cipher.encrypt(&mut dst);
+        tq_cipher.decrypt(&mut dst);
+        assert_eq!(src.as_slice(), &dst);
     }
 }

@@ -6,7 +6,7 @@ pub struct NopCipher;
 impl crate::Cipher for NopCipher {
     fn generate_keys(&self, _seed: u64) {}
 
-    fn decrypt(&self, src: &[u8], dst: &mut [u8]) { dst.copy_from_slice(src); }
+    fn decrypt(&self, _data: &mut [u8]) {}
 
-    fn encrypt(&self, src: &[u8], dst: &mut [u8]) { dst.copy_from_slice(src); }
+    fn encrypt(&self, _data: &mut [u8]) {}
 }

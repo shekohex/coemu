@@ -83,17 +83,16 @@ impl Default for TQRC5 {
 impl crate::Cipher for TQRC5 {
     fn generate_keys(&self, _seed: u64) {}
 
-    fn decrypt(&self, src: &[u8], dst: &mut [u8]) {
+    fn decrypt(&self, data: &mut [u8]) {
         // Pad the buffer
-        let mut src_len = src.len() / 8;
-        if src.len() % 8 > 0 {
+        let mut src_len = data.len() / 8;
+        if data.len() % 8 > 0 {
             src_len += 1;
         }
-        dst.copy_from_slice(src);
         // Decrypt the buffer
         for word in 0..src_len {
-            let mut chunk_a = &dst[8 * word..];
-            let mut chunk_b = &dst[(8 * word + 4)..];
+            let mut chunk_a = &data[8 * word..];
+            let mut chunk_b = &data[(8 * word + 4)..];
             let mut a = chunk_a.get_u32_le();
             let mut b = chunk_b.get_u32_le();
             let rounds = self.rounds;
@@ -106,13 +105,13 @@ impl crate::Cipher for TQRC5 {
                 a = (a.wrapping_sub(sub[(2 * round) as usize])).rotate_right(b)
                     ^ b;
             }
-            let chunk_a = &mut dst[(8 * word)..];
+            let chunk_a = &mut data[(8 * word)..];
             let mut wtr_a = vec![];
             wtr_a.put_u32_le(a.wrapping_sub(sub[0]));
             for (i, b) in wtr_a.iter().enumerate() {
                 chunk_a[i] = *b;
             }
-            let chunk_b = &mut dst[(8 * word + 4)..];
+            let chunk_b = &mut data[(8 * word + 4)..];
             let mut wtr_b = vec![];
             wtr_b.put_u32_le(b.wrapping_sub(sub[1]));
 
@@ -122,7 +121,7 @@ impl crate::Cipher for TQRC5 {
         }
     }
 
-    fn encrypt(&self, _src: &[u8], _dst: &mut [u8]) {
+    fn encrypt(&self, _data: &mut [u8]) {
         unimplemented!("RC5 encryption is not implemented")
     }
 }
@@ -134,14 +133,13 @@ mod tests {
     #[test]
     fn test_rc5() {
         let rc5 = TQRC5::new();
-        let buf = [
+        let mut buf = [
             0x1C, 0xFD, 0x41, 0xC9, 0xA1, 0x69, 0xAA, 0xB6, 0x0D, 0xA6, 0x08,
             0x4D, 0xF3, 0x67, 0xEB, 0x73,
         ];
-        let mut res = [0u8; 16];
-        rc5.decrypt(&buf, &mut res);
+        rc5.decrypt(&mut buf);
         assert_eq!(
-            res,
+            buf,
             [
                 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
