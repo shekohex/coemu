@@ -5,8 +5,8 @@ use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 use tq_db::realm::Realm;
 use tq_network::{
-    Actor, CQCipher, IntoErrorPacket, PacketDecode, PacketEncode, PacketID,
-    TQCodec,
+    Actor, ActorState, CQCipher, IntoErrorPacket, PacketDecode, PacketEncode,
+    PacketID, TQCodec,
 };
 use tracing::Instrument;
 
@@ -24,9 +24,9 @@ pub struct MsgTransfer {
 
 impl MsgTransfer {
     #[tracing::instrument(skip(state, actor))]
-    pub async fn handle(
+    pub async fn handle<A: ActorState>(
         state: &crate::State,
-        actor: &Actor<()>,
+        actor: &Actor<A>,
         realm: &str,
     ) -> Result<AccountCredentials, Error> {
         let maybe_realm = Realm::by_name(state.pool(), realm).await?;
@@ -65,8 +65,8 @@ impl MsgTransfer {
     }
 
     #[tracing::instrument(skip(actor, stream), err, fields(realm = realm.name))]
-    async fn transfer(
-        actor: &Actor<()>,
+    async fn transfer<A: ActorState>(
+        actor: &Actor<A>,
         realm: Realm,
         stream: TcpStream,
     ) -> Result<AccountCredentials, Error> {

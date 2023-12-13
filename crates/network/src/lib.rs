@@ -15,7 +15,9 @@ pub use error::Error;
 mod actor;
 pub use actor::{Actor, ActorHandle, ActorState, Message};
 
+#[cfg(feature = "server")]
 mod server;
+#[cfg(feature = "server")]
 pub use server::Server;
 
 pub trait PacketID {

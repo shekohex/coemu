@@ -14,13 +14,22 @@ tq-crypto.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 futures.workspace = true
-tokio-stream = { workspace = true, features = ["io-util", "net"] }
 
 # macros
 derive-packetid.workspace = true
 derive-packethandler.workspace = true
 
+[dependencies.tokio-stream]
+workspace = true
+default-features = false
+optional = true
+features = ["io-util", "net"]
+
 [dependencies.tokio]
 workspace = true
 default-features = false
-features = ["rt-multi-thread", "io-util", "net", "sync"]
+features = ["io-util", "sync"]
+
+[features]
+default = ["server"]
+server = ["tokio/rt-multi-thread", "tokio/net", "dep:tokio-stream"]

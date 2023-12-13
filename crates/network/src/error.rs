@@ -1,5 +1,4 @@
 use thiserror::Error;
-use tokio::sync::mpsc::error::SendError;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -15,6 +14,8 @@ pub enum Error {
     Other(String),
 }
 
-impl<T> From<SendError<T>> for Error {
-    fn from(_: SendError<T>) -> Self { Self::SendError }
+impl<T> From<tokio::sync::mpsc::error::SendError<T>> for Error {
+    fn from(_: tokio::sync::mpsc::error::SendError<T>) -> Self {
+        Self::SendError
+    }
 }
