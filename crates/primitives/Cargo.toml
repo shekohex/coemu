@@ -5,5 +5,5 @@ authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition.workspace = true
 
 [dependencies]
-num-traits = "0.2"
-bytemuck.workspace = true
+num-traits = { version = "0.2", default-features = false }
+bytemuck = { workspace = true, default-features = false }
