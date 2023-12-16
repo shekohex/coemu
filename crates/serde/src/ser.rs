@@ -3,6 +3,9 @@ use crate::TQSerdeError;
 use bytes::{BufMut, BytesMut};
 use serde::ser::{self, Serialize};
 
+#[cfg(not(feature = "std"))]
+use alloc::string::ToString;
+
 #[derive(Debug)]
 struct Serializer {
     output: BytesMut,

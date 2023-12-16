@@ -3,6 +3,11 @@
 //! used by `Server` for encrypting and
 //! decrypting data to and from the game client.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
 mod rc5;
 pub use rc5::TQRC5;
 

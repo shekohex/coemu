@@ -11,3 +11,7 @@ tracing = { workspace = true, features = ["attributes"] }
 tokio-stream = { workspace = true, features = ["io-util"] }
 tokio = { workspace = true, default-features = false, features = ["io-util"] }
 pretty-hex = { version = "0.4", default-features = false }
+
+[features]
+default = ["std"]
+std = ["bytes/std", "tq-crypto/std", "tracing/std", "pretty-hex/alloc"]

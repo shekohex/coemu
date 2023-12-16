@@ -29,6 +29,15 @@
 
 use bytes::Buf;
 
+#[cfg(feature = "std")]
+use std::vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::{
+    string::{String, ToString},
+    vec::{self, Vec},
+};
+
 /// Defines a type that serializes to a list of strings.
 ///
 /// Read the [module level documentation](index.html) for more information.
@@ -37,8 +46,8 @@ pub struct StringList {
     inner: Vec<String>,
 }
 
-impl std::fmt::Debug for StringList {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for StringList {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.inner.is_empty() {
             return write!(f, "[]");
         }
@@ -115,7 +124,7 @@ impl<T: Into<String>> FromIterator<T> for StringList {
 }
 
 impl IntoIterator for StringList {
-    type IntoIter = std::vec::IntoIter<String>;
+    type IntoIter = vec::IntoIter<String>;
     type Item = String;
 
     fn into_iter(self) -> Self::IntoIter { self.inner.into_iter() }
@@ -158,8 +167,8 @@ impl<'de> serde::Deserialize<'de> for StringList {
 
             fn expecting(
                 &self,
-                formatter: &mut std::fmt::Formatter,
-            ) -> std::fmt::Result {
+                formatter: &mut core::fmt::Formatter,
+            ) -> core::fmt::Result {
                 formatter.write_str("a list of strings")
             }
 
@@ -173,10 +182,10 @@ impl<'de> serde::Deserialize<'de> for StringList {
                 for _ in 0..len {
                     let string_len = reader.get_u8() as usize;
                     let string_bytes = reader.copy_to_bytes(string_len);
-                    let string = std::str::from_utf8(&string_bytes)
+                    let string = core::str::from_utf8(&string_bytes)
                         .map(|s| s.trim_end_matches('\0'))
                         .map_err(serde::de::Error::custom)?;
-                    strings.push(string.to_owned());
+                    strings.push(string.to_string());
                 }
                 Ok(StringList { inner: strings })
             }

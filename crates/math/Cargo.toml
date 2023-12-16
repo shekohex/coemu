@@ -5,3 +5,9 @@ authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition.workspace = true
 
 [dependencies]
+libm = { version = "0.2", default-features = false, optional = true }
+
+[features]
+default = ["std"]
+std = []
+libm = ["dep:libm"]

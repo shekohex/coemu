@@ -5,10 +5,13 @@ authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition.workspace = true
 
 [dependencies]
-thiserror.workspace = true
 bytes.workspace = true
 serde.workspace = true
 tq-crypto.workspace = true
 
 [dev-dependencies]
 serde = { workspace = true, features = ["derive"] }
+
+[features]
+default = ["std"]
+std = ["bytes/std", "serde/std", "tq-crypto/std"]

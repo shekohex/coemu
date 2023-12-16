@@ -9,8 +9,12 @@
 //! [1]: https://www.elitepvpers.com/forum/members/568265-cptsky.html
 //! [2]: https://www.elitepvpers.com/forum/co2-pserver-guides-releases/1652536-co2_core_dll-c-library.html
 //! [3]: https://www.conquerwiki.com/doku.php?id=conqueronlineclientasymmetriccipher
+use core::sync::atomic::{AtomicU16, AtomicU8, Ordering};
 use parking_lot::RwLock;
-use std::sync::atomic::{AtomicU16, AtomicU8, Ordering};
+
+#[cfg(not(feature = "std"))]
+use alloc::sync::Arc;
+#[cfg(feature = "std")]
 use std::sync::Arc;
 
 const KEY_SIZE: usize = 0x200;

@@ -1,9 +1,12 @@
 //! A Fixed Length String, used in Binary Packets
 use core::fmt;
+use core::marker::PhantomData;
+use core::ops::Deref;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::marker::PhantomData;
-use std::ops::Deref;
 use tq_crypto::{Cipher, TQRC5};
+
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
 
 /// Fixed Length String.
 #[derive(Clone, Default, PartialEq, Eq)]
@@ -100,7 +103,7 @@ impl<'de> Deserialize<'de> for FixedString<10, ClearText> {
     ) -> Result<Self, D::Error> {
         let slice: [u8; 10] = Deserialize::deserialize(deserializer)?;
         let result =
-            std::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+            core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
@@ -112,7 +115,7 @@ impl<'de> Deserialize<'de> for FixedString<16, ClearText> {
     ) -> Result<Self, D::Error> {
         let slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
         let result =
-            std::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+            core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
@@ -124,7 +127,7 @@ impl<'de> Deserialize<'de> for FixedString<16, Masked> {
     ) -> Result<Self, D::Error> {
         let slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
         let result =
-            std::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+            core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
@@ -138,7 +141,7 @@ impl<'de> Deserialize<'de> for FixedString<16, Encrypted> {
         let rc5 = TQRC5::new();
         rc5.decrypt(&mut slice);
         let result =
-            std::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+            core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }

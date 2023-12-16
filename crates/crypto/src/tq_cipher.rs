@@ -10,8 +10,13 @@
 //! [1]: https://www.elitepvpers.com/forum/members/568265-cptsky.html
 //! [2]: https://www.elitepvpers.com/forum/co2-pserver-guides-releases/2402439-cops-v6-source-tools-custom-emulator.html
 //! [3]: https://www.forum.darkfoxdeveloper.com/conquerwiki/doku.php?id=conqueronlineserverasymmetriccipher
+
+use core::sync::atomic::{AtomicU16, AtomicU8, Ordering};
 use parking_lot::RwLock;
-use std::sync::atomic::{AtomicU16, AtomicU8, Ordering};
+
+#[cfg(not(feature = "std"))]
+use alloc::sync::Arc;
+#[cfg(feature = "std")]
 use std::sync::Arc;
 
 const KEY_SIZE: usize = 0x200;

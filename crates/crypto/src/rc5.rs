@@ -19,7 +19,7 @@
 //! consists of a number of modular additions and eXclusive OR (XOR)s. The
 //! general structure of the algorithm is a Feistel-like network.
 
-use bytes::{Buf, BufMut};
+use bytes::Buf;
 
 const SUB_KEY_SEED: [u32; 26] = [
     0xA991_5556,
@@ -106,18 +106,12 @@ impl crate::Cipher for TQRC5 {
                     ^ b;
             }
             let chunk_a = &mut data[(8 * word)..];
-            let mut wtr_a = vec![];
-            wtr_a.put_u32_le(a.wrapping_sub(sub[0]));
-            for (i, b) in wtr_a.iter().enumerate() {
-                chunk_a[i] = *b;
-            }
-            let chunk_b = &mut data[(8 * word + 4)..];
-            let mut wtr_b = vec![];
-            wtr_b.put_u32_le(b.wrapping_sub(sub[1]));
+            let a_bytes = a.wrapping_sub(sub[0]).to_le_bytes();
+            chunk_a[..4].copy_from_slice(&a_bytes);
 
-            for (i, b) in wtr_b.iter().enumerate() {
-                chunk_b[i] = *b;
-            }
+            let chunk_b = &mut data[(8 * word + 4)..];
+            let b_bytes = b.wrapping_sub(sub[1]).to_le_bytes();
+            chunk_b[..4].copy_from_slice(&b_bytes);
         }
     }
 

@@ -19,14 +19,18 @@
 //!             the next 2 bytes are the packet id.
 //! ```
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use core::future::Future;
+use core::pin::Pin;
+use core::task::{Context, Poll};
 use pretty_hex::{HexConfig, PrettyHex};
-use std::io;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use tokio::io::{
-    split, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf,
+    self, split, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf,
     WriteHalf,
 };
 use tokio_stream::Stream;

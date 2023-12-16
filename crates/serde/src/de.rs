@@ -3,6 +3,9 @@
 use crate::TQSerdeError;
 use serde::de::{self, Deserialize, DeserializeSeed, SeqAccess, Visitor};
 
+#[cfg(not(feature = "std"))]
+use alloc::string::{String, ToString};
+
 struct SliceReader<'storage> {
     slice: &'storage [u8],
 }
@@ -77,7 +80,7 @@ macro_rules! impl_nums {
         where
             V: serde::de::Visitor<'de>,
         {
-            use std::mem::size_of;
+            use core::mem::size_of;
             const N: usize = size_of::<$ty>();
             let bytes = self.input.get_byte_array::<N>()?;
             let value = <$ty>::from_le_bytes(bytes);

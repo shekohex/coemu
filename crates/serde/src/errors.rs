@@ -1,25 +1,39 @@
 //! Handle Errors.
+use core::fmt::Display;
 use serde::{de, ser};
-use std::fmt::Display;
-use thiserror::Error;
+
+#[cfg(not(feature = "std"))]
+use alloc::string::{String, ToString};
 
 /// Represents Any Errors that could happens while Serializing/Deserializing
 /// Binary Packets.
-#[derive(Clone, Debug, Error)]
+#[derive(Clone, Debug)]
 pub enum TQSerdeError {
-    #[error("{}", _0)]
     Message(String),
-    #[error(transparent)]
-    Utf8Error(#[from] std::str::Utf8Error),
-    #[error("Invalid Boolean Value")]
+    Utf8Error(core::str::Utf8Error),
     InvalidBool,
-    #[error("EOF")]
     Eof,
-    #[error("Deserializing Any Not Supported")]
     DeserializeAnyNotSupported,
-    #[error("Unspported Type")]
     Unspported,
 }
+
+impl Display for TQSerdeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            TQSerdeError::Message(msg) => write!(f, "{}", msg),
+            TQSerdeError::Utf8Error(err) => write!(f, "{}", err),
+            TQSerdeError::InvalidBool => write!(f, "Invalid Boolean Value"),
+            TQSerdeError::Eof => write!(f, "EOF"),
+            TQSerdeError::DeserializeAnyNotSupported => {
+                write!(f, "Deserializing Any Not Supported")
+            },
+            TQSerdeError::Unspported => write!(f, "Unspported Type"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for TQSerdeError {}
 
 impl ser::Error for TQSerdeError {
     fn custom<T: Display>(msg: T) -> Self {

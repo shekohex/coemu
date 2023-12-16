@@ -1,3 +1,6 @@
+//! Primitives used by the game engine and game server.
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use bytemuck::NoUninit;
 use core::fmt;
 use num_traits::PrimInt;
