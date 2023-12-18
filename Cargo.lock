@@ -166,6 +166,7 @@ dependencies = [
  "tq-db",
  "tq-network",
  "tq-serde",
+ "tq-server",
  "tracing",
  "tracing-subscriber",
 ]
@@ -743,6 +744,7 @@ version = "0.3.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a19526d624e703a3179b3d322efec918b6246ea0fa51d41124525f00f1cc8104"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-sink",
@@ -781,6 +783,7 @@ dependencies = [
  "tq-math",
  "tq-network",
  "tq-serde",
+ "tq-server",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2399,7 +2402,6 @@ dependencies = [
  "derive-packetid",
  "futures",
  "serde",
- "thiserror",
  "tokio",
  "tokio-stream",
  "tq-codec",
@@ -2415,6 +2417,23 @@ dependencies = [
  "bytes",
  "serde",
  "tq-crypto",
+]
+
+[[package]]
+name = "tq-server"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "futures",
+ "serde",
+ "tokio",
+ "tokio-stream",
+ "tq-codec",
+ "tq-crypto",
+ "tq-network",
+ "tq-serde",
+ "tracing",
 ]
 
 [[package]]

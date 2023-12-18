@@ -10,6 +10,8 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] tq_network::Error),
     #[error(transparent)]
+    Server(#[from] tq_server::Error),
+    #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
     DotEnv(#[from] dotenvy::Error),
@@ -189,4 +191,9 @@ impl PacketEncode for Error {
 
 impl From<Error> for tq_network::Error {
     fn from(v: Error) -> Self { Self::Other(v.to_string()) }
+}
+
+
+impl From<Error> for tq_server::Error {
+    fn from(v: Error) -> Self { Self::Internal(Box::new(v)) }
 }

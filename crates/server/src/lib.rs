@@ -1,6 +1,7 @@
-use crate::actor::Message;
-use crate::{Actor, ActorState, Error, PacketHandler};
+//! This crate contains Creating Servers common code.
+
 use async_trait::async_trait;
+use tq_network::{ActorState, PacketHandler, Actor, Message};
 use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::ops::Deref;
@@ -12,8 +13,11 @@ use tokio_stream::StreamExt;
 use tq_codec::{TQCodec, TQEncoder};
 use tq_crypto::Cipher;
 
+mod error;
+pub use error::Error;
+
 #[async_trait]
-pub trait Server: Sized + Send + Sync {
+pub trait TQServer: Sized + Send + Sync {
     type Cipher: Cipher;
     type ActorState: ActorState;
     type PacketHandler: PacketHandler<ActorState = Self::ActorState>;
@@ -114,7 +118,7 @@ pub trait Server: Sized + Send + Sync {
 }
 
 #[tracing::instrument(skip_all, err)]
-async fn handle_stream<S: Server>(
+async fn handle_stream<S: TQServer>(
     stream: TcpStream,
     state: &<S::PacketHandler as PacketHandler>::State,
     actor: &Actor<S::ActorState>,
@@ -134,8 +138,7 @@ async fn handle_stream<S: Server>(
         {
             let result = actor
                 .send(err)
-                .await
-                .map_err(|e| Error::Other(e.to_string()));
+                .await;
             if let Err(e) = result {
                 tracing::error!(
                     ?e,

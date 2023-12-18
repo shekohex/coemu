@@ -1,5 +1,5 @@
 [package]
-name = "tq-network"
+name = "tq-server"
 version = "0.1.0"
 authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition.workspace = true
@@ -10,31 +10,17 @@ bytes.workspace = true
 tq-serde.workspace = true
 tq-codec.workspace = true
 tq-crypto.workspace = true
+tq-network.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 futures.workspace = true
 
-# macros
-derive-packetid.workspace = true
-derive-packethandler.workspace = true
-
 [dependencies.tokio-stream]
 workspace = true
 default-features = false
-optional = true
 features = ["io-util", "net"]
 
 [dependencies.tokio]
 workspace = true
 default-features = false
 features = ["io-util", "sync"]
-
-[features]
-default = []
-std = [
-  "tq-serde/std",
-  "tq-codec/std",
-  "tq-crypto/std",
-  "tracing/std",
-  "futures/std"
-]

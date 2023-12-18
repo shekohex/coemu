@@ -7,7 +7,8 @@
 
 use async_trait::async_trait;
 use std::env;
-use tq_network::{Actor, ActorState as _, PacketHandler, Server, TQCipher};
+use tq_network::{Actor, ActorState as _, PacketHandler, TQCipher};
+use tq_server::TQServer;
 
 use game::packets::*;
 use game::{ActorState, Error, State};
@@ -15,7 +16,7 @@ use game::{ActorState, Error, State};
 struct GameServer;
 
 #[async_trait]
-impl Server for GameServer {
+impl TQServer for GameServer {
     type ActorState = ActorState;
     type Cipher = TQCipher;
     type PacketHandler = Handler;
@@ -26,7 +27,7 @@ impl Server for GameServer {
     async fn on_disconnected(
         state: &<Self::PacketHandler as PacketHandler>::State,
         actor: Actor<Self::ActorState>,
-    ) -> Result<(), tq_network::Error> {
+    ) -> Result<(), tq_server::Error> {
         if let Ok(entity) = actor.try_entity() {
             let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
             let mymap_id = me.entity().map_id();
@@ -128,6 +129,7 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
         .add_directive(format!("tq_crypto={}", log_level).parse().unwrap())
         .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
         .add_directive(format!("tq_network={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_server={}", log_level).parse().unwrap())
         .add_directive(format!("game={}", log_level).parse().unwrap())
         .add_directive(format!("game_server={}", log_level).parse().unwrap());
 

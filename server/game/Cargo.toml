@@ -15,12 +15,13 @@ path = "src/lib.rs"
 
 [dependencies]
 thiserror.workspace = true
-serde = { workspace = true, features = ["derive"] }
+serde.workspace = true
 bytes.workspace = true
-tq-network.workspace = true
-tq-serde.workspace = true
+tq-network = { workspace = true, features = ["std"] }
+tq-serde = { workspace = true, features = ["std"] }
 tq-math.workspace = true
 tq-db.workspace = true
+tq-server.workspace = true
 primitives.workspace = true
 async-trait.workspace = true
 tracing.workspace = true

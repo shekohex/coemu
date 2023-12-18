@@ -7,6 +7,8 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] tq_network::Error),
     #[error(transparent)]
+    Server(#[from] tq_server::Error),
+    #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
     DotEnv(#[from] dotenvy::Error),

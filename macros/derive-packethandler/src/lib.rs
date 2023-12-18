@@ -3,6 +3,7 @@ use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{parse_macro_input, Data, DataEnum, DeriveInput, Expr, Ident, Token};
 
+#[derive(Debug, Clone)]
 struct Args {
     actor_state: Expr,
     state: Expr,

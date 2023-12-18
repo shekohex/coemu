@@ -16,15 +16,16 @@ path = "src/lib.rs"
 thiserror.workspace = true
 serde.workspace = true
 bytes.workspace = true
-tq-network.workspace = true
-tq-serde.workspace = true
+tq-network = { workspace = true, features = ["std"] }
+tq-serde = { workspace = true, features = ["std"] }
 tq-db.workspace = true
+tq-server.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 dotenvy.workspace = true
 once_cell.workspace = true
-num_enum = { workspace = true, default-features = false }
 tokio-stream.workspace = true
+num_enum = { workspace = true, default-features = false }
 
 [dependencies.tracing-subscriber]
 version = "0.3"

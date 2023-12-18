@@ -1,13 +1,17 @@
 use crate::{Error, PacketEncode};
 use async_trait::async_trait;
 use bytes::Bytes;
+use core::hash::Hash;
+use core::ops::Deref;
+use core::sync::atomic::{AtomicUsize, Ordering};
 use futures::TryFutureExt;
-use std::hash::Hash;
-use std::ops::Deref;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 use tracing::instrument;
+
+#[cfg(not(feature = "std"))]
+use alloc::{sync::Arc, boxed::Box};
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum Message {
@@ -35,7 +39,7 @@ pub struct ActorHandle {
 }
 
 impl<S: ActorState> Hash for Actor<S> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.handle.id.load(Ordering::Relaxed).hash(state);
     }
 }

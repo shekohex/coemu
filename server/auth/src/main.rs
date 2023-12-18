@@ -5,14 +5,15 @@
 //! will be transferred to the message server of their choice.
 
 use std::env;
-use tq_network::{PacketHandler, Server, TQCipher};
+use tq_network::{PacketHandler, TQCipher};
+use tq_server::TQServer;
 
 use auth::packets::{MsgAccount, MsgConnect};
 use auth::{Error, State};
 
 struct AuthServer;
 
-impl Server for AuthServer {
+impl TQServer for AuthServer {
     type ActorState = ();
     type Cipher = TQCipher;
     type PacketHandler = AuthServerHandler;
@@ -42,7 +43,7 @@ async fn main() -> Result<(), Error> {
  \____/ \___/ \____/|_| |_| |_| \__,_|
                                       
                                        
-Copyright 2020-2022 Shady Khalifa (@shekohex)
+Copyright 2020-2023 Shady Khalifa (@shekohex)
      All Rights Reserved.
  "#
     );
@@ -85,6 +86,7 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
         .add_directive(format!("tq_crypto={}", log_level).parse().unwrap())
         .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
         .add_directive(format!("tq_network={}", log_level).parse().unwrap())
+        .add_directive(format!("tq_server={}", log_level).parse().unwrap())
         .add_directive(format!("auth={}", log_level).parse().unwrap())
         .add_directive(format!("auth_server={}", log_level).parse().unwrap());
     let logger = tracing_subscriber::fmt()

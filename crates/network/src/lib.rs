@@ -1,7 +1,17 @@
+//! This crate contains the core networking components used by the server and
+//! client crates.
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+
 use bytes::Bytes;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::error::Error as StdError;
 
 pub use async_trait::async_trait;
 pub use derive_packethandler::PacketHandler;
@@ -15,18 +25,17 @@ pub use error::Error;
 mod actor;
 pub use actor::{Actor, ActorHandle, ActorState, Message};
 
-#[cfg(feature = "server")]
-mod server;
-#[cfg(feature = "server")]
-pub use server::Server;
-
+/// Assoucitates a packet structure with a packet ID. This is used for
+/// serialization and deserialization of packets. The packet ID is used to
+/// identify the packet type, and the packet structure is used to serialize and
+/// deserialize the packet.
 pub trait PacketID {
     const PACKET_ID: u16;
 }
 
 #[async_trait]
 pub trait PacketProcess {
-    type Error: StdError;
+    type Error;
     type ActorState: ActorState;
     type State: Send + Sync;
     /// Process can be invoked by a packet after decode has been called to
@@ -41,7 +50,7 @@ pub trait PacketProcess {
 }
 
 pub trait PacketEncode {
-    type Error: StdError + From<Error>;
+    type Error: From<Error> + core::fmt::Debug;
     /// The Packet that we will encode.
     type Packet: Serialize + PacketID;
     /// Encodes the packet structure defined by this message struct into a byte
@@ -52,7 +61,7 @@ pub trait PacketEncode {
 }
 
 pub trait PacketDecode {
-    type Error: StdError;
+    type Error: From<Error> + core::fmt::Debug;
     /// The Packet that we will Decode into.
     type Packet: DeserializeOwned;
     /// Decodes a byte packet into the packet structure defined by this message
@@ -64,7 +73,7 @@ pub trait PacketDecode {
 
 #[async_trait]
 pub trait PacketHandler {
-    type Error: StdError + PacketEncode + Send + Sync;
+    type Error: PacketEncode + Send + Sync;
     type ActorState: ActorState;
     type State: Send + Sync + 'static;
     async fn handle(
