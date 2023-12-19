@@ -3,6 +3,8 @@ package.edition = "2021"
 resolver = "2"
 members = [
   "crates/*",
+  # Game Packets
+  "packets/*",
   # Servers
   "server/*",
   # Utils
@@ -21,6 +23,7 @@ tq-crypto = { path = "crates/crypto" }
 tq-codec = { path = "crates/codec" }
 tq-db = { path = "crates/db" }
 tq-server = { path = "crates/server" }
+tq-system = { path = "crates/system" }
 
 derive-packetid = { path = "macros/derive-packetid" }
 derive-packethandler = { path = "macros/derive-packethandler" }
@@ -28,6 +31,11 @@ derive-packethandler = { path = "macros/derive-packethandler" }
 # Servers & Libs
 auth = { path = "server/auth" }
 game = { path = "server/game" }
+
+# Packets
+msg-account = { path = "packets/account" }
+msg-connect-ex = { path = "packets/connect-ex" }
+msg-transfer = { path = "packets/transfer" }
 
 futures = { version = "0.3", default-features = false }
 thiserror = "1.0"

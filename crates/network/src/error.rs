@@ -1,7 +1,7 @@
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Error {
     TQSerde(tq_serde::TQSerdeError),
     SendError,

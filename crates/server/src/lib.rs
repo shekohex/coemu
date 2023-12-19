@@ -1,7 +1,6 @@
 //! This crate contains Creating Servers common code.
 
 use async_trait::async_trait;
-use tq_network::{ActorState, PacketHandler, Actor, Message};
 use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::ops::Deref;
@@ -12,6 +11,7 @@ use tokio_stream::wrappers::{ReceiverStream, TcpListenerStream};
 use tokio_stream::StreamExt;
 use tq_codec::{TQCodec, TQEncoder};
 use tq_crypto::Cipher;
+use tq_network::{Actor, ActorState, Message, PacketHandler};
 
 mod error;
 pub use error::Error;
@@ -136,9 +136,7 @@ async fn handle_stream<S: TQServer>(
         if let Err(err) =
             S::PacketHandler::handle((id, bytes), state, actor).await
         {
-            let result = actor
-                .send(err)
-                .await;
+            let result = actor.send(err).await;
             if let Err(e) = result {
                 tracing::error!(
                     ?e,

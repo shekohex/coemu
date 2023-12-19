@@ -1,0 +1,32 @@
+[package]
+name = "msg-transfer"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+tq-serde.workspace = true
+tq-codec.workspace = true
+tq-crypto.workspace = true
+tq-network.workspace = true
+tq-system.workspace = true
+
+serde.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+bytes.workspace = true
+
+msg-connect-ex.workspace = true
+
+[features]
+default = ["std"]
+std = [
+  "tq-serde/std",
+  "tq-codec/std",
+  "tq-crypto/std",
+  "tq-network/std",
+  "tq-system/std",
+
+  "tracing/std",
+
+  "msg-connect-ex/std",
+]

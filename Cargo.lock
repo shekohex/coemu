@@ -1207,6 +1207,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "msg-account"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "msg-connect-ex",
+ "msg-transfer",
+ "serde",
+ "tq-codec",
+ "tq-crypto",
+ "tq-network",
+ "tq-serde",
+ "tq-system",
+ "tracing",
+]
+
+[[package]]
+name = "msg-connect-ex"
+version = "0.1.0"
+dependencies = [
+ "num_enum",
+ "serde",
+ "tq-network",
+ "tq-serde",
+]
+
+[[package]]
+name = "msg-transfer"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "msg-connect-ex",
+ "serde",
+ "tq-codec",
+ "tq-crypto",
+ "tq-network",
+ "tq-serde",
+ "tq-system",
+ "tracing",
+]
+
+[[package]]
 name = "neli"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2424,6 +2466,14 @@ dependencies = [
  "tq-network",
  "tq-serde",
  "tracing",
+]
+
+[[package]]
+name = "tq-system"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "tq-network",
 ]
 
 [[package]]

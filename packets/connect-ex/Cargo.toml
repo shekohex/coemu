@@ -1,0 +1,18 @@
+[package]
+name = "msg-connect-ex"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+tq-serde.workspace = true
+tq-network.workspace = true
+
+serde.workspace = true
+num_enum.workspace = true
+
+[features]
+default = ["std"]
+std = [
+  "tq-serde/std",
+  "tq-network/std",
+]

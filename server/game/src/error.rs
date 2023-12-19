@@ -193,7 +193,6 @@ impl From<Error> for tq_network::Error {
     fn from(v: Error) -> Self { Self::Other(v.to_string()) }
 }
 
-
 impl From<Error> for tq_server::Error {
     fn from(v: Error) -> Self { Self::Internal(Box::new(v)) }
 }

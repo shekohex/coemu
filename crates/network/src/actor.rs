@@ -9,7 +9,7 @@ use tokio::sync::mpsc::Sender;
 use tracing::instrument;
 
 #[cfg(not(feature = "std"))]
-use alloc::{sync::Arc, boxed::Box};
+use alloc::{boxed::Box, sync::Arc};
 #[cfg(feature = "std")]
 use std::sync::Arc;
 
