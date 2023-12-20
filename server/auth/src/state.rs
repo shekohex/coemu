@@ -1,6 +1,9 @@
 use crate::Error;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 
+#[cfg(not(feature = "std"))]
+use alloc::format;
+
 #[derive(Debug, Clone)]
 pub struct State {
     pool: SqlitePool,

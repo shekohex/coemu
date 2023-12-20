@@ -1,29 +1,77 @@
 use bytes::Bytes;
-use thiserror::Error;
 use tq_network::{ErrorPacket, PacketEncode};
 
-#[derive(Debug, Error)]
+#[cfg(not(feature = "std"))]
+use alloc::string::{String, ToString};
+
+#[derive(Debug)]
 pub enum Error {
-    #[error(transparent)]
-    Network(#[from] tq_network::Error),
-    #[error(transparent)]
-    Server(#[from] tq_server::Error),
-    #[error(transparent)]
-    IO(#[from] std::io::Error),
-    #[error(transparent)]
-    DotEnv(#[from] dotenvy::Error),
-    #[error(transparent)]
-    Env(#[from] std::env::VarError),
-    #[error(transparent)]
-    Sqlx(#[from] sqlx::Error),
-    #[error(transparent)]
-    Db(#[from] tq_db::Error),
-    #[error("State Error: {}", _0)]
+    Network(tq_network::Error),
+    Server(tq_server::Error),
+    #[cfg(feature = "std")]
+    IO(std::io::Error),
+    DotEnv(dotenvy::Error),
+    #[cfg(feature = "std")]
+    Env(std::env::VarError),
+    Sqlx(sqlx::Error),
+    Db(tq_db::Error),
     State(&'static str),
-    #[error("{}", _0)]
     Other(String),
-    #[error("Msg {}", _0)]
     Msg(u16, Bytes),
+}
+
+impl From<tq_db::Error> for Error {
+    fn from(v: tq_db::Error) -> Self { Self::Db(v) }
+}
+
+impl From<sqlx::Error> for Error {
+    fn from(v: sqlx::Error) -> Self { Self::Sqlx(v) }
+}
+
+#[cfg(feature = "std")]
+impl From<std::env::VarError> for Error {
+    fn from(v: std::env::VarError) -> Self { Self::Env(v) }
+}
+
+impl From<dotenvy::Error> for Error {
+    fn from(v: dotenvy::Error) -> Self { Self::DotEnv(v) }
+}
+
+#[cfg(feature = "std")]
+impl From<std::io::Error> for Error {
+    fn from(v: std::io::Error) -> Self { Self::IO(v) }
+}
+
+impl From<tq_server::Error> for Error {
+    fn from(v: tq_server::Error) -> Self { Self::Server(v) }
+}
+
+impl From<tq_network::Error> for Error {
+    fn from(v: tq_network::Error) -> Self { Self::Network(v) }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Network(e) => write!(f, "Network error: {}", e),
+            Self::Server(e) => write!(f, "Server error: {}", e),
+            #[cfg(feature = "std")]
+            Self::IO(e) => write!(f, "IO error: {}", e),
+            Self::DotEnv(e) => write!(f, "DotEnv error: {}", e),
+            #[cfg(feature = "std")]
+            Self::Env(e) => write!(f, "Env error: {}", e),
+            Self::Sqlx(e) => write!(f, "Sqlx error: {}", e),
+            Self::Db(e) => write!(f, "Db error: {}", e),
+            Self::State(e) => write!(f, "State error: {}", e),
+            Self::Other(e) => write!(f, "{}", e),
+            Self::Msg(id, bytes) => {
+                write!(f, "Error packet: id = {}, body = {:?}", id, bytes)
+            },
+        }
+    }
 }
 
 impl<T: PacketEncode> From<ErrorPacket<T>> for Error {

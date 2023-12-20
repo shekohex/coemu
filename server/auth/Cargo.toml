@@ -16,16 +16,16 @@ path = "src/lib.rs"
 thiserror.workspace = true
 serde.workspace = true
 bytes.workspace = true
-tq-network = { workspace = true, features = ["std"] }
-tq-serde = { workspace = true, features = ["std"] }
 tq-db.workspace = true
 tq-server.workspace = true
+tq-network.workspace = true
+tq-serde.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 dotenvy.workspace = true
 once_cell.workspace = true
 tokio-stream.workspace = true
-num_enum = { workspace = true, default-features = false }
+num_enum.workspace = true
 
 [dependencies.tracing-subscriber]
 version = "0.3"
@@ -42,4 +42,11 @@ features = ["rt-multi-thread", "macros", "signal"]
 [dependencies.sqlx]
 workspace = true
 default-features = false
-features = ["runtime-tokio-rustls", "sqlite", "macros"]
+features = ["runtime-tokio", "sqlite", "macros"]
+
+[features]
+default = []
+std = [
+  "tq-network/std",
+  "tq-serde/std",
+]

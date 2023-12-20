@@ -1,0 +1,21 @@
+[package]
+name = "tq-externalities"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+environmental.workspace = true
+futures.workspace = true
+
+[dependencies.sqlx]
+default-features = false
+workspace = true
+features = ["any"]
+
+[features]
+default = []
+std = [
+  "environmental/std",
+  "futures/std"
+]
