@@ -1,8 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use serde::{Deserialize, Serialize};
-use tq_network::{ActorHandle, ErrorPacket, PacketEncode, PacketID};
+use tq_network::{ErrorPacket, PacketEncode, PacketID};
 
+use tq_system::ActorHandle;
 pub use traits::{RealmByName, ServerBus, TokenGenerator};
 
 mod functions;
@@ -11,7 +12,7 @@ mod types;
 
 /// Defines account parameters to be transferred from the account server to the
 /// game server. Account information is supplied from the account database, and
-/// used on the game server to transfer authentication and authority level.  
+/// used on the game server to transfer authentication and authority level.
 #[derive(Clone, Default, Debug, Deserialize, Serialize, PacketID)]
 #[packet(id = 4001)]
 pub struct MsgTransfer<T: Config> {
@@ -32,11 +33,10 @@ pub trait Config: tq_system::Config {
     type ServerBus: ServerBus;
 }
 
-#[async_trait::async_trait]
 impl<T: Config> tq_system::ProcessPacket for MsgTransfer<T> {
     type Error = Error;
 
-    async fn process(&self, actor: ActorHandle) -> Result<(), Self::Error> {
+    fn process(&self, actor: ActorHandle) -> Result<(), Self::Error> {
         let token = T::TokenGenerator::generate_login_token(
             self.account_id,
             self.realm_id,
@@ -47,8 +47,8 @@ impl<T: Config> tq_system::ProcessPacket for MsgTransfer<T> {
             token,
             _config: core::marker::PhantomData,
         };
-        actor.send(msg).await?;
-        actor.shutdown().await?;
+        T::send(&actor, msg)?;
+        T::shutdown(&actor)?;
         Ok(())
     }
 }
@@ -58,6 +58,8 @@ impl<T: Config> tq_system::ProcessPacket for MsgTransfer<T> {
 pub enum Error {
     /// Failed to generate a login token.
     TokenGenerationFailed,
+    /// The realm is unavailable.
+    RealmUnavailable,
     /// Internal Network error.
     Network(tq_network::Error),
     /// An error packet to be sent to the client.
@@ -70,6 +72,7 @@ impl core::fmt::Display for Error {
             Self::TokenGenerationFailed => {
                 write!(f, "Failed to generate a login token")
             },
+            Self::RealmUnavailable => write!(f, "Realm is unavailable"),
             Self::Network(e) => write!(f, "Network error: {}", e),
             Self::Msg(id, body) => {
                 write!(f, "Error packet: id = {}, body = {:?}", id, body)

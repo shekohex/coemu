@@ -3,9 +3,10 @@
 use msg_connect_ex::{MsgConnectEx, RejectionCode};
 use msg_transfer::MsgTransfer;
 use serde::Deserialize;
-use tq_network::{ActorHandle, PacketID};
+use tq_network::PacketID;
 use tq_serde::{String16, TQPassword};
 
+use tq_system::ActorHandle;
 pub use traits::Authanticator;
 
 mod functions;
@@ -31,13 +32,12 @@ pub trait Config: msg_transfer::Config {
     type Authanticator: Authanticator;
 }
 
-#[async_trait::async_trait]
 impl<T: Config> tq_system::ProcessPacket for MsgAccount<T> {
     type Error = Error;
 
-    async fn process(&self, actor: ActorHandle) -> Result<(), Self::Error> {
+    fn process(&self, actor: ActorHandle) -> Result<(), Self::Error> {
         let maybe_accont_id =
-            T::Authanticator::auth(&self.username, &self.password).await;
+            T::Authanticator::auth(&self.username, &self.password);
         let account_id = match maybe_accont_id {
             Ok(id) => id,
             Err(e) => {
@@ -50,12 +50,12 @@ impl<T: Config> tq_system::ProcessPacket for MsgAccount<T> {
                         RejectionCode::TryAgainLater.packet()
                     },
                 };
-                actor.send(res).await?;
+                T::send(&actor, res)?;
                 return Ok(());
             },
         };
         actor.set_id(account_id as usize);
-        let res = match MsgTransfer::<T>::handle(&actor, &self.realm).await {
+        let res = match MsgTransfer::<T>::handle(&actor, &self.realm) {
             Ok(res) => res,
             _ => {
                 tracing::warn!(
@@ -66,12 +66,13 @@ impl<T: Config> tq_system::ProcessPacket for MsgAccount<T> {
             },
         };
         let res = MsgConnectEx::forword_connection(res);
-        actor.send(res).await?;
+        T::send(&actor, res)?;
         Ok(())
     }
 }
 
 /// Possible errors that can occur while processing a packet.
+#[derive(Debug)]
 pub enum Error {
     /// User has entered an invalid username or password.
     InvalidUsernameOrPassword,

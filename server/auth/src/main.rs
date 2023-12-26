@@ -4,12 +4,15 @@
 //! correct with the database. If the combination is correct, the client
 //! will be transferred to the message server of their choice.
 
+use bytes::Bytes;
+use msg_account::MsgAccount;
+use msg_connect::MsgConnect;
 use std::env;
-use tq_network::{PacketHandler, TQCipher};
+use tq_network::{Actor, PacketDecode, PacketHandler, PacketID, TQCipher};
 use tq_server::TQServer;
 
-use auth::packets::{MsgAccount, MsgConnect};
-use auth::{Error, State};
+use auth::{Error, Runtime, State};
+use tq_system::ProcessPacket;
 
 struct AuthServer;
 
@@ -19,11 +22,34 @@ impl TQServer for AuthServer {
     type PacketHandler = AuthServerHandler;
 }
 
-#[derive(Debug, PacketHandler)]
-#[handle(state = State, actor_state = ())]
-pub enum AuthServerHandler {
-    MsgAccount,
-    MsgConnect,
+enum AuthServerHandler {}
+
+#[async_trait::async_trait]
+impl PacketHandler for AuthServerHandler {
+    type ActorState = ();
+    type Error = Error;
+    type State = State;
+
+    async fn handle(
+        packet: (u16, Bytes),
+        state: &Self::State,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
+        match packet.0 {
+            MsgAccount::<Runtime>::PACKET_ID => {
+                let packet = MsgAccount::<Runtime>::decode(&packet.1)?;
+                packet.process(actor.handle()).await?;
+            },
+            MsgConnect::<Runtime>::PACKET_ID => {
+                let packet = MsgConnect::<Runtime>::decode(&packet.1)?;
+                packet.process(actor.handle()).await?;
+            },
+            _ => {
+                tracing::warn!("Unknown packet: {:#?}", packet);
+            },
+        }
+        Ok(())
+    }
 }
 
 #[tokio::main]

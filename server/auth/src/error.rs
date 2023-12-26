@@ -18,6 +18,8 @@ pub enum Error {
     State(&'static str),
     Other(String),
     Msg(u16, Bytes),
+    MsgAccount(msg_account::Error),
+    Msgconnect(msg_connect::Error),
 }
 
 impl From<tq_db::Error> for Error {
@@ -50,6 +52,14 @@ impl From<tq_network::Error> for Error {
     fn from(v: tq_network::Error) -> Self { Self::Network(v) }
 }
 
+impl From<msg_account::Error> for Error {
+    fn from(v: msg_account::Error) -> Self { Self::MsgAccount(v) }
+}
+
+impl From<msg_connect::Error> for Error {
+    fn from(v: msg_connect::Error) -> Self { Self::Msgconnect(v) }
+}
+
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
 
@@ -70,6 +80,8 @@ impl core::fmt::Display for Error {
             Self::Msg(id, bytes) => {
                 write!(f, "Error packet: id = {}, body = {:?}", id, bytes)
             },
+            Self::MsgAccount(e) => write!(f, "MsgAccount error: {}", e),
+            Self::Msgconnect(e) => write!(f, "MsgConnect error: {}", e),
         }
     }
 }

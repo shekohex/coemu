@@ -156,8 +156,11 @@ dependencies = [
  "async-trait",
  "bytes",
  "dotenvy",
+ "msg-account",
+ "msg-connect",
+ "msg-connect-ex",
+ "msg-transfer",
  "num_enum",
- "once_cell",
  "serde",
  "sqlx",
  "thiserror",
@@ -167,6 +170,7 @@ dependencies = [
  "tq-network",
  "tq-serde",
  "tq-server",
+ "tq-system",
  "tracing",
  "tracing-subscriber",
 ]
@@ -776,7 +780,6 @@ dependencies = [
  "dotenvy",
  "futures",
  "num_enum",
- "once_cell",
  "parking_lot",
  "primitives",
  "rand",
@@ -1216,7 +1219,6 @@ dependencies = [
 name = "msg-account"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "msg-connect-ex",
  "msg-transfer",
  "serde",
@@ -1226,6 +1228,16 @@ dependencies = [
  "tq-serde",
  "tq-system",
  "tracing",
+]
+
+[[package]]
+name = "msg-connect"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tq-network",
+ "tq-serde",
+ "tq-system",
 ]
 
 [[package]]
@@ -1242,7 +1254,6 @@ dependencies = [
 name = "msg-transfer"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "bytes",
  "msg-connect-ex",
  "serde",
@@ -2491,7 +2502,6 @@ dependencies = [
 name = "tq-system"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "tq-network",
 ]
 
