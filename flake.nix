@@ -29,6 +29,7 @@
           nativeBuildInputs = [
             pkgs.pkg-config
             pkgs.clang
+            pkgs.openssl
             # Mold Linker for faster builds (only on Linux)
             (lib.optionals pkgs.stdenv.isLinux pkgs.mold)
             (lib.optionals pkgs.stdenv.isDarwin pkgs.darwin.apple_sdk.frameworks.Security)

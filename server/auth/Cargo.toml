@@ -7,6 +7,7 @@ edition.workspace = true
 [[bin]]
 name = "auth-server"
 path = "src/main.rs"
+required-features = ["server"]
 
 [lib]
 name = "auth"
@@ -17,10 +18,8 @@ thiserror.workspace = true
 serde.workspace = true
 bytes.workspace = true
 tq-db.workspace = true
-tq-server.workspace = true
 tq-network.workspace = true
 tq-serde.workspace = true
-tq-system.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 dotenvy.workspace = true
@@ -28,19 +27,36 @@ tokio-stream.workspace = true
 num_enum.workspace = true
 
 # Packets
-msg-account.workspace = true
-msg-transfer.workspace = true
-msg-connect-ex.workspace = true
+# msg-account.workspace = true
+# msg-transfer.workspace = true
+# msg-connect-ex.workspace = true
 msg-connect.workspace = true
+
+
+[dependencies.tq-server]
+workspace = true
+optional = true
+
+[dependencies.wasmtime]
+workspace = true
+default-features = false
+features = ["async", "cranelift", "coredump", "cache", "pooling-allocator", "component-model"]
+
+[dependencies.wasmtime-wasi]
+workspace = true
+default-features = false
+features = ["preview2"]
 
 [dependencies.tracing-subscriber]
 version = "0.3"
+optional = true
 default-features = false
 features = ["env-filter", "ansi", "fmt", "smallvec"]
 
 # Runtime
 [dependencies.tokio]
 workspace = true
+optional = true
 default-features = false
 features = ["rt-multi-thread", "macros", "signal"]
 
@@ -48,16 +64,19 @@ features = ["rt-multi-thread", "macros", "signal"]
 [dependencies.sqlx]
 workspace = true
 default-features = false
-features = ["runtime-tokio", "sqlite", "macros"]
+features = ["sqlite"]
 
 [features]
 default = []
-std = [
+server = [
   "tq-network/std",
   "tq-serde/std",
-  "tq-system/std",
-  "msg-account/std",
-  "msg-transfer/std",
-  "msg-connect-ex/std",
-  "msg-connect/std"
+  # "msg-account/std",
+  # "msg-transfer/std",
+  # "msg-connect-ex/std",
+  "msg-connect/std",
+  "dep:tokio",
+  "dep:tq-server",
+  "sqlx/runtime-tokio",
+  "dep:tracing-subscriber"
 ]

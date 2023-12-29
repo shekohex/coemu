@@ -5,30 +5,30 @@
 //! will be transferred to the message server of their choice.
 
 use bytes::Bytes;
-use msg_account::MsgAccount;
 use msg_connect::MsgConnect;
 use std::env;
 use tq_network::{Actor, PacketDecode, PacketHandler, PacketID, TQCipher};
 use tq_server::TQServer;
+use wasmtime::component::{Component, Linker};
+use wasmtime::{Config, Engine, Store};
+use wasmtime_wasi::preview2::{Table, WasiCtxBuilder};
 
-use auth::{Error, Runtime, State};
-use tq_system::ProcessPacket;
+use auth::error::Error;
+use auth::{Runtime, State};
 
 struct AuthServer;
 
 impl TQServer for AuthServer {
     type ActorState = ();
     type Cipher = TQCipher;
-    type PacketHandler = AuthServerHandler;
+    type PacketHandler = Runtime;
 }
 
-enum AuthServerHandler {}
-
 #[async_trait::async_trait]
-impl PacketHandler for AuthServerHandler {
+impl PacketHandler for Runtime {
     type ActorState = ();
     type Error = Error;
-    type State = State;
+    type State = Self;
 
     async fn handle(
         packet: (u16, Bytes),
@@ -36,13 +36,8 @@ impl PacketHandler for AuthServerHandler {
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
         match packet.0 {
-            MsgAccount::<Runtime>::PACKET_ID => {
-                let packet = MsgAccount::<Runtime>::decode(&packet.1)?;
-                packet.process(actor.handle()).await?;
-            },
-            MsgConnect::<Runtime>::PACKET_ID => {
-                let packet = MsgConnect::<Runtime>::decode(&packet.1)?;
-                packet.process(actor.handle()).await?;
+            MsgConnect::PACKET_ID => {
+                state.packets.msg_connect.call_process(store, arg0, arg1)
             },
             _ => {
                 tracing::warn!("Unknown packet: {:#?}", packet);
@@ -73,12 +68,47 @@ Copyright 2020-2023 Shady Khalifa (@shekohex)
      All Rights Reserved.
  "#
     );
-    tracing::info!("Starting Auth Server");
+    // Configure an `Engine` and compile the `Component` that is being run for
+    // the application.
+    let mut config = Config::new();
+    config.wasm_component_model(true);
+    config.async_support(true);
+
+    let engine = Engine::new(&config)?;
+    let mut linker = Linker::new(&engine);
+    wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
+    let wasi = WasiCtxBuilder::new().inherit_stdio().build();
+    let table = Table::new();
     tracing::info!("Initializing State ..");
+
     let static_state = {
         let state = State::init().await?;
         Box::leak(Box::new(state)) as *mut _
     };
+
+    tracing::info!("Loading Packet and handlers..");
+    let component = Component::from_file(
+        &engine,
+        "./target/wasm32-wasi/debug/msg_connect.wasm",
+    )?;
+    let (bindings, _) = auth::generated::MsgConnect::instantiate_async(
+        &mut store, &component, &linker,
+    )
+    .await?;
+    let packets = auth::Packets {
+        msg_connect: bindings,
+    };
+    let mut store = Store::new(
+        &engine,
+        Runtime {
+            state: static_state,
+            wasi,
+            table,
+            packets,
+        },
+    );
+
+    tracing::info!("Starting Auth Server");
     tracing::info!("Initializing server...");
     let auth_port = env::var("AUTH_PORT")?;
     tracing::info!("Auth Server will be available on {auth_port}");

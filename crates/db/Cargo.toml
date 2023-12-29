@@ -16,7 +16,7 @@ futures.workspace = true
 workspace = true
 default-features = false
 optional = true
-features = ["sqlite"]
+features = ["sqlite", "macros"]
 
 [features]
 default = ["sqlx"]

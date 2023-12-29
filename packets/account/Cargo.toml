@@ -8,7 +8,6 @@ tq-serde.workspace = true
 tq-codec.workspace = true
 tq-crypto.workspace = true
 tq-network.workspace = true
-tq-system.workspace = true
 
 serde.workspace = true
 tracing.workspace = true
@@ -23,7 +22,6 @@ std = [
   "tq-codec/std",
   "tq-crypto/std",
   "tq-network/std",
-  "tq-system/std",
 
   "tracing/std",
 

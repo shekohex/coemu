@@ -1,60 +1,116 @@
 //! Auth Server
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
+pub mod generated {
+    wasmtime::component::bindgen!({
+        path: "../../packets/connect/wit",
+        async: true,
+    });
+}
 
 pub mod error;
 pub mod state;
 
-pub use error::Error;
 pub use state::State;
+use wasmtime::component::Resource;
+use wasmtime_wasi::preview2::{Table, WasiCtx, WasiView};
 
-#[derive(Clone, Copy)]
-pub struct Runtime;
+pub struct Runtime {
+    pub state: &'static State,
+    pub wasi: WasiCtx,
+    pub table: Table,
+    pub packets: Packets,
+}
 
-impl tq_system::Config for Runtime {
-    fn send<P: tq_network::PacketEncode>(
-        handle: &tq_system::ActorHandle,
-        packet: P,
-    ) -> Result<(), P::Error> {
-        todo!()
+pub struct Packets {
+    pub msg_connect: generated::MsgConnect,
+}
+
+impl WasiView for Runtime {
+    fn table(&self) -> &Table { &self.table }
+
+    fn table_mut(&mut self) -> &mut Table { &mut self.table }
+
+    fn ctx(&self) -> &WasiCtx { &self.wasi }
+
+    fn ctx_mut(&mut self) -> &mut WasiCtx { &mut self.wasi }
+}
+
+#[async_trait::async_trait]
+impl generated::coemu::actor::types::HostActorHandle for Runtime {
+    async fn id(
+        &mut self,
+        r: Resource<generated::coemu::actor::types::ActorHandle>,
+    ) -> wasmtime::Result<u32> {
+        let actor = self
+            .state
+            .actor_handles
+            .get(&r.rep())
+            .ok_or_else(|| error::Error::ActorNotFound)?;
+        Ok(actor.id() as u32)
     }
 
-    fn send_all<P, I>(
-        handle: &tq_system::ActorHandle,
-        packets: I,
-    ) -> Result<(), P::Error>
-    where
-        P: tq_network::PacketEncode,
-        I: IntoIterator<Item = P>,
-    {
-        todo!()
+    async fn set_id(
+        &mut self,
+        r: Resource<generated::coemu::actor::types::ActorHandle>,
+        id: u32,
+    ) -> wasmtime::Result<()> {
+        let actor = self
+            .state
+            .actor_handles
+            .get(&r.rep())
+            .ok_or_else(|| error::Error::ActorNotFound)?;
+        actor.set_id(id as usize);
+        Ok(())
     }
 
-    fn generate_keys(
-        handle: &tq_system::ActorHandle,
+    async fn generate_keys(
+        &mut self,
+        r: Resource<generated::coemu::actor::types::ActorHandle>,
         seed: u64,
-    ) -> Result<(), tq_network::Error> {
-        todo!()
+    ) -> wasmtime::Result<()> {
+        let actor = self
+            .state
+            .actor_handles
+            .get(&r.rep())
+            .ok_or_else(|| error::Error::ActorNotFound)?;
+        actor.generate_keys(seed).await?;
+        Ok(())
     }
 
-    fn shutdown(
-        handle: &tq_system::ActorHandle,
-    ) -> Result<(), tq_network::Error> {
-        todo!()
+    async fn send(
+        &mut self,
+        r: Resource<generated::coemu::actor::types::ActorHandle>,
+        packet: (u16, Vec<u8>),
+    ) -> wasmtime::Result<()> {
+        Ok(())
     }
-}
 
-impl msg_account::Config for Runtime {
-    type Authanticator = ();
-}
+    async fn send_all(
+        &mut self,
+        r: Resource<generated::coemu::actor::types::ActorHandle>,
+        packet: Vec<(u16, Vec<u8>)>,
+    ) -> wasmtime::Result<()> {
+        Ok(())
+    }
 
-impl msg_connect::Config for Runtime {}
+    async fn shutdown(
+        &mut self,
+        r: Resource<generated::coemu::actor::types::ActorHandle>,
+    ) -> wasmtime::Result<()> {
+        let actor = self
+            .state
+            .actor_handles
+            .get(&r.rep())
+            .ok_or_else(|| error::Error::ActorNotFound)?;
+        actor.shutdown().await?;
+        Ok(())
+    }
 
-impl msg_transfer::Config for Runtime {
-    type RealmByName = ();
-    type ServerBus = ();
-    type TokenGenerator = ();
+    fn drop(
+        &mut self,
+        r: Resource<generated::coemu::actor::types::ActorHandle>,
+    ) -> wasmtime::Result<()> {
+        // Drop Actor
+        Ok(())
+    }
 }

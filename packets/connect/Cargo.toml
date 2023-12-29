@@ -3,13 +3,29 @@ name = "msg-connect"
 version = "0.1.0"
 edition.workspace = true
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 tq-serde.workspace = true
 tq-network.workspace = true
-tq-system.workspace = true
 
 serde.workspace = true
+bytes.workspace = true
+
+# WASM
+cargo-component-bindings.workspace = true
+
+[package.metadata.component]
+package = "component:msg-connect"
+bindings = { implementor = "MsgConnect", ownership = "borrowing-duplicate-if-necessary" }
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"coemu:actor" = { path = "../../wit/actor/" }
 
 [features]
 default = ["std"]
-std = ["tq-serde/std", "tq-network/std", "tq-system/std"]
+std = ["tq-serde/std", "tq-network/std"]

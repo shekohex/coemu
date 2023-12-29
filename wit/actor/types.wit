@@ -1,0 +1,15 @@
+package coemu:actor@0.1.0;
+
+interface types {
+  type packet = tuple<u16, list<u8>>;
+	resource actor-handle {
+		id: func() -> u32;
+		set-id: func(id: u32);
+		send: func(packet: packet);
+		send-all: func(packet: list<packet>);
+		generate-keys: func(seed: u64);
+		shutdown: func();
+	}
+}
+
+// vim: set ft=typescript ts=2 sw=4 noet:

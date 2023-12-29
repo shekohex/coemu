@@ -23,9 +23,6 @@ tq-crypto = { path = "crates/crypto" }
 tq-codec = { path = "crates/codec" }
 tq-db = { path = "crates/db" }
 tq-server = { path = "crates/server" }
-tq-system = { path = "crates/system" }
-tq-io = { path = "crates/io" }
-tq-externalities = { path = "crates/externalities" }
 
 derive-packetid = { path = "macros/derive-packetid" }
 derive-packethandler = { path = "macros/derive-packethandler" }
@@ -58,8 +55,18 @@ atomic = { version = "0.6", default-features = false }
 bytemuck = { version = "1.13", default-features = false, features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = [] }
 num_enum = { version = "0.7", default-features = false }
-environmental = { version = "1.1.4", default-features = false }
 bcrypt = "0.15"
+
+# WASM deps
+cargo-component-bindings = "0.6.0"
+
+[workspace.dependencies.wasmtime]
+version = "16.0.0"
+default-features = false
+
+[workspace.dependencies.wasmtime-wasi]
+version = "16.0.0"
+default-features = false
 
 [workspace.dependencies.tokio]
 version = "1.21.2"
