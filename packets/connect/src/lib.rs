@@ -8,9 +8,7 @@ use alloc::string::ToString;
 
 cargo_component_bindings::generate!();
 
-pub use bindings::Error;
-
-use bindings::ActorHandle;
+use bindings::{ActorHandle, Error};
 use bytes::Bytes;
 use serde::Deserialize;
 use tq_network::{PacketDecode, PacketID};

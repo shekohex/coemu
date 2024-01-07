@@ -277,30 +277,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "benchbot"
-version = "0.1.0"
-dependencies = [
- "auth",
- "dotenvy",
- "futures",
- "game",
- "local-ip-address",
- "parking_lot",
- "pretty-hex",
- "rand",
- "sqlx",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tq-codec",
- "tq-crypto",
- "tq-db",
- "tq-network",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1506,18 +1482,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4cd1a83af159aa67994778be9070f0ae1bd732942279cabb14f86f986a21456"
 
 [[package]]
-name = "local-ip-address"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66357e687a569abca487dc399a9c9ac19beb3f13991ed49f00c144e02cbd42ab"
-dependencies = [
- "libc",
- "neli",
- "thiserror",
- "windows-sys 0.48.0",
-]
-
-[[package]]
 name = "lock_api"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1630,20 +1594,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "msg-account"
-version = "0.1.0"
-dependencies = [
- "msg-connect-ex",
- "msg-transfer",
- "serde",
- "tq-codec",
- "tq-crypto",
- "tq-network",
- "tq-serde",
- "tracing",
-]
-
-[[package]]
 name = "msg-connect"
 version = "0.1.0"
 dependencies = [
@@ -1652,55 +1602,6 @@ dependencies = [
  "serde",
  "tq-network",
  "tq-serde",
-]
-
-[[package]]
-name = "msg-connect-ex"
-version = "0.1.0"
-dependencies = [
- "num_enum",
- "serde",
- "tq-network",
- "tq-serde",
-]
-
-[[package]]
-name = "msg-transfer"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "msg-connect-ex",
- "serde",
- "tq-codec",
- "tq-crypto",
- "tq-network",
- "tq-serde",
- "tracing",
-]
-
-[[package]]
-name = "neli"
-version = "0.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1100229e06604150b3becd61a4965d5c70f3be1759544ea7274166f4be41ef43"
-dependencies = [
- "byteorder",
- "libc",
- "log",
- "neli-proc-macros",
-]
-
-[[package]]
-name = "neli-proc-macros"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c168194d373b1e134786274020dae7fc5513d565ea2ebb9bc9ff17ffb69106d4"
-dependencies = [
- "either",
- "proc-macro2",
- "quote",
- "serde",
- "syn 1.0.109",
 ]
 
 [[package]]

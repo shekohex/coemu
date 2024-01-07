@@ -8,6 +8,7 @@ use bytes::Bytes;
 use msg_connect::MsgConnect;
 use std::env;
 use tq_network::{Actor, PacketDecode, PacketHandler, PacketID, TQCipher};
+#[cfg(feature = "server")]
 use tq_server::TQServer;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Config, Engine, Store};
@@ -22,29 +23,6 @@ impl TQServer for AuthServer {
     type ActorState = ();
     type Cipher = TQCipher;
     type PacketHandler = Runtime;
-}
-
-#[async_trait::async_trait]
-impl PacketHandler for Runtime {
-    type ActorState = ();
-    type Error = Error;
-    type State = Self;
-
-    async fn handle(
-        packet: (u16, Bytes),
-        state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
-        match packet.0 {
-            MsgConnect::PACKET_ID => {
-                state.packets.msg_connect.call_process(store, arg0, arg1)
-            },
-            _ => {
-                tracing::warn!("Unknown packet: {:#?}", packet);
-            },
-        }
-        Ok(())
-    }
 }
 
 #[tokio::main]
@@ -81,41 +59,35 @@ Copyright 2020-2023 Shady Khalifa (@shekohex)
     let table = Table::new();
     tracing::info!("Initializing State ..");
 
-    let static_state = {
-        let state = State::init().await?;
-        Box::leak(Box::new(state)) as *mut _
-    };
-
     tracing::info!("Loading Packet and handlers..");
-    let component = Component::from_file(
+
+    let msg_connect = Component::from_file(
         &engine,
         "./target/wasm32-wasi/debug/msg_connect.wasm",
     )?;
-    let (bindings, _) = auth::generated::MsgConnect::instantiate_async(
-        &mut store, &component, &linker,
-    )
-    .await?;
-    let packets = auth::Packets {
-        msg_connect: bindings,
-    };
-    let mut store = Store::new(
-        &engine,
-        Runtime {
-            state: static_state,
-            wasi,
-            table,
-            packets,
-        },
-    );
-
     tracing::info!("Starting Auth Server");
     tracing::info!("Initializing server...");
     let auth_port = env::var("AUTH_PORT")?;
     tracing::info!("Auth Server will be available on {auth_port}");
+
+    let state = State::init().await?;
+    let packets = auth::Packets { msg_connect };
+
+    let static_runtime = {
+        let runtime = Runtime {
+            state,
+            engine,
+            linker,
+            wasi,
+            table,
+            packets,
+        };
+        Box::leak(Box::new(runtime)) as *mut _
+    };
     // SAFETY: We are the only owner of this Box, and we are deref
     // it. This happens only once, so no one else can access.
-    let state = unsafe { &*static_state };
-    AuthServer::run(format!("0.0.0.0:{}", auth_port), state).await?;
+    let runtime: &'static _ = unsafe { &*static_runtime };
+    AuthServer::run(format!("0.0.0.0:{}", auth_port), runtime).await?;
     unsafe {
         // SAFETY: We are the only owner of this Box, and we are dropping
         // it. This happens at the end of the program, so no one

@@ -23,4 +23,4 @@ features = ["io-util", "net"]
 [dependencies.tokio]
 workspace = true
 default-features = false
-features = ["io-util", "sync"]
+features = ["io-util", "sync", "tracing"]

@@ -1,5 +1,5 @@
 [alias]
-auth = "run --bin auth-server"
+auth = "run --bin auth-server --features=server"
 game = "run --bin game-server"
 hash-pwd = "run --bin hash-pwd"
 

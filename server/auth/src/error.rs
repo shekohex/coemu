@@ -3,6 +3,7 @@ use tq_network::{ErrorPacket, PacketEncode};
 
 #[derive(Debug)]
 pub enum Error {
+    Wasmtime(wasmtime::Error),
     Network(tq_network::Error),
     #[cfg(feature = "server")]
     Server(tq_server::Error),
@@ -14,7 +15,7 @@ pub enum Error {
     State(&'static str),
     Other(String),
     Msg(u16, Bytes),
-    Msgconnect(msg_connect::Error),
+    MsgConnect(crate::generated::Error),
     ActorNotFound,
 }
 
@@ -47,8 +48,12 @@ impl From<tq_network::Error> for Error {
     fn from(v: tq_network::Error) -> Self { Self::Network(v) }
 }
 
-impl From<msg_connect::Error> for Error {
-    fn from(v: msg_connect::Error) -> Self { Self::Msgconnect(v) }
+impl From<crate::generated::Error> for Error {
+    fn from(v: crate::generated::Error) -> Self { Self::MsgConnect(v) }
+}
+
+impl From<wasmtime::Error> for Error {
+    fn from(v: wasmtime::Error) -> Self { Self::Wasmtime(v) }
 }
 
 impl std::error::Error for Error {}
@@ -56,6 +61,7 @@ impl std::error::Error for Error {}
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::Wasmtime(e) => write!(f, "Wasmtime error: {}", e),
             Self::Network(e) => write!(f, "Network error: {}", e),
             #[cfg(feature = "server")]
             Self::Server(e) => write!(f, "Server error: {}", e),
@@ -69,11 +75,12 @@ impl core::fmt::Display for Error {
             Self::Msg(id, bytes) => {
                 write!(f, "Error packet: id = {}, body = {:?}", id, bytes)
             },
-            Self::Msgconnect(e) => write!(f, "MsgConnect error: {}", e),
+            Self::MsgConnect(e) => write!(f, "MsgConnect error: {}", e),
             Self::ActorNotFound => write!(f, "Actor Not Found"),
         }
     }
 }
+
 
 impl<T: PacketEncode> From<ErrorPacket<T>> for Error {
     fn from(v: ErrorPacket<T>) -> Self {

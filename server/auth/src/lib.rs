@@ -10,19 +10,58 @@ pub mod generated {
 pub mod error;
 pub mod state;
 
+use bytes::Bytes;
 pub use state::State;
-use wasmtime::component::Resource;
+use tq_network::{Actor, PacketHandler, PacketID};
+use wasmtime::component::{Component, Resource};
+use wasmtime::{Engine, Store};
 use wasmtime_wasi::preview2::{Table, WasiCtx, WasiView};
 
 pub struct Runtime {
-    pub state: &'static State,
+    pub state: State,
+    pub engine: Engine,
     pub wasi: WasiCtx,
     pub table: Table,
     pub packets: Packets,
 }
 
 pub struct Packets {
-    pub msg_connect: generated::MsgConnect,
+    pub msg_connect: Component,
+}
+
+#[async_trait::async_trait]
+impl PacketHandler for Runtime {
+    type ActorState = ();
+    type Error = crate::error::Error;
+    type State = Self;
+
+    async fn handle(
+        packet: (u16, Bytes),
+        runtime: &Self::State,
+        actor: &Actor<Self::ActorState>,
+    ) -> Result<(), Self::Error> {
+        let mut store = Store::new(&runtime.engine, ());
+        let packet = (packet.0, packet.1.to_vec());
+        let actor = Resource::new_borrow(actor.id() as _);
+        match packet.0 {
+            msg_connect::MsgConnect::PACKET_ID => {
+                let (bindings, _) = generated::MsgConnect::instantiate_async(
+                    &mut store, &runtime.packets.msg_connect, &runtime.linker,
+                )
+                .await?;
+                runtime
+                    .packets
+                    .msg_connect
+                    .call_process(&mut store, &packet, actor)
+                    .await?
+                    .map_err(error::Error::MsgConnect)
+            },
+            _ => {
+                tracing::warn!("Unknown packet: {:#?}", packet);
+                Ok(())
+            },
+        }
+    }
 }
 
 impl WasiView for Runtime {
