@@ -46,7 +46,7 @@ arc-swap = { version = "1.6", features = ["weak"] }
 atomic = "0.6"
 bytemuck = { version = "1.13", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
-num_enum = { version = "0.6", default-features = false }
+num_enum = { version = "0.7.2", default-features = false }
 bcrypt = "0.15"
 
 [workspace.dependencies.tokio]
