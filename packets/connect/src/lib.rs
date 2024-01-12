@@ -2,12 +2,9 @@
 
 extern crate alloc;
 
-use tq_bindings::Resource;
+use tq_bindings::{host, Resource};
 use tq_network::ActorHandle;
 use tq_serde::String16;
-
-tq_bindings::generate!();
-
 
 /// Message containing a connection request to the game server. Contains the
 /// player's access token from the Account server, and the patch and language
@@ -20,16 +17,21 @@ pub struct MsgConnect {
     pub file_name: String16,
 }
 
-#[repr(C)]
 pub enum Error {
     Network(tq_network::Error),
 }
 
+impl From<tq_network::Error> for Error {
+    fn from(v: tq_network::Error) -> Self { Self::Network(v) }
+}
+
 #[tq_network::packet_processor(MsgConnect)]
 fn process(
-    _msg: MsgConnect,
+    msg: MsgConnect,
     actor: &Resource<ActorHandle>,
 ) -> Result<(), crate::Error> {
+    tracing::debug!(?msg, "Shutting down actor");
+    host::send(actor, msg)?;
     host::shutdown(actor);
     Ok(())
 }

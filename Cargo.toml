@@ -82,8 +82,6 @@ version = "0.7.3"
 
 [profile.dev]
 split-debuginfo = 'packed'
-lto = true
-codegen-units = 1
 
 [profile.wasmdebug]
 inherits = "dev"

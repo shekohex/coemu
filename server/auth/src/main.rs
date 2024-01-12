@@ -7,7 +7,9 @@
 use bytes::Bytes;
 use msg_connect::MsgConnect;
 use std::env;
-use tq_network::{Actor, PacketDecode, PacketHandler, PacketID, TQCipher, ActorHandle};
+use tq_network::{
+    Actor, ActorHandle, PacketDecode, PacketHandler, PacketID, TQCipher,
+};
 #[cfg(feature = "server")]
 use tq_server::TQServer;
 use wasmtime::{Config, Engine, ExternRef, Linker, Module, Store};
@@ -55,11 +57,14 @@ Copyright 2020-2023 Shady Khalifa (@shekohex)
     linker.func_wrap1_async::<Option<ExternRef>, ()>(
         "host",
         "shutdown",
-        |caller, actor_ref| Box::new(async move {
-            let actor_ref = actor_ref.unwrap();
-            let actor = actor_ref.data().downcast_ref::<ActorHandle>().unwrap();
-            let _ = actor.shutdown().await;
-        }) as _,
+        |caller, actor_ref| {
+            Box::new(async move {
+                let actor_ref = actor_ref.unwrap();
+                let actor =
+                    actor_ref.data().downcast_ref::<ActorHandle>().unwrap();
+                let _ = actor.shutdown().await;
+            }) as _
+        },
     )?;
 
     tracing::info!("Loading Packet and handlers..");

@@ -13,4 +13,4 @@ tq-bindings.workspace = true
 
 serde.workspace = true
 bytes.workspace = true
-
+tracing.workspace = true

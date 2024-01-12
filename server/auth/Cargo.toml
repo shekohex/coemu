@@ -65,6 +65,7 @@ features = ["sqlite"]
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
 sqlx = { workspace = true, features = ["sqlite", "runtime-tokio"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "ansi"] }
 
 [features]
 default = []

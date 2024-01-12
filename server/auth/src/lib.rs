@@ -6,7 +6,7 @@ pub mod state;
 use bytes::Bytes;
 pub use state::State;
 use tq_network::{Actor, PacketHandler, PacketID};
-use wasmtime::{Engine, ExternRef, Linker, Module, Store};
+use wasmtime::{Engine, ExternRef, Linker, Module};
 
 pub struct Runtime {
     pub state: State,
@@ -33,8 +33,9 @@ impl PacketHandler for Runtime {
         const ALLOC_PACKET: &str = "alloc_packet";
         const PROCESS_PACKET: &str = "process_packet";
         const MEMORY: &str = "memory";
-        let mut store = Store::new(&runtime.engine, runtime.state.clone());
-        let actor = ExternRef::new(actor.handle());
+        let mut store =
+            wasmtime::Store::new(&runtime.engine, runtime.state.clone());
+        let actor = wasmtime::ExternRef::new(actor.handle());
         match packet.0 {
             msg_connect::MsgConnect::PACKET_ID => {
                 let packet_len = packet.1.len();
@@ -76,6 +77,7 @@ impl PacketHandler for Runtime {
 
 #[cfg(test)]
 mod tests {
+    use bytes::BytesMut;
     use msg_connect::MsgConnect;
     use tq_network::{ActorHandle, Message, PacketEncode};
     use wasmtime::Config;
@@ -93,7 +95,7 @@ mod tests {
             .func_wrap1_async::<Option<ExternRef>, ()>(
                 "host",
                 "shutdown",
-                |caller, actor_ref| {
+                |_caller, actor_ref| {
                     Box::new(async move {
                         let actor_ref = actor_ref.unwrap();
                         let actor = actor_ref
@@ -104,11 +106,46 @@ mod tests {
                     }) as _
                 },
             )
+            .unwrap()
+            .func_wrap4_async::<Option<ExternRef>, i32, i32, i32, ()>(
+                "host",
+                "send",
+                |mut caller,
+                 actor_ref,
+                 packet_id,
+                 packet_data_ptr,
+                 packet_data_len| {
+                    Box::new(async move {
+                        let actor_ref = actor_ref.unwrap();
+                        let actor = actor_ref
+                            .data()
+                            .downcast_ref::<ActorHandle>()
+                            .unwrap();
+                        let memory = caller
+                            .get_export("memory")
+                            .and_then(|e| e.into_memory())
+                            .expect("Failed to get memory");
+                        let mut packet_data =
+                            BytesMut::with_capacity(packet_data_len as usize);
+                        packet_data.resize(packet_data_len as usize, 0);
+                        memory
+                            .read(
+                                caller,
+                                packet_data_ptr as usize,
+                                &mut packet_data,
+                            )
+                            .expect("Failed to read packet from memory");
+                        let _ = actor
+                            .send((packet_id as u16, packet_data.freeze()))
+                            .await;
+                    }) as _
+                },
+            )
             .unwrap();
 
         let msg_connect = Module::from_file(
             &engine,
-            "../../target/wasm32-unknown-unknown/release/msg_connect.s.wasm",
+            "../../target/wasm32-unknown-unknown/wasm/msg_connect.s.wasm",
         )
         .unwrap();
         std::env::set_var("DATABASE_URL", "sqlite::memory:");
@@ -123,8 +160,36 @@ mod tests {
         }
     }
 
+    fn setup_logger(verbosity: i32) {
+        use tracing::Level;
+        let log_level = match verbosity {
+            0 => Level::ERROR,
+            1 => Level::WARN,
+            2 => Level::INFO,
+            3 => Level::DEBUG,
+            _ => Level::TRACE,
+        };
+
+        let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+            .add_directive(format!("tq_db={}", log_level).parse().unwrap())
+            .add_directive(format!("tq_serde={}", log_level).parse().unwrap())
+            .add_directive(format!("tq_crypto={}", log_level).parse().unwrap())
+            .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
+            .add_directive(format!("tq_network={}", log_level).parse().unwrap())
+            .add_directive(format!("tq_server={}", log_level).parse().unwrap())
+            .add_directive(format!("auth={}", log_level).parse().unwrap());
+        let logger = tracing_subscriber::fmt()
+            .pretty()
+            .with_test_writer()
+            .with_target(true)
+            .with_max_level(log_level)
+            .with_env_filter(env_filter);
+        logger.init();
+    }
+
     #[tokio::test]
     async fn test_msg_connect() {
+        setup_logger(3);
         let (tx, mut rx) = tokio::sync::mpsc::channel(100);
         let runtime = create_runtime().await;
         let msg = MsgConnect {
@@ -133,13 +198,14 @@ mod tests {
             file_name: String::from("test").into(),
         };
         let actor = Actor::<()>::new(tx);
-        Runtime::handle(
-            <MsgConnect as PacketEncode>::encode(&msg).unwrap(),
-            &runtime,
-            &actor,
-        )
-        .await
-        .unwrap();
+
+        let encoded = <MsgConnect as PacketEncode>::encode(&msg).unwrap();
+        Runtime::handle(encoded.clone(), &runtime, &actor)
+            .await
+            .unwrap();
+
+        let msg = rx.recv().await.unwrap();
+        assert_eq!(msg, Message::Packet(encoded.0, encoded.1));
 
         let msg = rx.recv().await.unwrap();
         assert_eq!(msg, Message::Shutdown);
