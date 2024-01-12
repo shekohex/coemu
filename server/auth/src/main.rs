@@ -7,12 +7,10 @@
 use bytes::Bytes;
 use msg_connect::MsgConnect;
 use std::env;
-use tq_network::{Actor, PacketDecode, PacketHandler, PacketID, TQCipher};
+use tq_network::{Actor, PacketDecode, PacketHandler, PacketID, TQCipher, ActorHandle};
 #[cfg(feature = "server")]
 use tq_server::TQServer;
-use wasmtime::component::{Component, Linker};
-use wasmtime::{Config, Engine, Store};
-use wasmtime_wasi::preview2::{Table, WasiCtxBuilder};
+use wasmtime::{Config, Engine, ExternRef, Linker, Module, Store};
 
 use auth::error::Error;
 use auth::{Runtime, State};
@@ -49,37 +47,36 @@ Copyright 2020-2023 Shady Khalifa (@shekohex)
     // Configure an `Engine` and compile the `Component` that is being run for
     // the application.
     let mut config = Config::new();
-    config.wasm_component_model(true);
     config.async_support(true);
+    config.wasm_reference_types(true);
 
     let engine = Engine::new(&config)?;
     let mut linker = Linker::new(&engine);
-    wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
-    let wasi = WasiCtxBuilder::new().inherit_stdio().build();
-    let table = Table::new();
-    tracing::info!("Initializing State ..");
+    linker.func_wrap1_async::<Option<ExternRef>, ()>(
+        "host",
+        "shutdown",
+        |caller, actor_ref| Box::new(async move {
+            let actor_ref = actor_ref.unwrap();
+            let actor = actor_ref.data().downcast_ref::<ActorHandle>().unwrap();
+            let _ = actor.shutdown().await;
+        }) as _,
+    )?;
 
     tracing::info!("Loading Packet and handlers..");
 
-    let msg_connect = Component::from_file(
+    let msg_connect = Module::from_file(
         &engine,
-        "./target/wasm32-wasi/debug/msg_connect.wasm",
+        "./target/wasm32-unknown-unknown/debug/msg_connect.wasm",
     )?;
-    tracing::info!("Starting Auth Server");
-    tracing::info!("Initializing server...");
-    let auth_port = env::var("AUTH_PORT")?;
-    tracing::info!("Auth Server will be available on {auth_port}");
-
+    tracing::info!("Initializing State ..");
     let state = State::init().await?;
     let packets = auth::Packets { msg_connect };
 
     let static_runtime = {
         let runtime = Runtime {
             state,
-            engine,
             linker,
-            wasi,
-            table,
+            engine,
             packets,
         };
         Box::leak(Box::new(runtime)) as *mut _
@@ -87,12 +84,17 @@ Copyright 2020-2023 Shady Khalifa (@shekohex)
     // SAFETY: We are the only owner of this Box, and we are deref
     // it. This happens only once, so no one else can access.
     let runtime: &'static _ = unsafe { &*static_runtime };
+
+    tracing::info!("Starting Auth Server");
+    tracing::info!("Initializing server...");
+    let auth_port = env::var("AUTH_PORT")?;
+    tracing::info!("Auth Server will be available on {auth_port}");
     AuthServer::run(format!("0.0.0.0:{}", auth_port), runtime).await?;
     unsafe {
         // SAFETY: We are the only owner of this Box, and we are dropping
         // it. This happens at the end of the program, so no one
         // else can access.
-        let _ = Box::from_raw(static_state);
+        let _ = Box::from_raw(static_runtime);
     };
     tracing::info!("Shutdown.");
     Ok(())

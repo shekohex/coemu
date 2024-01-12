@@ -1,13 +1,9 @@
-use std::collections::HashMap;
-
 use crate::error::Error;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
-use tq_network::ActorHandle;
 
 #[derive(Debug, Clone)]
 pub struct State {
     pool: SqlitePool,
-    pub(crate) actor_handles: HashMap<u32, ActorHandle>,
 }
 
 impl State {
@@ -24,10 +20,7 @@ impl State {
             .min_connections(4)
             .connect(&db_url)
             .await?;
-        let state = Self {
-            pool,
-            actor_handles: Default::default(),
-        };
+        let state = Self { pool };
         Ok(state)
     }
 

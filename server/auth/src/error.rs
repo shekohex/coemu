@@ -15,7 +15,6 @@ pub enum Error {
     State(&'static str),
     Other(String),
     Msg(u16, Bytes),
-    MsgConnect(crate::generated::Error),
     ActorNotFound,
 }
 
@@ -48,10 +47,6 @@ impl From<tq_network::Error> for Error {
     fn from(v: tq_network::Error) -> Self { Self::Network(v) }
 }
 
-impl From<crate::generated::Error> for Error {
-    fn from(v: crate::generated::Error) -> Self { Self::MsgConnect(v) }
-}
-
 impl From<wasmtime::Error> for Error {
     fn from(v: wasmtime::Error) -> Self { Self::Wasmtime(v) }
 }
@@ -75,12 +70,10 @@ impl core::fmt::Display for Error {
             Self::Msg(id, bytes) => {
                 write!(f, "Error packet: id = {}, body = {:?}", id, bytes)
             },
-            Self::MsgConnect(e) => write!(f, "MsgConnect error: {}", e),
             Self::ActorNotFound => write!(f, "Actor Not Found"),
         }
     }
 }
-
 
 impl<T: PacketEncode> From<ErrorPacket<T>> for Error {
     fn from(v: ErrorPacket<T>) -> Self {

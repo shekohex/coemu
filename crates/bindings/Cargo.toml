@@ -1,0 +1,13 @@
+[package]
+name = "tq-bindings"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+tq-network.workspace = true
+
+externref = { workspace = true, features = ["macro"] }
+
+[features]
+default = []
+std = ["tq-network/std"]

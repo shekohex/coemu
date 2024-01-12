@@ -13,7 +13,7 @@ use alloc::{boxed::Box, sync::Arc};
 #[cfg(feature = "std")]
 use std::sync::Arc;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     GenerateKeys(u64),
     Packet(u16, Bytes),

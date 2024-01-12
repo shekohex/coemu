@@ -17,6 +17,7 @@ futures.workspace = true
 # macros
 derive-packetid.workspace = true
 derive-packethandler.workspace = true
+derive-packetprocessor.workspace = true
 
 [dependencies.tokio-stream]
 workspace = true

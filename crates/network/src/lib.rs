@@ -16,6 +16,7 @@ use serde::Serialize;
 pub use async_trait::async_trait;
 pub use derive_packethandler::PacketHandler;
 pub use derive_packetid::PacketID;
+pub use derive_packetprocessor::packet_processor;
 pub use tq_codec::TQCodec;
 pub use tq_crypto::{CQCipher, Cipher, NopCipher, TQCipher};
 
