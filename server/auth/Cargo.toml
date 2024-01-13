@@ -44,7 +44,7 @@ default-features = false
 features = ["async", "cranelift", "coredump", "cache", "pooling-allocator"]
 
 [dependencies.tracing-subscriber]
-version = "0.3"
+workspace = true
 optional = true
 default-features = false
 features = ["env-filter", "ansi", "fmt", "smallvec"]

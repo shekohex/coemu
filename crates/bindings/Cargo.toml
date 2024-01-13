@@ -5,9 +5,12 @@ edition.workspace = true
 
 [dependencies]
 tq-network.workspace = true
+tracing-wasm.workspace = true
+tracing = { workspace = true, default-features = false, optional = true }
+tracing-subscriber = { workspace = true, default-features = false, features = ["alloc"], optional = true }
 
 externref = { workspace = true, features = ["macro"] }
 
 [features]
 default = []
-std = ["tq-network/std"]
+std = ["tq-network/std", "tracing-wasm/std", "dep:tracing", "dep:tracing-subscriber"]

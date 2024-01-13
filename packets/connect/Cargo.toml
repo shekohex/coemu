@@ -14,3 +14,9 @@ tq-bindings.workspace = true
 serde.workspace = true
 bytes.workspace = true
 tracing.workspace = true
+tracing-wasm.workspace = true
+
+[features]
+default = []
+std = ["tq-serde/std", "tq-network/std", "tq-bindings/std", "tracing-wasm/std"]
+

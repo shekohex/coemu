@@ -30,6 +30,7 @@ tq-codec = { path = "crates/codec" }
 tq-db = { path = "crates/db" }
 tq-server = { path = "crates/server" }
 tq-bindings = { path = "crates/bindings" }
+tracing-wasm = { path = "crates/tracing-wasm" }
 
 derive-packetid = { path = "macros/derive-packetid" }
 derive-packethandler = { path = "macros/derive-packethandler" }
@@ -52,6 +53,8 @@ serde = { version = "1.0", default-features = false, features = ["alloc", "deriv
 bytes = { version = "1.5", default-features = false }
 async-trait = { version = "0.1", default-features = false }
 tracing = { version = "0.1", default-features = false }
+tracing-core = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
 dotenvy = "0.15"
 bitflags = { version = "2.4", default-features = false }
 argh = "0.1"

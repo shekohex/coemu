@@ -78,11 +78,16 @@ fn derive_packet_processor(
     };
 
     let inner_fn_call = inner_fn.sig.ident.clone();
+    let msg_ty_name = msg_ty.to_string().to_lowercase();
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
         #[export_name = "alloc_packet"]
         pub extern "C" fn alloc_packet(size: u32) -> *mut u8 {
-            let mut v = core::mem::ManuallyDrop::new(::alloc::vec::Vec::with_capacity(size as usize));
+            #[cfg(not(feature = "std"))]
+            let v = ::alloc::vec::Vec::with_capacity(size as usize);
+            #[cfg(feature = "std")]
+            let v = ::std::vec::Vec::with_capacity(size as usize);
+            let mut v = core::mem::ManuallyDrop::new(v);
             unsafe {
                 v.set_len(size as usize);
             }
@@ -100,7 +105,11 @@ fn derive_packet_processor(
             packet_len: u32,
             actor: &::tq_bindings::Resource<ActorHandle>,
         ) -> i32 {
+            ::tq_bindings::setup_logging(#msg_ty_name);
+            #[cfg(not(feature = "std"))]
             let packet = ::alloc::vec::Vec::from_raw_parts(packet_ptr, packet_len as _, packet_len as _);
+            #[cfg(feature = "std")]
+            let packet = ::std::vec::Vec::from_raw_parts(packet_ptr, packet_len as _, packet_len as _);
             let bytes = ::bytes::BytesMut::from(packet.as_slice()).freeze();
             let packet = match <#msg_ty as ::tq_network::PacketDecode>::decode(&bytes) {
                 Ok(packet) => packet,

@@ -19,6 +19,19 @@ extern "C" {
     );
 }
 
+/// A [`MakeWriter`] emitting the written text to the [`host`].
+#[cfg(feature = "std")]
+pub fn setup_logging(name: &'static str) {
+    let subscriber = tracing_subscriber::fmt()
+        .with_writer(tracing_wasm::MakeWasmWriter::new().with_target(name))
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+}
+
+/// A [`MakeWriter`] emitting the written text to the [`host`].
+#[cfg(not(feature = "std"))]
+pub fn setup_logging(_name: &'static str) {}
+
 /// Host bindings.
 pub mod host {
     use crate::Resource;
@@ -44,4 +57,6 @@ pub mod host {
         }
         Ok(())
     }
+
+    pub use tracing_wasm::log;
 }

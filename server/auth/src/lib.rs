@@ -92,6 +92,41 @@ mod tests {
         let engine = Engine::new(&config).unwrap();
         let mut linker = Linker::new(&engine);
         linker
+            .func_wrap5_async::<i32, i32, i32, i32, i32, ()>(
+                "host",
+                "trace_event",
+                |mut caller,
+                 level,
+                 target,
+                 target_len,
+                 message,
+                 message_len| {
+                    Box::new(async move {
+                        let memory = caller
+                            .get_export("memory")
+                            .and_then(|e| e.into_memory())
+                            .expect("Failed to get memory");
+                        let mut target_buf = vec![0; target_len as usize];
+                        let mut message_buf = vec![0; message_len as usize];
+                        memory
+                            .read(&caller, target as usize, &mut target_buf)
+                            .expect("Failed to read target from memory");
+                        memory
+                            .read(&caller, message as usize, &mut message_buf)
+                            .expect("Failed to read message from memory");
+                        let target = String::from_utf8(target_buf).unwrap();
+                        let message = String::from_utf8(message_buf).unwrap();
+                        match level {
+                            0 => tracing::error!(%target, %message),
+                            1 => tracing::warn!(%target, %message),
+                            2 => tracing::info!(%target, %message),
+                            3 => tracing::debug!(%target, %message),
+                            _ => tracing::trace!(%target, %message),
+                        };
+                    }) as _
+                },
+            )
+            .unwrap()
             .func_wrap1_async::<Option<ExternRef>, ()>(
                 "host",
                 "shutdown",

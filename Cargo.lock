@@ -1468,6 +1468,7 @@ dependencies = [
  "tq-network",
  "tq-serde",
  "tracing",
+ "tracing-wasm",
 ]
 
 [[package]]
@@ -2663,6 +2664,9 @@ version = "0.1.0"
 dependencies = [
  "externref",
  "tq-network",
+ "tracing",
+ "tracing-subscriber",
+ "tracing-wasm",
 ]
 
 [[package]]
@@ -2810,6 +2814,14 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tracing-wasm"
+version = "0.1.0"
+dependencies = [
+ "tracing-core",
+ "tracing-subscriber",
 ]
 
 [[package]]

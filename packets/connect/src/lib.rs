@@ -1,5 +1,6 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
 extern crate alloc;
 
 use tq_bindings::{host, Resource};
@@ -30,7 +31,9 @@ fn process(
     msg: MsgConnect,
     actor: &Resource<ActorHandle>,
 ) -> Result<(), crate::Error> {
-    tracing::debug!(?msg, "Shutting down actor");
+    host::log(tracing::Level::DEBUG, "msgconnect", "hello?");
+    assert!(tracing::dispatcher::get_default(|_| Some(())).is_some());
+    tracing::debug!(target: "msgconnect", ?msg, "Shutting down actor");
     host::send(actor, msg)?;
     host::shutdown(actor);
     Ok(())
