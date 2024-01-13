@@ -27,12 +27,10 @@ impl From<tq_network::Error> for Error {
 }
 
 #[tq_network::packet_processor(MsgConnect)]
-fn process(
+pub fn process(
     msg: MsgConnect,
     actor: &Resource<ActorHandle>,
 ) -> Result<(), crate::Error> {
-    host::log(tracing::Level::DEBUG, "msgconnect", "hello?");
-    assert!(tracing::dispatcher::get_default(|_| Some(())).is_some());
     tracing::debug!(target: "msgconnect", ?msg, "Shutting down actor");
     host::send(actor, msg)?;
     host::shutdown(actor);

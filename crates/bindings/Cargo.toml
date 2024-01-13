@@ -9,7 +9,7 @@ tracing-wasm.workspace = true
 tracing = { workspace = true, default-features = false, optional = true }
 tracing-subscriber = { workspace = true, default-features = false, features = ["alloc"], optional = true }
 
-externref = { workspace = true, features = ["macro"] }
+externref = { workspace = true, default-features = false, features = ["macro"] }
 
 [features]
 default = []

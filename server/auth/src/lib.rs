@@ -86,8 +86,13 @@ mod tests {
 
     async fn create_runtime() -> Runtime {
         let mut config = Config::new();
-        config.async_support(true);
-        config.wasm_reference_types(true);
+        config
+            .async_support(true)
+            .wasm_reference_types(true)
+            .wasm_backtrace(true)
+            .wasm_backtrace_details(wasmtime::WasmBacktraceDetails::Enable)
+            .native_unwind_info(true)
+            .coredump_on_trap(true);
 
         let engine = Engine::new(&config).unwrap();
         let mut linker = Linker::new(&engine);
@@ -117,11 +122,11 @@ mod tests {
                         let target = String::from_utf8(target_buf).unwrap();
                         let message = String::from_utf8(message_buf).unwrap();
                         match level {
-                            0 => tracing::error!(%target, %message),
-                            1 => tracing::warn!(%target, %message),
-                            2 => tracing::info!(%target, %message),
-                            3 => tracing::debug!(%target, %message),
-                            _ => tracing::trace!(%target, %message),
+                            0 => tracing::error!(target: "runtime", packet = target, %message),
+                            1 => tracing::warn!(target: "runtime", packet = target, %message),
+                            2 => tracing::info!(target: "runtime", packet = target, %message),
+                            3 => tracing::debug!(target: "runtime", packet = target, %message),
+                            _ => tracing::trace!(target: "runtime", packet = target, %message),
                         };
                     }) as _
                 },
@@ -212,6 +217,7 @@ mod tests {
             .add_directive(format!("tq_codec={}", log_level).parse().unwrap())
             .add_directive(format!("tq_network={}", log_level).parse().unwrap())
             .add_directive(format!("tq_server={}", log_level).parse().unwrap())
+            .add_directive(format!("runtime={}", log_level).parse().unwrap())
             .add_directive(format!("auth={}", log_level).parse().unwrap());
         let logger = tracing_subscriber::fmt()
             .pretty()

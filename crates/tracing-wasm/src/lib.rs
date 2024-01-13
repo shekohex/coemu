@@ -23,11 +23,13 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{string::String, vec::Vec};
 
-use tracing_core::Level;
+pub use tracing_core::Level;
+
 #[cfg(feature = "std")]
 use tracing_subscriber::fmt::MakeWriter;
 
 #[link(wasm_import_module = "host")]
+#[cfg(target_arch = "wasm32")]
 extern "C" {
     fn trace_event(
         level: u8,
@@ -37,6 +39,7 @@ extern "C" {
         message_len: u32,
     );
 }
+
 /// A [`MakeWriter`] emitting the written text to the [`host`].
 pub struct MakeWasmWriter {
     use_pretty_label: bool,
@@ -78,6 +81,7 @@ impl MakeWasmWriter {
 type LogDispatcher = fn(Level, &str, &str);
 
 /// Dispatches a log message to the host.
+#[cfg(target_arch = "wasm32")]
 pub fn log(level: Level, target: &str, message: &str) {
     let level = match level {
         Level::ERROR => 0,
@@ -98,6 +102,9 @@ pub fn log(level: Level, target: &str, message: &str) {
         )
     }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn log(_level: Level, _target: &str, _message: &str) {}
 
 /// Concrete [`std::io::Write`] implementation returned by [`MakeWasmWriter`].
 pub struct WasmWriter {

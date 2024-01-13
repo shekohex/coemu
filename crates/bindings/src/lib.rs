@@ -7,6 +7,7 @@ extern crate alloc;
 
 pub use externref::{self as anyref, externref, Resource};
 
+#[cfg(target_arch = "wasm32")]
 #[externref(crate = "crate::anyref")]
 #[link(wasm_import_module = "host")]
 extern "C" {
@@ -23,6 +24,10 @@ extern "C" {
 #[cfg(feature = "std")]
 pub fn setup_logging(name: &'static str) {
     let subscriber = tracing_subscriber::fmt()
+        .without_time()
+        .with_level(false)
+        .with_target(false)
+        .with_max_level(tracing_wasm::Level::TRACE)
         .with_writer(tracing_wasm::MakeWasmWriter::new().with_target(name))
         .finish();
     tracing::subscriber::set_global_default(subscriber).unwrap();
@@ -32,16 +37,50 @@ pub fn setup_logging(name: &'static str) {
 #[cfg(not(feature = "std"))]
 pub fn setup_logging(_name: &'static str) {}
 
+/// Sets a panic hook that logs to the host.
+#[cfg(feature = "std")]
+pub fn set_panic_hook_once() {
+    static SET_HOOK: std::sync::Once = std::sync::Once::new();
+    SET_HOOK.call_once(|| {
+        std::panic::set_hook(Box::new(|info| {
+            let payload = info
+                .payload()
+                .downcast_ref::<&str>()
+                .map(|s| *s)
+                .unwrap_or_else(|| {
+                    info.payload().downcast_ref::<String>().unwrap().as_str()
+                });
+            let location = info
+                .location()
+                .map(|l| format!("{}:{}", l.file(), l.line()));
+            host::log(
+                tracing_wasm::Level::ERROR,
+                "panic",
+                &format!("{payload} {}", location.unwrap_or_default()),
+            );
+        }));
+    });
+}
+
+#[cfg(not(feature = "std"))]
+pub fn set_panic_hook_once() {}
+
 /// Host bindings.
 pub mod host {
     use crate::Resource;
     use tq_network::ActorHandle;
     /// Shutdown an actor.
+    #[cfg(target_arch = "wasm32")]
     pub fn shutdown(actor: &Resource<ActorHandle>) {
         unsafe { super::shutdown(actor) }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn shutdown(_actor: &Resource<ActorHandle>) {}
+
     /// Send a packet to an actor.
+
+    #[cfg(target_arch = "wasm32")]
     pub fn send<T: tq_network::PacketEncode>(
         actor: &Resource<ActorHandle>,
         packet: T,
@@ -55,6 +94,14 @@ pub mod host {
                 packet_data.len() as u32,
             )
         }
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn send<T: tq_network::PacketEncode>(
+        _actor: &Resource<ActorHandle>,
+        _packet: T,
+    ) -> Result<(), T::Error> {
         Ok(())
     }
 

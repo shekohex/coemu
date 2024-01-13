@@ -82,6 +82,7 @@ fn derive_packet_processor(
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
         #[export_name = "alloc_packet"]
+        #[cfg(target_arch = "wasm32")]
         pub extern "C" fn alloc_packet(size: u32) -> *mut u8 {
             #[cfg(not(feature = "std"))]
             let v = ::alloc::vec::Vec::with_capacity(size as usize);
@@ -96,15 +97,18 @@ fn derive_packet_processor(
             ptr
         }
 
+
         #inner_fn
 
         #[::tq_bindings::externref(crate = "tq_bindings::anyref")]
         #[export_name = "process_packet"]
+        #[cfg(target_arch = "wasm32")]
         pub unsafe extern "C" fn _process(
             packet_ptr: *mut u8,
             packet_len: u32,
             actor: &::tq_bindings::Resource<ActorHandle>,
         ) -> i32 {
+            ::tq_bindings::set_panic_hook_once();
             ::tq_bindings::setup_logging(#msg_ty_name);
             #[cfg(not(feature = "std"))]
             let packet = ::alloc::vec::Vec::from_raw_parts(packet_ptr, packet_len as _, packet_len as _);
