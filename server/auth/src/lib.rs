@@ -1,6 +1,7 @@
 //! Auth Server
 
 pub mod error;
+pub mod linker;
 pub mod state;
 
 use bytes::Bytes;
@@ -75,11 +76,20 @@ impl PacketHandler for Runtime {
     }
 }
 
+/// Add the runtime to the linker.
+pub fn add_to_linker(
+    linker: &mut Linker<crate::State>,
+) -> Result<(), error::Error> {
+    linker::actor::shutdown(linker)?;
+    linker::actor::send(linker)?;
+    linker::log::trace_event(linker)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use bytes::BytesMut;
     use msg_connect::MsgConnect;
-    use tq_network::{ActorHandle, Message, PacketEncode};
+    use tq_network::{Message, PacketEncode};
     use wasmtime::Config;
 
     use super::*;
@@ -96,93 +106,7 @@ mod tests {
 
         let engine = Engine::new(&config).unwrap();
         let mut linker = Linker::new(&engine);
-        linker
-            .func_wrap5_async::<i32, i32, i32, i32, i32, ()>(
-                "host",
-                "trace_event",
-                |mut caller,
-                 level,
-                 target,
-                 target_len,
-                 message,
-                 message_len| {
-                    Box::new(async move {
-                        let memory = caller
-                            .get_export("memory")
-                            .and_then(|e| e.into_memory())
-                            .expect("Failed to get memory");
-                        let mut target_buf = vec![0; target_len as usize];
-                        let mut message_buf = vec![0; message_len as usize];
-                        memory
-                            .read(&caller, target as usize, &mut target_buf)
-                            .expect("Failed to read target from memory");
-                        memory
-                            .read(&caller, message as usize, &mut message_buf)
-                            .expect("Failed to read message from memory");
-                        let target = String::from_utf8(target_buf).unwrap();
-                        let message = String::from_utf8(message_buf).unwrap();
-                        match level {
-                            0 => tracing::error!(target: "runtime", packet = target, %message),
-                            1 => tracing::warn!(target: "runtime", packet = target, %message),
-                            2 => tracing::info!(target: "runtime", packet = target, %message),
-                            3 => tracing::debug!(target: "runtime", packet = target, %message),
-                            _ => tracing::trace!(target: "runtime", packet = target, %message),
-                        };
-                    }) as _
-                },
-            )
-            .unwrap()
-            .func_wrap1_async::<Option<ExternRef>, ()>(
-                "host",
-                "shutdown",
-                |_caller, actor_ref| {
-                    Box::new(async move {
-                        let actor_ref = actor_ref.unwrap();
-                        let actor = actor_ref
-                            .data()
-                            .downcast_ref::<ActorHandle>()
-                            .unwrap();
-                        let _ = actor.shutdown().await;
-                    }) as _
-                },
-            )
-            .unwrap()
-            .func_wrap4_async::<Option<ExternRef>, i32, i32, i32, ()>(
-                "host",
-                "send",
-                |mut caller,
-                 actor_ref,
-                 packet_id,
-                 packet_data_ptr,
-                 packet_data_len| {
-                    Box::new(async move {
-                        let actor_ref = actor_ref.unwrap();
-                        let actor = actor_ref
-                            .data()
-                            .downcast_ref::<ActorHandle>()
-                            .unwrap();
-                        let memory = caller
-                            .get_export("memory")
-                            .and_then(|e| e.into_memory())
-                            .expect("Failed to get memory");
-                        let mut packet_data =
-                            BytesMut::with_capacity(packet_data_len as usize);
-                        packet_data.resize(packet_data_len as usize, 0);
-                        memory
-                            .read(
-                                caller,
-                                packet_data_ptr as usize,
-                                &mut packet_data,
-                            )
-                            .expect("Failed to read packet from memory");
-                        let _ = actor
-                            .send((packet_id as u16, packet_data.freeze()))
-                            .await;
-                    }) as _
-                },
-            )
-            .unwrap();
-
+        add_to_linker(&mut linker).unwrap();
         let msg_connect = Module::from_file(
             &engine,
             "../../target/wasm32-unknown-unknown/wasm/msg_connect.s.wasm",
@@ -244,10 +168,6 @@ mod tests {
         Runtime::handle(encoded.clone(), &runtime, &actor)
             .await
             .unwrap();
-
-        let msg = rx.recv().await.unwrap();
-        assert_eq!(msg, Message::Packet(encoded.0, encoded.1));
-
         let msg = rx.recv().await.unwrap();
         assert_eq!(msg, Message::Shutdown);
     }

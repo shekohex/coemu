@@ -39,10 +39,32 @@ impl<const N: usize, M> fmt::Display for FixedString<N, M> {
     }
 }
 
-impl<const N: usize, M> fmt::Debug for FixedString<N, M> {
+impl<const N: usize> fmt::Debug for FixedString<N, ClearText> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FixedString")
             .field("inner", &self.inner)
+            .field("max_len", &N)
+            .field("mode", &"clear_text")
+            .finish()
+    }
+}
+
+impl<const N: usize> fmt::Debug for FixedString<N, Encrypted> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FixedString")
+            .field("inner", &self.inner)
+            .field("max_len", &N)
+            .field("mode", &"cipher")
+            .finish()
+    }
+}
+
+impl<const N: usize> fmt::Debug for FixedString<N, Masked> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FixedString")
+            .field("inner", &self.inner)
+            .field("max_len", &N)
+            .field("mode", &"masked")
             .finish()
     }
 }

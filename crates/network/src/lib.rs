@@ -105,6 +105,17 @@ impl PacketEncode for (u16, Bytes) {
     fn encode(&self) -> Result<(u16, Bytes), Self::Error> { Ok(self.clone()) }
 }
 
+
+impl<'a> PacketEncode for (u16, &'a [u8]) {
+    type Error = Error;
+    type Packet = ();
+
+    fn encode(&self) -> Result<(u16, Bytes), Self::Error> {
+        let (id, bytes) = self;
+        Ok((*id, bytes.to_vec().into()))
+    }
+}
+
 impl<T> PacketDecode for T
 where
     T: DeserializeOwned,

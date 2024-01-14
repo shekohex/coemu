@@ -46,32 +46,17 @@ Copyright 2020-2023 Shady Khalifa (@shekohex)
      All Rights Reserved.
  "#
     );
-    // Configure an `Engine` and compile the `Component` that is being run for
-    // the application.
     let mut config = Config::new();
-    config.async_support(true);
-    config.wasm_reference_types(true);
+    config.async_support(true).wasm_reference_types(true);
 
     let engine = Engine::new(&config)?;
     let mut linker = Linker::new(&engine);
-    linker.func_wrap1_async::<Option<ExternRef>, ()>(
-        "host",
-        "shutdown",
-        |caller, actor_ref| {
-            Box::new(async move {
-                let actor_ref = actor_ref.unwrap();
-                let actor =
-                    actor_ref.data().downcast_ref::<ActorHandle>().unwrap();
-                let _ = actor.shutdown().await;
-            }) as _
-        },
-    )?;
-
+    auth::add_to_linker(&mut linker)?;
     tracing::info!("Loading Packet and handlers..");
 
     let msg_connect = Module::from_file(
         &engine,
-        "./target/wasm32-unknown-unknown/debug/msg_connect.wasm",
+        "./target/wasm32-unknown-unknown/wasm/msg_connect.s.wasm",
     )?;
     tracing::info!("Initializing State ..");
     let state = State::init().await?;

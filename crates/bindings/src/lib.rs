@@ -39,14 +39,14 @@ pub fn setup_logging(_name: &'static str) {}
 
 /// Sets a panic hook that logs to the host.
 #[cfg(feature = "std")]
-pub fn set_panic_hook_once() {
+pub fn set_panic_hook_once(name: &'static str) {
     static SET_HOOK: std::sync::Once = std::sync::Once::new();
     SET_HOOK.call_once(|| {
         std::panic::set_hook(Box::new(|info| {
             let payload = info
                 .payload()
                 .downcast_ref::<&str>()
-                .map(|s| *s)
+                .copied()
                 .unwrap_or_else(|| {
                     info.payload().downcast_ref::<String>().unwrap().as_str()
                 });
@@ -55,15 +55,15 @@ pub fn set_panic_hook_once() {
                 .map(|l| format!("{}:{}", l.file(), l.line()));
             host::log(
                 tracing_wasm::Level::ERROR,
-                "panic",
-                &format!("{payload} {}", location.unwrap_or_default()),
+                name,
+                &format!("'{payload}' at {}", location.unwrap_or_default()),
             );
         }));
     });
 }
 
 #[cfg(not(feature = "std"))]
-pub fn set_panic_hook_once() {}
+pub fn set_panic_hook_once(_name: &'static str) {}
 
 /// Host bindings.
 pub mod host {

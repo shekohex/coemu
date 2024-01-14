@@ -108,7 +108,7 @@ fn derive_packet_processor(
             packet_len: u32,
             actor: &::tq_bindings::Resource<ActorHandle>,
         ) -> i32 {
-            ::tq_bindings::set_panic_hook_once();
+            ::tq_bindings::set_panic_hook_once(#msg_ty_name);
             ::tq_bindings::setup_logging(#msg_ty_name);
             #[cfg(not(feature = "std"))]
             let packet = ::alloc::vec::Vec::from_raw_parts(packet_ptr, packet_len as _, packet_len as _);
@@ -118,14 +118,14 @@ fn derive_packet_processor(
             let packet = match <#msg_ty as ::tq_network::PacketDecode>::decode(&bytes) {
                 Ok(packet) => packet,
                 Err(e) => {
-                    // TODO: use host to log the error
+                    tracing::error!(error = ?e, "While decoding the packet");
                     return 0xdec0de;
                 }
             };
             match #inner_fn_call(packet, actor) {
                 Ok(()) => 0,
                 Err(e) => {
-                    // TODO: use host to log the error
+                    tracing::error!(error = ?e, "While handling the packet");
                     0x00f
                 }
             }

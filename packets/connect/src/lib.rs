@@ -18,12 +18,10 @@ pub struct MsgConnect {
     pub file_name: String16,
 }
 
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    Network(tq_network::Error),
-}
-
-impl From<tq_network::Error> for Error {
-    fn from(v: tq_network::Error) -> Self { Self::Network(v) }
+    #[error(transparent)]
+    Network(#[from] tq_network::Error),
 }
 
 #[tq_network::packet_processor(MsgConnect)]
@@ -31,8 +29,7 @@ pub fn process(
     msg: MsgConnect,
     actor: &Resource<ActorHandle>,
 ) -> Result<(), crate::Error> {
-    tracing::debug!(target: "msgconnect", ?msg, "Shutting down actor");
-    host::send(actor, msg)?;
+    tracing::debug!(?msg, "Shutting down actor");
     host::shutdown(actor);
     Ok(())
 }
