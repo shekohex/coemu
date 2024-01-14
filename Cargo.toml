@@ -1,5 +1,10 @@
+[workspace.package]
+authors = ["Shady Khalifa <dev+coemu@shadykhalifa>"]
+edition = "2021"
+repository = "https://github.com/shekohex/coemu.git"
+license = "GPL-3.0-only"
+
 [workspace]
-package.edition = "2021"
 resolver = "2"
 members = [
   "crates/*",
@@ -30,6 +35,7 @@ tq-codec = { path = "crates/codec" }
 tq-db = { path = "crates/db" }
 tq-server = { path = "crates/server" }
 tq-bindings = { path = "crates/bindings" }
+tq-wasm-builder = { path = "crates/wasm-builder" }
 tracing-wasm = { path = "crates/tracing-wasm" }
 
 derive-packetid = { path = "macros/derive-packetid" }
@@ -86,16 +92,3 @@ version = "0.7.3"
 [profile.dev]
 split-debuginfo = 'packed'
 
-[profile.wasmdebug]
-inherits = "dev"
-panic = "abort"
-codegen-units = 1
-opt-level = "z" # Optimize for size, rather than speed
-lto = true
-
-[profile.wasm]
-inherits = "release"
-panic = "abort"
-codegen-units = 1
-opt-level = "z" # Optimize for size, rather than speed
-lto = true

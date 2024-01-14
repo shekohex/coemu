@@ -107,11 +107,9 @@ mod tests {
         let engine = Engine::new(&config).unwrap();
         let mut linker = Linker::new(&engine);
         add_to_linker(&mut linker).unwrap();
-        let msg_connect = Module::from_file(
-            &engine,
-            "../../target/wasm32-unknown-unknown/wasm/msg_connect.s.wasm",
-        )
-        .unwrap();
+        let msg_connect =
+            Module::from_file(&engine, msg_connect::WASM_BINARY.unwrap())
+                .unwrap();
         std::env::set_var("DATABASE_URL", "sqlite::memory:");
         let state = State::init().await.unwrap();
         let packets = Packets { msg_connect };

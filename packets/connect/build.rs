@@ -1,3 +1,8 @@
-type Error = Box<dyn std::error::Error>;
+use tq_wasm_builder::WasmBuilder;
 
-fn main() -> Result<(), Error> { return Ok(()); }
+fn main() {
+    WasmBuilder::selector()
+        .with_current_project()
+        .enable_feature("std")
+        .build();
+}

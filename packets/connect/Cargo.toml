@@ -3,9 +3,6 @@ name = "msg-connect"
 version = "0.1.0"
 edition.workspace = true
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
 [dependencies]
 tq-serde.workspace = true
 tq-network.workspace = true
@@ -15,6 +12,9 @@ serde.workspace = true
 bytes.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+
+[build-dependencies]
+tq-wasm-builder.workspace = true
 
 [features]
 default = ["std"]

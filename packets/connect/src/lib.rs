@@ -3,6 +3,8 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
+include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
+
 use tq_bindings::{host, Resource};
 use tq_network::ActorHandle;
 use tq_serde::String16;
@@ -29,7 +31,7 @@ pub fn process(
     msg: MsgConnect,
     actor: &Resource<ActorHandle>,
 ) -> Result<(), crate::Error> {
-    tracing::debug!(?msg, "Shutting down actor");
+    tracing::debug!(?msg, "Shutting down actor!");
     host::shutdown(actor);
     Ok(())
 }
