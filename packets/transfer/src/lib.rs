@@ -3,7 +3,7 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
+// include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
 
 use msg_connect_ex::{AccountCredentials, RejectionCode};
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ impl MsgTransfer {
         actor: &Resource<ActorHandle>,
         realm: &str,
     ) -> Result<AccountCredentials, Error> {
-        let maybe_realm = T::RealmByName::by_name(realm)?;
+        let maybe_realm = host::realm_by_name(realm)?;
         // Check if there is a realm with that name
         let realm = match maybe_realm {
             Some(realm) => realm,
@@ -40,7 +40,7 @@ impl MsgTransfer {
             },
         };
         // Try to connect to that realm first.
-        if let Err(e) = T::ServerBus::check(&realm) {
+        if let Err(e) = host::server_bus_check(&realm) {
             tracing::error!(
                 ip = realm.game_ip_address,
                 port = realm.game_port,
@@ -57,9 +57,9 @@ impl MsgTransfer {
 
     fn transfer(
         actor: &Resource<ActorHandle>,
-        realm: Realm,
+        realm: tq_db::realm::Realm,
     ) -> Result<AccountCredentials, Error> {
-        let res = T::ServerBus::transfer(actor, &realm);
+        let res = host::server_bus_transfer(actor, &realm);
         match res {
             Ok(token) => Ok(AccountCredentials {
                 token,
@@ -70,7 +70,7 @@ impl MsgTransfer {
                 tracing::error!(
                     ip = realm.game_ip_address,
                     port = realm.game_port,
-                    realm_id = realm.id,
+                    realm_id = realm.realm_id,
                     error = ?e,
                     "Failed to transfer account"
                 );

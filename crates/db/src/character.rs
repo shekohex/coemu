@@ -1,5 +1,3 @@
-use sqlx::SqlitePool;
-
 use crate::Error;
 
 /// This struct encapsulates the game character for a player. The player
@@ -7,7 +5,8 @@ use crate::Error;
 /// The character is the persona of the player who controls it. The persona can
 /// be altered using different avatars, hairstyles, and body types. The player
 /// also controls the character's professions and abilities.
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::FromRow))]
 pub struct Character {
     pub character_id: i32,
     pub account_id: i32,
@@ -37,16 +36,18 @@ pub struct Character {
     pub kill_points: i16,
 }
 
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::FromRow))]
 pub struct Location {
     pub map_id: i32,
     pub x: i16,
     pub y: i16,
 }
 
+#[cfg(feature = "sqlx")]
 impl Character {
     pub async fn from_account(
-        pool: &SqlitePool,
+        pool: &sqlx::SqlitePool,
         id: u32,
     ) -> Result<Option<Self>, Error> {
         let maybe_character = sqlx::query_as::<_, Self>(
@@ -59,7 +60,7 @@ impl Character {
     }
 
     pub async fn name_taken(
-        pool: &SqlitePool,
+        pool: &sqlx::SqlitePool,
         name: &str,
     ) -> Result<bool, Error> {
         let result = sqlx::query_as::<_, (i32,)>(
@@ -76,7 +77,10 @@ impl Character {
         }
     }
 
-    pub async fn by_id(pool: &SqlitePool, id: i32) -> Result<Self, Error> {
+    pub async fn by_id(
+        pool: &sqlx::SqlitePool,
+        id: i32,
+    ) -> Result<Self, Error> {
         let c = sqlx::query_as::<_, Self>(
             "SELECT * FROM characters WHERE character_id = ?;",
         )
@@ -86,7 +90,7 @@ impl Character {
         Ok(c)
     }
 
-    pub async fn save(self, pool: &SqlitePool) -> Result<i32, Error> {
+    pub async fn save(self, pool: &sqlx::SqlitePool) -> Result<i32, Error> {
         let (id,) = sqlx::query_as::<_, (i32,)>(
             "
             INSERT INTO characters
@@ -128,7 +132,7 @@ impl Character {
         Ok(id)
     }
 
-    pub async fn update(self, pool: &SqlitePool) -> Result<(), Error> {
+    pub async fn update(self, pool: &sqlx::SqlitePool) -> Result<(), Error> {
         sqlx::query(
             "
             UPDATE characters

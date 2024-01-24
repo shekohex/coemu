@@ -46,10 +46,8 @@ impl<S: ActorState> Hash for Actor<S> {
 
 impl<S: ActorState> PartialEq for Actor<S> {
     fn eq(&self, other: &Self) -> bool {
-        self.handle
-            .id
-            .load(Ordering::Relaxed)
-            .eq(&other.handle.id.load(Ordering::Relaxed))
+        self.handle.id.load(Ordering::Relaxed)
+            == other.handle.id.load(Ordering::Relaxed)
     }
 }
 

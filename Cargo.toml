@@ -17,10 +17,7 @@ members = [
   # Cli Tools
   "tools/*",
 ]
-exclude = [
-  "packets/account",
-  "tools/benchbot"
-]
+exclude = ["packets/account", "tools/benchbot"]
 
 [workspace.dependencies]
 # Local Dependencies
@@ -65,6 +62,7 @@ argh = "0.1"
 tokio-stream = { version = "0.1.8", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false, features = [] }
 rand = "0.8"
+getrandom = { version = "0.2", default-features = false }
 arc-swap = { version = "1.6", features = ["weak"] }
 atomic = { version = "0.6", default-features = false }
 bytemuck = { version = "1.13", default-features = false, features = ["derive"] }
@@ -89,4 +87,3 @@ version = "0.7.3"
 
 [profile.dev]
 split-debuginfo = 'packed'
-

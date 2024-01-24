@@ -9,6 +9,7 @@ tq-codec.workspace = true
 tq-crypto.workspace = true
 tq-network.workspace = true
 tq-bindings.workspace = true
+tq-db = { workspace = true, default-features = false }
 
 serde.workspace = true
 tracing.workspace = true

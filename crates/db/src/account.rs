@@ -1,11 +1,11 @@
 use crate::Error;
 use futures::TryFutureExt;
-use sqlx::SqlitePool;
 
 /// Account information for a registered player. The account server uses this
 /// information to authenticate the player on login. Passwords are hashed using
 /// bcrypt
-#[derive(Default, Debug, sqlx::FromRow)]
+#[derive(Default, Debug)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::FromRow))]
 pub struct Account {
     pub account_id: i32,
     pub username: String,
@@ -14,9 +14,10 @@ pub struct Account {
     pub email: Option<String>,
 }
 
+#[cfg(feature = "sqlx")]
 impl Account {
     pub async fn auth(
-        pool: &SqlitePool,
+        pool: &sqlx::SqlitePool,
         username: &str,
         password: &str,
     ) -> Result<Account, Error> {
@@ -43,7 +44,7 @@ impl Account {
     ///
     /// Useful for testing purposes.
     pub async fn all(
-        pool: &SqlitePool,
+        pool: &sqlx::SqlitePool,
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> Result<Vec<Self>, Error> {
@@ -58,7 +59,10 @@ impl Account {
     // === Methods ===
 
     /// Creates a new account in the database.
-    pub async fn create(mut self, pool: &SqlitePool) -> Result<Self, Error> {
+    pub async fn create(
+        mut self,
+        pool: &sqlx::SqlitePool,
+    ) -> Result<Self, Error> {
         let password = bcrypt::hash(&self.password, bcrypt::DEFAULT_COST)?;
         let res = sqlx::query(
             "INSERT INTO accounts (username, password, name, email) VALUES (?, ?, ?, ?);",

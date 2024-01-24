@@ -103,6 +103,8 @@ pub fn log(level: Level, target: &str, message: &str) {
     }
 }
 
+/// Does nothing.
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn log(_level: Level, _target: &str, _message: &str) {}
 

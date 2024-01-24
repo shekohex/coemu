@@ -37,7 +37,7 @@ impl Portal {
 }
 
 impl PartialEq for Portal {
-    fn eq(&self, other: &Self) -> bool { self.id().eq(&other.id()) }
+    fn eq(&self, other: &Self) -> bool { self.id == other.id }
 }
 
 impl Eq for Portal {}

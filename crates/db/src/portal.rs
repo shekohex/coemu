@@ -2,7 +2,8 @@ use crate::Error;
 use sqlx::SqlitePool;
 use tokio_stream::StreamExt;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::FromRow))]
 pub struct Portal {
     pub id: i32,
     pub from_map_id: i32,
@@ -13,6 +14,7 @@ pub struct Portal {
     pub to_y: i16,
 }
 
+#[cfg(feature = "sqlx")]
 impl Portal {
     #[tracing::instrument]
     pub async fn by_map(

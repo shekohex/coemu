@@ -1,8 +1,8 @@
 use crate::Error;
-use sqlx::SqlitePool;
 use tokio_stream::StreamExt;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::FromRow))]
 pub struct Map {
     pub id: i32,
     pub map_id: i32,
@@ -15,10 +15,11 @@ pub struct Map {
     pub color: i32,
 }
 
+#[cfg(feature = "sqlx")]
 impl Map {
     /// Loads all maps from the database to add them to the state.
     #[tracing::instrument]
-    pub async fn load_all(pool: &SqlitePool) -> Result<Vec<Self>, Error> {
+    pub async fn load_all(pool: &sqlx::SqlitePool) -> Result<Vec<Self>, Error> {
         let mut maps = Vec::new();
         let mut s =
             sqlx::query_as::<_, Self>("SELECT * FROM maps;").fetch(pool);
@@ -37,7 +38,7 @@ impl Map {
     }
 
     pub async fn load(
-        pool: &SqlitePool,
+        pool: &sqlx::SqlitePool,
         id: i32,
     ) -> Result<Option<Self>, Error> {
         let maybe_map =

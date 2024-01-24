@@ -32,6 +32,6 @@ pub fn process(
     actor: &Resource<ActorHandle>,
 ) -> Result<(), crate::Error> {
     tracing::debug!(?msg, "Shutting down actor!");
-    host::shutdown(actor);
+    host::network::actor::shutdown(actor);
     Ok(())
 }

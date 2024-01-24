@@ -1627,6 +1627,7 @@ dependencies = [
  "tq-bindings",
  "tq-codec",
  "tq-crypto",
+ "tq-db",
  "tq-network",
  "tq-serde",
  "tq-wasm-builder",
@@ -2951,6 +2952,8 @@ name = "tq-bindings"
 version = "0.1.0"
 dependencies = [
  "externref",
+ "getrandom",
+ "tq-db",
  "tq-network",
  "tracing",
  "tracing-subscriber",
