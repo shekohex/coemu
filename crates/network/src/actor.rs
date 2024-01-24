@@ -69,10 +69,10 @@ impl From<(u16, Bytes)> for Message {
 pub trait ActorState: Send + Sync + Sized {
     fn init() -> Self;
     /// A good chance to dispose the state and clear anything.
-    #[instrument(skip_all, err, fields(id = %handle.id()))]
+    #[instrument(skip_all, err)]
+    #[allow(clippy::blocks_in_conditions)]
     async fn dispose(&self, handle: ActorHandle) -> Result<(), Error> {
-        let _ = handle;
-        tracing::debug!("Disposing Actor State");
+        tracing::debug!(actor_id = %handle.id(), "Disposing Actor State");
         Ok(())
     }
 }

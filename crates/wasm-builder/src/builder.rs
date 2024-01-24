@@ -153,8 +153,7 @@ impl WasmBuilder {
             self.project_cargo_toml,
             self.rust_flags
                 .into_iter()
-                .map(|f| format!("{} ", f))
-                .collect(),
+                .fold(String::new(), |acc, f| format!("{acc} {f}")),
             self.features_to_enable,
             self.file_name,
         );

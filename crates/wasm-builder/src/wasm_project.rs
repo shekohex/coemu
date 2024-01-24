@@ -489,7 +489,7 @@ fn project_enabled_features(
             // make runtimes compile with all the possible rustc
             // versions.
             if v.len() == 1
-                && v.get(0).map_or(false, |v| *v == format!("dep:{}", f))
+                && v.first().map_or(false, |v| *v == format!("dep:{}", f))
                 && std_enabled
                     .as_ref()
                     .map(|e| e.iter().any(|ef| ef == *f))
