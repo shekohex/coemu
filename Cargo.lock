@@ -1608,6 +1608,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "msg-connect-ex"
+version = "0.1.0"
+dependencies = [
+ "num_enum",
+ "serde",
+ "tq-network",
+ "tq-serde",
+]
+
+[[package]]
+name = "msg-transfer"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "msg-connect-ex",
+ "serde",
+ "tq-bindings",
+ "tq-codec",
+ "tq-crypto",
+ "tq-network",
+ "tq-serde",
+ "tq-wasm-builder",
+ "tracing",
+]
+
+[[package]]
 name = "nix"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -64,7 +64,7 @@ fn check_wasm_toolchain_installed(
         // Chdir to temp to avoid including project's .cargo/config.toml
         // by accident - it can happen in some CI environments.
         cmd.current_dir(&temp);
-        cmd.args(&[
+        cmd.args([
             subcommand,
             "--target=wasm32-unknown-unknown",
             "--manifest-path",
@@ -117,7 +117,7 @@ fn check_wasm_toolchain_installed(
     }
 
     let mut run_cmd = prepare_command("rustc");
-    run_cmd.args(&["-q", "--", "--version"]);
+    run_cmd.args(["-q", "--", "--version"]);
 
     let version = run_cmd
         .output()
@@ -127,7 +127,7 @@ fn check_wasm_toolchain_installed(
 
     if crate::build_std_required() {
         let mut sysroot_cmd = prepare_command("rustc");
-        sysroot_cmd.args(&["-q", "--", "--print", "sysroot"]);
+        sysroot_cmd.args(["-q", "--", "--print", "sysroot"]);
         if let Some(sysroot) = sysroot_cmd
             .output()
             .ok()

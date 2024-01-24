@@ -19,8 +19,6 @@ members = [
 ]
 exclude = [
   "packets/account",
-  "packets/connect-ex",
-  "packets/transfer",
   "tools/benchbot"
 ]
 
@@ -48,9 +46,9 @@ game = { path = "server/game" }
 
 # Packets
 # msg-account = { path = "packets/account" }
-# msg-connect-ex = { path = "packets/connect-ex" }
+msg-connect-ex = { path = "packets/connect-ex" }
 msg-connect = { path = "packets/connect" }
-# msg-transfer = { path = "packets/transfer" }
+msg-transfer = { path = "packets/transfer" }
 
 futures = { version = "0.3", default-features = false }
 thiserror = "1.0"

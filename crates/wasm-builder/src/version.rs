@@ -24,9 +24,9 @@ impl Version {
         let mut is_nightly = false;
         let version_parts = version
             .trim()
-            .split(" ")
+            .split(' ')
             .nth(1)?
-            .split(".")
+            .split('.')
             .filter_map(|v| {
                 if let Some(rest) = v.strip_suffix("-nightly") {
                     is_nightly = true;
@@ -42,12 +42,12 @@ impl Version {
         }
 
         let date_parts = version
-            .split(" ")
+            .split(' ')
             .nth(3)
             .map(|date| {
-                date.split("-")
+                date.split('-')
                     .filter_map(|v| {
-                        v.trim().strip_suffix(")").unwrap_or(v).parse().ok()
+                        v.trim().strip_suffix(')').unwrap_or(v).parse().ok()
                     })
                     .collect::<Vec<u32>>()
             })
@@ -58,7 +58,7 @@ impl Version {
             minor: version_parts[1],
             patch: version_parts[2],
             is_nightly,
-            year: date_parts.get(0).copied(),
+            year: date_parts.first().copied(),
             month: date_parts.get(1).copied(),
             day: date_parts.get(2).copied(),
         })
@@ -94,7 +94,7 @@ impl Ord for Version {
 
         to_compare
 			.iter()
-			.find_map(|(l, r)| if l != r { l.partial_cmp(&r) } else { None })
+			.find_map(|(l, r)| if l != r { l.partial_cmp(r) } else { None })
 			// We already checked this right at the beginning, so we should never return here
 			// `Equal`.
 			.unwrap_or(Ordering::Equal)

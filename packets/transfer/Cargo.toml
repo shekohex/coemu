@@ -8,12 +8,17 @@ tq-serde.workspace = true
 tq-codec.workspace = true
 tq-crypto.workspace = true
 tq-network.workspace = true
+tq-bindings.workspace = true
 
 serde.workspace = true
 tracing.workspace = true
 bytes.workspace = true
 
 msg-connect-ex.workspace = true
+
+
+[build-dependencies]
+tq-wasm-builder.workspace = true
 
 [features]
 default = ["std"]
@@ -22,6 +27,7 @@ std = [
   "tq-codec/std",
   "tq-crypto/std",
   "tq-network/std",
+  "tq-bindings/std",
 
   "tracing/std",
 

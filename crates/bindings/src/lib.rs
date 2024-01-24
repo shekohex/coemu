@@ -7,19 +7,6 @@ extern crate alloc;
 
 pub use externref::{self as anyref, externref, Resource};
 
-#[cfg(target_arch = "wasm32")]
-#[externref(crate = "crate::anyref")]
-#[link(wasm_import_module = "host")]
-extern "C" {
-    fn shutdown(actor: &Resource<tq_network::ActorHandle>);
-    fn send(
-        actor: &Resource<tq_network::ActorHandle>,
-        packet_id: u16,
-        packet_data_ptr: *const u8,
-        packet_data_len: u32,
-    );
-}
-
 /// A [`MakeWriter`] emitting the written text to the [`host`].
 #[cfg(feature = "std")]
 pub fn setup_logging(name: &'static str) {
@@ -65,22 +52,36 @@ pub fn set_panic_hook_once(name: &'static str) {
 #[cfg(not(feature = "std"))]
 pub fn set_panic_hook_once(_name: &'static str) {}
 
+#[externref(crate = "crate::anyref")]
+#[link(wasm_import_module = "host")]
+extern "C" {
+    fn shutdown(actor: &Resource<tq_network::ActorHandle>);
+    fn send(
+        actor: &Resource<tq_network::ActorHandle>,
+        packet_id: u16,
+        packet_data_ptr: *const u8,
+        packet_data_len: u32,
+    );
+
+    fn generate_login_token(
+        actor: &Resource<tq_network::ActorHandle>,
+        account_id: u32,
+        realm_id: u32,
+    ) -> u64;
+}
+
 /// Host bindings.
 pub mod host {
     use crate::Resource;
     use tq_network::ActorHandle;
+
+    pub use tracing_wasm::log;
     /// Shutdown an actor.
-    #[cfg(target_arch = "wasm32")]
     pub fn shutdown(actor: &Resource<ActorHandle>) {
         unsafe { super::shutdown(actor) }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn shutdown(_actor: &Resource<ActorHandle>) {}
-
     /// Send a packet to an actor.
-
-    #[cfg(target_arch = "wasm32")]
     pub fn send<T: tq_network::PacketEncode>(
         actor: &Resource<ActorHandle>,
         packet: T,
@@ -97,13 +98,11 @@ pub mod host {
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn send<T: tq_network::PacketEncode>(
-        _actor: &Resource<ActorHandle>,
-        _packet: T,
-    ) -> Result<(), T::Error> {
-        Ok(())
+    pub fn generate_login_token(
+        actor: &Resource<ActorHandle>,
+        account_id: u32,
+        realm_id: u32,
+    ) -> u64 {
+        unsafe { super::generate_login_token(actor, account_id, realm_id) }
     }
-
-    pub use tracing_wasm::log;
 }

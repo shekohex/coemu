@@ -1,55 +1,85 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
+
+use msg_connect_ex::{AccountCredentials, RejectionCode};
 use serde::{Deserialize, Serialize};
-use tq_network::{ErrorPacket, PacketEncode, PacketID};
-
-use tq_system::ActorHandle;
-pub use traits::{RealmByName, ServerBus, TokenGenerator};
-
-mod functions;
-mod traits;
-mod types;
+use tq_bindings::{host, Resource};
+use tq_network::{
+    ActorHandle, ErrorPacket, IntoErrorPacket, PacketEncode, PacketID,
+};
 
 /// Defines account parameters to be transferred from the account server to the
 /// game server. Account information is supplied from the account database, and
 /// used on the game server to transfer authentication and authority level.
 #[derive(Clone, Default, Debug, Deserialize, Serialize, PacketID)]
 #[packet(id = 4001)]
-pub struct MsgTransfer<T: Config> {
+pub struct MsgTransfer {
     account_id: u32,
     realm_id: u32,
     token: u64,
-    #[serde(skip)]
-    _config: core::marker::PhantomData<T>,
 }
 
-pub trait Config: tq_system::Config {
-    /// The type of the authanticator used to authanticate accounts.
-    type TokenGenerator: TokenGenerator;
-    /// For querying realms by name.
-    type RealmByName: RealmByName;
-    /// Server bus for checking and transferring accounts
-    /// to other servers.
-    type ServerBus: ServerBus;
-}
-
-impl<T: Config> tq_system::ProcessPacket for MsgTransfer<T> {
-    type Error = Error;
-
-    fn process(&self, actor: ActorHandle) -> Result<(), Self::Error> {
-        let token = T::TokenGenerator::generate_login_token(
-            self.account_id,
-            self.realm_id,
-        )?;
-        let msg = Self {
-            account_id: self.account_id,
-            realm_id: self.realm_id,
-            token,
-            _config: core::marker::PhantomData,
+impl MsgTransfer {
+    pub fn handle(
+        actor: &Resource<ActorHandle>,
+        realm: &str,
+    ) -> Result<AccountCredentials, Error> {
+        let maybe_realm = T::RealmByName::by_name(realm)?;
+        // Check if there is a realm with that name
+        let realm = match maybe_realm {
+            Some(realm) => realm,
+            None => {
+                return Err(RejectionCode::TryAgainLater
+                    .packet()
+                    .error_packet()
+                    .into());
+            },
         };
-        T::send(&actor, msg)?;
-        T::shutdown(&actor)?;
-        Ok(())
+        // Try to connect to that realm first.
+        if let Err(e) = T::ServerBus::check(&realm) {
+            tracing::error!(
+                ip = realm.game_ip_address,
+                port = realm.game_port,
+                realm_id = realm.id,
+                error = ?e,
+                "Failed to connect to realm"
+            );
+            host::send(actor, RejectionCode::ServerDown.packet())?;
+            host::shutdown(actor);
+            return Err(e);
+        }
+        Self::transfer(actor, realm)
+    }
+
+    fn transfer(
+        actor: &Resource<ActorHandle>,
+        realm: Realm,
+    ) -> Result<AccountCredentials, Error> {
+        let res = T::ServerBus::transfer(actor, &realm);
+        match res {
+            Ok(token) => Ok(AccountCredentials {
+                token,
+                server_ip: realm.game_ip_address,
+                server_port: realm.game_port as u32,
+            }),
+            Err(e) => {
+                tracing::error!(
+                    ip = realm.game_ip_address,
+                    port = realm.game_port,
+                    realm_id = realm.id,
+                    error = ?e,
+                    "Failed to transfer account"
+                );
+                Err(RejectionCode::ServerTimedOut
+                    .packet()
+                    .error_packet()
+                    .into())
+            },
+        }
     }
 }
 
@@ -92,9 +122,18 @@ impl<T: PacketEncode> From<ErrorPacket<T>> for Error {
     }
 }
 
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn it_works() {}
+#[tq_network::packet_processor(MsgTransfer)]
+fn process(
+    msg: MsgTransfer,
+    actor: &Resource<ActorHandle>,
+) -> Result<(), crate::Error> {
+    let token = host::generate_login_token(actor, msg.account_id, msg.realm_id);
+    let msg = MsgTransfer {
+        account_id: msg.account_id,
+        realm_id: msg.realm_id,
+        token,
+    };
+    host::send(&actor, msg)?;
+    host::shutdown(&actor);
+    Ok(())
 }
