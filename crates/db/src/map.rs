@@ -1,6 +1,3 @@
-use crate::Error;
-use tokio_stream::StreamExt;
-
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::FromRow))]
 pub struct Map {
@@ -19,7 +16,11 @@ pub struct Map {
 impl Map {
     /// Loads all maps from the database to add them to the state.
     #[tracing::instrument]
-    pub async fn load_all(pool: &sqlx::SqlitePool) -> Result<Vec<Self>, Error> {
+    pub async fn load_all(
+        pool: &sqlx::SqlitePool,
+    ) -> Result<Vec<Self>, crate::Error> {
+        use tokio_stream::StreamExt;
+
         let mut maps = Vec::new();
         let mut s =
             sqlx::query_as::<_, Self>("SELECT * FROM maps;").fetch(pool);
@@ -40,7 +41,7 @@ impl Map {
     pub async fn load(
         pool: &sqlx::SqlitePool,
         id: i32,
-    ) -> Result<Option<Self>, Error> {
+    ) -> Result<Option<Self>, crate::Error> {
         let maybe_map =
             sqlx::query_as::<_, Self>("SELECT * FROM maps WHERE id = ?;")
                 .bind(id)

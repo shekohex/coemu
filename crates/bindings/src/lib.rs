@@ -76,6 +76,13 @@ extern "C" {
         account_id: u32,
         realm_id: u32,
     ) -> u64;
+
+    fn auth_server_bus_check(realm_ptr: *const u8, realm_len: u32) -> i32;
+    fn auth_server_bus_transfer(
+        actor: &Resource<tq_network::ActorHandle>,
+        realm_ptr: *const u8,
+        realm_len: u32,
+    ) -> u64;
 }
 
 /// Host bindings.
@@ -115,6 +122,7 @@ pub mod host {
     pub mod db {
         /// [`tq_db::realm`] bindings.
         pub mod realm {
+            use rkyv::Deserialize;
             use tq_db::realm::Realm;
             /// [`tq_db::realm::Realm::by_name`] bindings.
             pub fn by_name(
@@ -132,13 +140,12 @@ pub mod host {
                 };
                 if res == 0 && realm_len > 0 && !realm.is_null() {
                     let realm = unsafe {
-                        let bytes = std::vec::Vec::from_raw_parts(
+                        let bytes = core::slice::from_raw_parts(
                             realm,
                             realm_len as usize,
-                            realm_len as usize,
                         );
-                        // Does not work!
-                        core::mem::transmute(bytes)
+                        let archived = rkyv::archived_root::<Realm>(bytes);
+                        archived.deserialize(&mut rkyv::Infallible).unwrap()
                     };
                     Ok(Some(realm))
                 } else {
@@ -163,6 +170,53 @@ pub mod host {
                     crate::game_state_generate_login_token(
                         actor, account_id, realm_id,
                     )
+                }
+            }
+        }
+    }
+
+    /// [`auth`] bindings.
+    pub mod auth {
+        /// [`auth::server_bus`] bindings.
+        pub mod server_bus {
+            use externref::Resource;
+            use tq_db::realm::Realm;
+
+            /// [`auth::server_bus::check`] bindings.
+            pub fn check(realm: &Realm) -> Result<(), tq_network::Error> {
+                let archived = rkyv::to_bytes::<_, 64>(realm).unwrap();
+                let res = unsafe {
+                    crate::auth_server_bus_check(
+                        archived.as_ptr(),
+                        archived.len() as u32,
+                    )
+                };
+                if res == 0 {
+                    Ok(())
+                } else {
+                    Err(tq_network::Error::Other(String::from("Server Down")))
+                }
+            }
+
+            /// [`auth::server_bus::transfer`] bindings.
+            pub fn transfer(
+                actor: &Resource<tq_network::ActorHandle>,
+                realm: &Realm,
+            ) -> Result<u64, tq_network::Error> {
+                let archived = rkyv::to_bytes::<_, 64>(realm).unwrap();
+                let token = unsafe {
+                    crate::auth_server_bus_transfer(
+                        actor,
+                        archived.as_ptr(),
+                        archived.len() as u32,
+                    )
+                };
+                if token == 0 {
+                    Err(tq_network::Error::Other(String::from(
+                        "Server Timed Out",
+                    )))
+                } else {
+                    Ok(token)
                 }
             }
         }

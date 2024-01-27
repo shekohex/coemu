@@ -27,7 +27,7 @@ tq-serde = { path = "crates/serde" }
 tq-math = { path = "crates/math" }
 tq-crypto = { path = "crates/crypto" }
 tq-codec = { path = "crates/codec" }
-tq-db = { path = "crates/db" }
+tq-db = { path = "crates/db", default-features = false }
 tq-server = { path = "crates/server" }
 tq-bindings = { path = "crates/bindings" }
 tq-wasm-builder = { path = "crates/wasm-builder" }
@@ -68,13 +68,14 @@ atomic = { version = "0.6", default-features = false }
 bytemuck = { version = "1.13", default-features = false, features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = [] }
 num_enum = { version = "0.7", default-features = false }
+rkyv = { version = "0.7", default-features = false }
 bcrypt = "0.15"
 
 # WASM deps
 externref = { version = "0.2.0", default-features = false }
 
 [workspace.dependencies.wasmtime]
-version = "16.0.0"
+version = "17.0.0"
 default-features = false
 
 [workspace.dependencies.tokio]

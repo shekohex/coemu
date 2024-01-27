@@ -14,6 +14,7 @@ tq-db = { workspace = true, default-features = false }
 serde.workspace = true
 tracing.workspace = true
 bytes.workspace = true
+thiserror.workspace = true
 
 msg-connect-ex.workspace = true
 

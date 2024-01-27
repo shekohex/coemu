@@ -1,6 +1,3 @@
-use crate::Error;
-use futures::TryFutureExt;
-
 /// Account information for a registered player. The account server uses this
 /// information to authenticate the player on login. Passwords are hashed using
 /// bcrypt
@@ -20,7 +17,7 @@ impl Account {
         pool: &sqlx::SqlitePool,
         username: &str,
         password: &str,
-    ) -> Result<Account, Error> {
+    ) -> Result<Account, crate::Error> {
         let maybe_account = sqlx::query_as::<_, Self>(
             "SELECT * FROM accounts WHERE username = ?;",
         )
@@ -33,10 +30,10 @@ impl Account {
                 if matched {
                     Ok(account)
                 } else {
-                    Err(Error::InvalidPassword)
+                    Err(crate::Error::InvalidPassword)
                 }
             },
-            None => Err(Error::AccountNotFound),
+            None => Err(crate::Error::AccountNotFound),
         }
     }
 
@@ -47,7 +44,8 @@ impl Account {
         pool: &sqlx::SqlitePool,
         limit: Option<i64>,
         offset: Option<i64>,
-    ) -> Result<Vec<Self>, Error> {
+    ) -> Result<Vec<Self>, crate::Error> {
+        use futures::TryFutureExt;
         sqlx::query_as::<_, Self>("SELECT * FROM accounts LIMIT ? OFFSET ?;")
             .bind(limit.unwrap_or(100))
             .bind(offset.unwrap_or(0))
@@ -62,7 +60,7 @@ impl Account {
     pub async fn create(
         mut self,
         pool: &sqlx::SqlitePool,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, crate::Error> {
         let password = bcrypt::hash(&self.password, bcrypt::DEFAULT_COST)?;
         let res = sqlx::query(
             "INSERT INTO accounts (username, password, name, email) VALUES (?, ?, ?, ?);",
@@ -74,7 +72,7 @@ impl Account {
         .execute(pool)
         .await?;
         if res.rows_affected() == 0 {
-            Err(Error::CreateAccountFailed)
+            Err(crate::Error::CreateAccountFailed)
         } else {
             self.account_id = res.last_insert_rowid() as i32;
             Ok(self)

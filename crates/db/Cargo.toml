@@ -10,6 +10,7 @@ thiserror.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
 futures.workspace = true
+rkyv = { workspace = true, default-features = false, features = ["alloc", "size_32"] }
 
 # Database
 [dependencies.sqlx]

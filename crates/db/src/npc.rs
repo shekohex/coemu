@@ -1,7 +1,3 @@
-use crate::Error;
-use sqlx::SqlitePool;
-use tokio_stream::StreamExt;
-
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "sqlx", derive(sqlx::FromRow))]
 pub struct Npc {
@@ -24,9 +20,11 @@ pub struct Npc {
 impl Npc {
     #[tracing::instrument]
     pub async fn by_map(
-        pool: &SqlitePool,
+        pool: &sqlx::SqlitePool,
         id: i32,
-    ) -> Result<Vec<Self>, Error> {
+    ) -> Result<Vec<Self>, crate::Error> {
+        use tokio_stream::StreamExt;
+
         let mut npcs = Vec::new();
         let mut s =
             sqlx::query_as::<_, Self>("SELECT * FROM npcs WHERE map_id = ?;")

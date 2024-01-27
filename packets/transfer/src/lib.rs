@@ -3,7 +3,7 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-// include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
+include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
 
 use msg_connect_ex::{AccountCredentials, RejectionCode};
 use serde::{Deserialize, Serialize};
@@ -28,38 +28,35 @@ impl MsgTransfer {
         actor: &Resource<ActorHandle>,
         realm: &str,
     ) -> Result<AccountCredentials, Error> {
-        let maybe_realm = host::realm_by_name(realm)?;
+        let maybe_realm = host::db::realm::by_name(realm)?;
         // Check if there is a realm with that name
         let realm = match maybe_realm {
             Some(realm) => realm,
             None => {
-                return Err(RejectionCode::TryAgainLater
+                return Err(RejectionCode::ServerLocked
                     .packet()
                     .error_packet()
                     .into());
             },
         };
         // Try to connect to that realm first.
-        if let Err(e) = host::server_bus_check(&realm) {
+        if let Err(e) = host::auth::server_bus::check(&realm) {
             tracing::error!(
                 ip = realm.game_ip_address,
                 port = realm.game_port,
-                realm_id = realm.id,
+                realm_id = realm.realm_id,
                 error = ?e,
                 "Failed to connect to realm"
             );
-            host::send(actor, RejectionCode::ServerDown.packet())?;
-            host::shutdown(actor);
-            return Err(e);
+            host::network::actor::send(
+                actor,
+                RejectionCode::ServerDown.packet(),
+            )?;
+            host::network::actor::shutdown(actor);
+            return Err(e.into());
         }
-        Self::transfer(actor, realm)
-    }
 
-    fn transfer(
-        actor: &Resource<ActorHandle>,
-        realm: tq_db::realm::Realm,
-    ) -> Result<AccountCredentials, Error> {
-        let res = host::server_bus_transfer(actor, &realm);
+        let res = host::auth::server_bus::transfer(actor, &realm);
         match res {
             Ok(token) => Ok(AccountCredentials {
                 token,
@@ -84,35 +81,22 @@ impl MsgTransfer {
 }
 
 /// Possible errors that can occur while processing a packet.
-#[derive(Debug, Clone)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Failed to generate a login token.
+    #[error("Failed to generate login token")]
     TokenGenerationFailed,
     /// The realm is unavailable.
+    #[error("Realm unavailable")]
     RealmUnavailable,
     /// Internal Network error.
-    Network(tq_network::Error),
+    #[error(transparent)]
+    Network(#[from] tq_network::Error),
+    #[error(transparent)]
+    Db(#[from] tq_db::Error),
+    #[error("Error packet: {0:?}")]
     /// An error packet to be sent to the client.
     Msg(u16, bytes::Bytes),
-}
-
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::TokenGenerationFailed => {
-                write!(f, "Failed to generate a login token")
-            },
-            Self::RealmUnavailable => write!(f, "Realm is unavailable"),
-            Self::Network(e) => write!(f, "Network error: {}", e),
-            Self::Msg(id, body) => {
-                write!(f, "Error packet: id = {}, body = {:?}", id, body)
-            },
-        }
-    }
-}
-
-impl From<tq_network::Error> for Error {
-    fn from(e: tq_network::Error) -> Self { Self::Network(e) }
 }
 
 impl<T: PacketEncode> From<ErrorPacket<T>> for Error {
@@ -123,17 +107,21 @@ impl<T: PacketEncode> From<ErrorPacket<T>> for Error {
 }
 
 #[tq_network::packet_processor(MsgTransfer)]
-fn process(
+pub fn process(
     msg: MsgTransfer,
     actor: &Resource<ActorHandle>,
 ) -> Result<(), crate::Error> {
-    let token = host::generate_login_token(actor, msg.account_id, msg.realm_id);
+    let token = host::game::state::generate_login_token(
+        actor,
+        msg.account_id,
+        msg.realm_id,
+    );
     let msg = MsgTransfer {
         account_id: msg.account_id,
         realm_id: msg.realm_id,
         token,
     };
-    host::send(&actor, msg)?;
-    host::shutdown(&actor);
+    host::network::actor::send(actor, msg)?;
+    host::network::actor::shutdown(actor);
     Ok(())
 }
