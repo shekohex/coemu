@@ -174,8 +174,10 @@ dependencies = [
  "bytes",
  "dotenvy",
  "futures",
+ "msg-account",
  "msg-connect",
  "num_enum",
+ "rand",
  "serde",
  "sqlx",
  "thiserror",
@@ -1623,6 +1625,25 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "msg-account"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "msg-connect-ex",
+ "msg-transfer",
+ "serde",
+ "thiserror",
+ "tq-bindings",
+ "tq-codec",
+ "tq-crypto",
+ "tq-db",
+ "tq-network",
+ "tq-serde",
+ "tq-wasm-builder",
+ "tracing",
 ]
 
 [[package]]

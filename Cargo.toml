@@ -17,7 +17,7 @@ members = [
   # Cli Tools
   "tools/*",
 ]
-exclude = ["packets/account", "tools/benchbot"]
+exclude = ["tools/benchbot"]
 
 [workspace.dependencies]
 # Local Dependencies
@@ -42,7 +42,7 @@ auth = { path = "server/auth" }
 game = { path = "server/game" }
 
 # Packets
-# msg-account = { path = "packets/account" }
+msg-account = { path = "packets/account" }
 msg-connect-ex = { path = "packets/connect-ex" }
 msg-connect = { path = "packets/connect" }
 msg-transfer = { path = "packets/transfer" }

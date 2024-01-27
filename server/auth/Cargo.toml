@@ -26,11 +26,10 @@ dotenvy.workspace = true
 tokio-stream.workspace = true
 num_enum.workspace = true
 futures.workspace = true
+rand.workspace = true
 
 # Packets
-# msg-account.workspace = true
-# msg-transfer.workspace = true
-# msg-connect-ex.workspace = true
+msg-account.workspace = true
 msg-connect.workspace = true
 
 
@@ -72,11 +71,10 @@ default = []
 server = [
   "tq-network/std",
   "tq-serde/std",
-  # "msg-account/std",
-  # "msg-transfer/std",
-  # "msg-connect-ex/std",
+  "msg-account/std",
+  "msg-connect/std",
   "dep:tokio",
   "dep:tq-server",
   "sqlx/runtime-tokio",
-  "dep:tracing-subscriber"
+  "dep:tracing-subscriber",
 ]

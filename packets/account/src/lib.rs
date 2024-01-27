@@ -1,21 +1,22 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
+
 use msg_connect_ex::{MsgConnectEx, RejectionCode};
 use msg_transfer::MsgTransfer;
 use serde::Deserialize;
+use tq_bindings::{host, Resource};
 use tq_network::PacketID;
 use tq_serde::{String16, TQPassword};
 
-use tq_system::ActorHandle;
-pub use traits::Authanticator;
-
-mod functions;
-mod traits;
-mod types;
+use tq_network::ActorHandle;
 
 #[derive(Debug, Deserialize, PacketID)]
 #[packet(id = 1051)]
-pub struct MsgAccount<T: Config> {
+pub struct MsgAccount {
     pub username: String16,
     pub password: TQPassword,
     pub realm: String16,
@@ -23,81 +24,56 @@ pub struct MsgAccount<T: Config> {
     pub rejection_code: u32,
     #[serde(skip)]
     pub account_id: i32,
-    #[serde(skip)]
-    _config: core::marker::PhantomData<T>,
-}
-
-pub trait Config: msg_transfer::Config {
-    /// The type of the authanticator used to authanticate accounts.
-    type Authanticator: Authanticator;
-}
-
-impl<T: Config> tq_system::ProcessPacket for MsgAccount<T> {
-    type Error = Error;
-
-    fn process(&self, actor: ActorHandle) -> Result<(), Self::Error> {
-        let maybe_accont_id =
-            T::Authanticator::auth(&self.username, &self.password);
-        let account_id = match maybe_accont_id {
-            Ok(id) => id,
-            Err(e) => {
-                let res = match e {
-                    Error::InvalidUsernameOrPassword => {
-                        RejectionCode::InvalidPassword.packet()
-                    },
-                    _ => {
-                        tracing::error!("Error authenticating account: {e}");
-                        RejectionCode::TryAgainLater.packet()
-                    },
-                };
-                T::send(&actor, res)?;
-                return Ok(());
-            },
-        };
-        actor.set_id(account_id as usize);
-        let res = match MsgTransfer::<T>::handle(&actor, &self.realm) {
-            Ok(res) => res,
-            _ => {
-                tracing::warn!(
-                    %account_id,
-                    "Failed to transfer account"
-                );
-                return Ok(());
-            },
-        };
-        let res = MsgConnectEx::forword_connection(res);
-        T::send(&actor, res)?;
-        Ok(())
-    }
 }
 
 /// Possible errors that can occur while processing a packet.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// User has entered an invalid username or password.
+    #[error("Invalid username or password")]
     InvalidUsernameOrPassword,
     /// Internal Network error.
-    Network(tq_network::Error),
+    #[error(transparent)]
+    Network(#[from] tq_network::Error),
+    #[error(transparent)]
+    Db(#[from] tq_db::Error),
 }
 
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::InvalidUsernameOrPassword => {
-                write!(f, "Invalid username or password")
-            },
-            Self::Network(e) => write!(f, "Network error: {}", e),
-        }
-    }
-}
-
-impl From<tq_network::Error> for Error {
-    fn from(e: tq_network::Error) -> Self { Self::Network(e) }
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn it_works() {}
+#[tq_network::packet_processor(MsgAccount)]
+pub fn process(
+    msg: MsgAccount,
+    actor: &Resource<ActorHandle>,
+) -> Result<(), crate::Error> {
+    let maybe_accont_id = host::db::account::auth(&msg.username, &msg.password);
+    let account_id = match maybe_accont_id {
+        Ok(id) => id,
+        Err(e) => {
+            let res = match e {
+                tq_db::Error::AccountNotFound
+                | tq_db::Error::InvalidPassword => {
+                    RejectionCode::InvalidPassword.packet()
+                },
+                _ => {
+                    tracing::error!("Error authenticating account: {e}");
+                    RejectionCode::TryAgainLater.packet()
+                },
+            };
+            host::network::actor::send(actor, res)?;
+            return Ok(());
+        },
+    };
+    host::network::actor::set_id(actor, account_id);
+    let res = match MsgTransfer::handle(actor, &msg.realm) {
+        Ok(res) => res,
+        _ => {
+            tracing::warn!(
+                %account_id,
+                "Failed to transfer account"
+            );
+            return Ok(());
+        },
+    };
+    let res = MsgConnectEx::forword_connection(res);
+    host::network::actor::send(actor, res)?;
+    Ok(())
 }

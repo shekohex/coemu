@@ -54,6 +54,7 @@ pub fn set_panic_hook_once(_name: &'static str) {}
 
 #[externref(crate = "crate::anyref")]
 #[link(wasm_import_module = "host")]
+#[cfg(target_arch = "wasm32")]
 extern "C" {
     fn getrandom(ptr: *mut u8, len: usize) -> i32;
     fn tq_network_actor_shutdown(actor: &Resource<tq_network::ActorHandle>);
@@ -64,11 +65,23 @@ extern "C" {
         packet_data_len: u32,
     );
 
+    fn tq_network_actor_set_id(
+        actor: &Resource<tq_network::ActorHandle>,
+        id: u32,
+    );
+
     fn tq_db_realm_by_name(
         realm_name_ptr: *const u8,
         realm_name_len: u32,
         out_realm_ptr: *mut u8,
         out_realm_len: *mut u32,
+    ) -> i32;
+
+    fn tq_db_account_auth(
+        username_ptr: *const u8,
+        username_len: u32,
+        password_ptr: *const u8,
+        password_len: u32,
     ) -> i32;
 
     fn game_state_generate_login_token(
@@ -95,11 +108,18 @@ pub mod host {
         pub mod actor {
             use crate::Resource;
             use tq_network::ActorHandle;
+
             /// [`tq_network::actor::ActorHandle::shutdown`] bindings.
+            #[cfg(target_arch = "wasm32")]
             pub fn shutdown(actor: &Resource<ActorHandle>) {
                 unsafe { crate::tq_network_actor_shutdown(actor) }
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn shutdown(_actor: &Resource<ActorHandle>) {}
+
             /// [`tq_network::actor::ActorHandle::send`] bindings.
+            #[cfg(target_arch = "wasm32")]
             pub fn send<T: tq_network::PacketEncode>(
                 actor: &Resource<ActorHandle>,
                 packet: T,
@@ -115,19 +135,72 @@ pub mod host {
                 }
                 Ok(())
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn send<T: tq_network::PacketEncode>(
+                _actor: &Resource<ActorHandle>,
+                _packet: T,
+            ) -> Result<(), T::Error> {
+                Ok(())
+            }
+            /// [`tq_network::actor::ActorHandle::set_id`] bindings.
+            #[cfg(target_arch = "wasm32")]
+            pub fn set_id(actor: &Resource<ActorHandle>, id: u32) {
+                unsafe { crate::tq_network_actor_set_id(actor, id) }
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn set_id(_actor: &Resource<ActorHandle>, _id: u32) {}
         }
     }
 
     /// [`tq_db`] bindings.
     pub mod db {
+        /// [`tq_db::account`] bindings.
+        pub mod account {
+            /// [`tq_db::account::Account::auth`] bindings.
+            #[cfg(target_arch = "wasm32")]
+            pub fn auth(
+                username: &str,
+                password: &str,
+            ) -> Result<u32, tq_db::Error> {
+                let res = unsafe {
+                    crate::tq_db_account_auth(
+                        username.as_ptr(),
+                        username.len() as u32,
+                        password.as_ptr(),
+                        password.len() as u32,
+                    )
+                };
+                if res > 0 {
+                    Ok(res as u32)
+                } else {
+                    match res {
+                        -1 => Err(tq_db::Error::AccountNotFound),
+                        -2 => Err(tq_db::Error::InvalidPassword),
+                        _ => unreachable!("Unknown error code"),
+                    }
+                }
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn auth(
+                _username: &str,
+                _password: &str,
+            ) -> Result<u32, tq_db::Error> {
+                unimplemented!("Not implemented on non-wasm32")
+            }
+        }
+
         /// [`tq_db::realm`] bindings.
         pub mod realm {
-            use rkyv::Deserialize;
             use tq_db::realm::Realm;
             /// [`tq_db::realm::Realm::by_name`] bindings.
+            #[cfg(target_arch = "wasm32")]
             pub fn by_name(
                 realm_name: &str,
             ) -> Result<Option<Realm>, tq_db::Error> {
+                use rkyv::Deserialize;
+
                 let realm = core::ptr::null_mut();
                 let mut realm_len = 0;
                 let res = unsafe {
@@ -152,6 +225,13 @@ pub mod host {
                     Ok(None)
                 }
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn by_name(
+                _realm_name: &str,
+            ) -> Result<Option<Realm>, tq_db::Error> {
+                unimplemented!("Not implemented on non-wasm32")
+            }
         }
     }
     /// [`game`] bindings.
@@ -161,6 +241,7 @@ pub mod host {
             use crate::Resource;
             use tq_network::ActorHandle;
             /// [`game::state::generate_login_token`] bindings.
+            #[cfg(target_arch = "wasm32")]
             pub fn generate_login_token(
                 actor: &Resource<ActorHandle>,
                 account_id: u32,
@@ -171,6 +252,15 @@ pub mod host {
                         actor, account_id, realm_id,
                     )
                 }
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn generate_login_token(
+                _actor: &Resource<ActorHandle>,
+                _account_id: u32,
+                _realm_id: u32,
+            ) -> u64 {
+                unimplemented!("Not implemented on non-wasm32")
             }
         }
     }
@@ -183,6 +273,7 @@ pub mod host {
             use tq_db::realm::Realm;
 
             /// [`auth::server_bus::check`] bindings.
+            #[cfg(target_arch = "wasm32")]
             pub fn check(realm: &Realm) -> Result<(), tq_network::Error> {
                 let archived = rkyv::to_bytes::<_, 64>(realm).unwrap();
                 let res = unsafe {
@@ -198,7 +289,13 @@ pub mod host {
                 }
             }
 
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn check(_realm: &Realm) -> Result<(), tq_network::Error> {
+                unimplemented!("Not implemented on non-wasm32")
+            }
+
             /// [`auth::server_bus::transfer`] bindings.
+            #[cfg(target_arch = "wasm32")]
             pub fn transfer(
                 actor: &Resource<tq_network::ActorHandle>,
                 realm: &Realm,
@@ -219,10 +316,19 @@ pub mod host {
                     Ok(token)
                 }
             }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn transfer(
+                _actor: &Resource<tq_network::ActorHandle>,
+                _realm: &Realm,
+            ) -> Result<u64, tq_network::Error> {
+                unimplemented!("Not implemented on non-wasm32")
+            }
         }
     }
 
     /// Get random bytes.
+    #[cfg(target_arch = "wasm32")]
     pub fn getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
         let res = unsafe { super::getrandom(buf.as_mut_ptr(), buf.len()) };
         if res == 0 {
@@ -233,4 +339,5 @@ pub mod host {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 getrandom::register_custom_getrandom!(host::getrandom);

@@ -81,9 +81,9 @@ fn derive_packet_processor(
     let msg_ty_name = msg_ty.to_string().to_lowercase();
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
-        #[export_name = "alloc_packet"]
+        #[export_name = "__alloc"]
         #[cfg(target_arch = "wasm32")]
-        pub extern "C" fn alloc_packet(size: u32) -> *mut u8 {
+        pub extern "C" fn __alloc(size: u32) -> *mut u8 {
             #[cfg(not(feature = "std"))]
             let v = ::alloc::vec::Vec::with_capacity(size as usize);
             #[cfg(feature = "std")]

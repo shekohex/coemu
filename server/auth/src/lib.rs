@@ -31,7 +31,7 @@ impl PacketHandler for Runtime {
         runtime: &Self::State,
         actor: &Actor<Self::ActorState>,
     ) -> Result<(), Self::Error> {
-        const ALLOC_PACKET: &str = "alloc_packet";
+        const ALLOC: &str = "__alloc";
         const PROCESS_PACKET: &str = "process_packet";
         const MEMORY: &str = "memory";
         let mut store =
@@ -45,7 +45,7 @@ impl PacketHandler for Runtime {
                     .instantiate_async(&mut store, &runtime.packets.msg_connect)
                     .await?;
                 let alloc_packet = msg_connect
-                    .get_typed_func::<u32, i32>(&mut store, ALLOC_PACKET)?;
+                    .get_typed_func::<u32, i32>(&mut store, ALLOC)?;
                 let ptr = alloc_packet
                     .call_async(&mut store, packet_len as u32)
                     .await?;
@@ -80,9 +80,10 @@ impl PacketHandler for Runtime {
 pub fn add_to_linker(
     linker: &mut Linker<crate::State>,
 ) -> Result<(), error::Error> {
-    linker::actor::shutdown(linker)?;
-    linker::actor::send(linker)?;
+    linker::network::actor::shutdown(linker)?;
+    linker::network::actor::send(linker)?;
     linker::log::trace_event(linker)?;
+    linker::rand::getrandom(linker)?;
     Ok(())
 }
 
