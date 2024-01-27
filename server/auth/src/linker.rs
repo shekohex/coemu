@@ -177,3 +177,52 @@ pub mod log {
         Ok(())
     }
 }
+
+pub mod db {
+    pub mod account {
+        pub fn auth(
+            linker: &mut Linker<crate::State>,
+        ) -> Result<(), crate::error::Error> {
+            const NAME: &str = "tq_db_account_auth";
+            linker.func_wrap4_async::<i32, i32, i32, i32, i32>(
+                MODULE,
+                NAME,
+                |mut caller,
+                 username_ptr,
+                 username_len,
+                 password_ptr,
+                 password_len| {
+                    Box::new(async move {
+                        let mem = memof!(caller);
+                        let username_slice =
+                            mread!(caller, mem, username_ptr, password_len);
+                        let username = std::str::from_utf8(username_slice)
+                            .expect("valid utf8");
+                        let password_slice =
+                            mread!(caller, mem, password_ptr, password_len);
+                        let password = std::str::from_utf8(password_slice)
+                            .expect("valid utf8");
+                        let pool = caller.data().pool();
+                        let account = tq_db::account::Account::auth(
+                            pool, username, password,
+                        )
+                        .await;
+                        match account {
+                            Ok(account) => account.id as i32,
+                            Err(tq_db::Error::AccountNotFound) => -1,
+                            Err(tq_db::Error::InvalidPassword) => -2,
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to auth account: {}",
+                                    e
+                                );
+                                -1
+                            },
+                        }
+                    }) as _
+                },
+            )?;
+            Ok(())
+        }
+    }
+}
