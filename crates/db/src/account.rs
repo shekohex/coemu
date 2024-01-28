@@ -13,17 +13,11 @@ pub struct Account {
 
 #[cfg(feature = "sqlx")]
 impl Account {
-    pub async fn auth(
-        pool: &sqlx::SqlitePool,
-        username: &str,
-        password: &str,
-    ) -> Result<Account, crate::Error> {
-        let maybe_account = sqlx::query_as::<_, Self>(
-            "SELECT * FROM accounts WHERE username = ?;",
-        )
-        .bind(username)
-        .fetch_optional(pool)
-        .await?;
+    pub async fn auth(pool: &sqlx::SqlitePool, username: &str, password: &str) -> Result<Account, crate::Error> {
+        let maybe_account = sqlx::query_as::<_, Self>("SELECT * FROM accounts WHERE username = ?;")
+            .bind(username)
+            .fetch_optional(pool)
+            .await?;
         match maybe_account {
             Some(account) => {
                 let matched = bcrypt::verify(password, &account.password)?;
@@ -57,20 +51,15 @@ impl Account {
     // === Methods ===
 
     /// Creates a new account in the database.
-    pub async fn create(
-        mut self,
-        pool: &sqlx::SqlitePool,
-    ) -> Result<Self, crate::Error> {
+    pub async fn create(mut self, pool: &sqlx::SqlitePool) -> Result<Self, crate::Error> {
         let password = bcrypt::hash(&self.password, bcrypt::DEFAULT_COST)?;
-        let res = sqlx::query(
-            "INSERT INTO accounts (username, password, name, email) VALUES (?, ?, ?, ?);",
-        )
-        .bind(&self.username)
-        .bind(&password)
-        .bind(&self.name)
-        .bind(&self.email)
-        .execute(pool)
-        .await?;
+        let res = sqlx::query("INSERT INTO accounts (username, password, name, email) VALUES (?, ?, ?, ?);")
+            .bind(&self.username)
+            .bind(&password)
+            .bind(&self.name)
+            .bind(&self.email)
+            .execute(pool)
+            .await?;
         if res.rows_affected() == 0 {
             Err(crate::Error::CreateAccountFailed)
         } else {

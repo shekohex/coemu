@@ -27,10 +27,7 @@ pub enum Error {
 }
 
 #[tq_network::packet_processor(MsgConnect)]
-pub fn process(
-    msg: MsgConnect,
-    actor: &Resource<ActorHandle>,
-) -> Result<(), crate::Error> {
+pub fn process(msg: MsgConnect, actor: &Resource<ActorHandle>) -> Result<(), crate::Error> {
     tracing::debug!(?msg, "Shutting down actor!");
     host::network::actor::shutdown(actor);
     Ok(())

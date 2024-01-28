@@ -37,11 +37,7 @@ impl MsgData {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time before Unix epoch");
-        let naive = NaiveDateTime::from_timestamp_opt(
-            now.as_secs() as i64,
-            now.subsec_nanos(),
-        )
-        .unwrap();
+        let naive = NaiveDateTime::from_timestamp_opt(now.as_secs() as i64, now.subsec_nanos()).unwrap();
         let now = chrono::TimeZone::from_utc_datetime(&chrono::Utc, &naive);
         Self {
             action: DataAction::SetServerTime.into(),
@@ -61,11 +57,7 @@ impl PacketProcess for MsgData {
     type Error = Error;
     type State = State;
 
-    async fn process(
-        &self,
-        _state: &Self::State,
-        _actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, _state: &Self::State, _actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         Ok(())
     }
 }

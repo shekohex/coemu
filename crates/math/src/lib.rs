@@ -19,9 +19,7 @@ fn atan2(y: f32, x: f32) -> f32 {
     }
     #[cfg(not(any(feature = "std", feature = "libm")))]
     {
-        compile_error!(
-            "Either the `std` or `libm` feature must be enabled to use `atan2`"
-        )
+        compile_error!("Either the `std` or `libm` feature must be enabled to use `atan2`")
     }
 }
 
@@ -36,9 +34,7 @@ fn abs(x: f32) -> f32 {
     }
     #[cfg(not(any(feature = "std", feature = "libm")))]
     {
-        compile_error!(
-            "Either the `std` or `libm` feature must be enabled to use `abs`"
-        )
+        compile_error!("Either the `std` or `libm` feature must be enabled to use `abs`")
     }
 }
 
@@ -53,9 +49,7 @@ fn pow(x: f32, y: i32) -> f32 {
     }
     #[cfg(not(any(feature = "std", feature = "libm")))]
     {
-        compile_error!(
-            "Either the `std` or `libm` feature must be enabled to use `powi`"
-        )
+        compile_error!("Either the `std` or `libm` feature must be enabled to use `powi`")
     }
 }
 
@@ -70,9 +64,7 @@ fn sqrt(x: f32) -> f32 {
     }
     #[cfg(not(any(feature = "std", feature = "libm")))]
     {
-        compile_error!(
-            "Either the `std` or `libm` feature must be enabled to use `sqrt`"
-        )
+        compile_error!("Either the `std` or `libm` feature must be enabled to use `sqrt`")
     }
 }
 
@@ -87,9 +79,7 @@ fn round(x: f32) -> f32 {
     }
     #[cfg(not(any(feature = "std", feature = "libm")))]
     {
-        compile_error!(
-            "Either the `std` or `libm` feature must be enabled to use `round`"
-        )
+        compile_error!("Either the `std` or `libm` feature must be enabled to use `round`")
     }
 }
 
@@ -157,10 +147,7 @@ pub fn get_direction_sector(p1: (u16, u16), p2: (u16, u16)) -> u8 {
 }
 
 /// Check if a Point (px, py) lies inside a circle (x, y, r)
-pub fn in_circle(
-    (center_x, center_y, r): (u16, u16, u16),
-    (px, py): (u16, u16),
-) -> bool {
+pub fn in_circle((center_x, center_y, r): (u16, u16, u16), (px, py): (u16, u16)) -> bool {
     if r == 0 {
         return false;
     }

@@ -34,7 +34,9 @@ impl WasmBinaryBloaty {
     }
 
     /// Returns the path to the binary.
-    pub fn bloaty_path(&self) -> &Path { &self.0 }
+    pub fn bloaty_path(&self) -> &Path {
+        &self.0
+    }
 }
 
 /// Holds the path to the WASM binary.
@@ -42,7 +44,9 @@ pub struct WasmBinary(PathBuf);
 
 impl WasmBinary {
     /// Returns the path to the wasm binary.
-    pub fn wasm_binary_path(&self) -> &Path { &self.0 }
+    pub fn wasm_binary_path(&self) -> &Path {
+        &self.0
+    }
 
     /// Returns the escaped path to the wasm binary.
     pub fn wasm_binary_path_escaped(&self) -> String {
@@ -59,13 +63,12 @@ fn crate_metadata(cargo_manifest: &Path) -> Metadata {
     // If we can find a `Cargo.lock`, we assume that this is the workspace root
     // and there exists a `Cargo.toml` that we can use for getting the
     // metadata.
-    let cargo_manifest =
-        if let Some(mut cargo_lock) = find_cargo_lock(cargo_manifest) {
-            cargo_lock.set_file_name("Cargo.toml");
-            cargo_lock
-        } else {
-            cargo_manifest.to_path_buf()
-        };
+    let cargo_manifest = if let Some(mut cargo_lock) = find_cargo_lock(cargo_manifest) {
+        cargo_lock.set_file_name("Cargo.toml");
+        cargo_lock
+    } else {
+        cargo_manifest.to_path_buf()
+    };
 
     let crate_metadata_command = create_metadata_command(cargo_manifest);
 
@@ -112,17 +115,11 @@ pub(crate) fn create_and_compile(
     let build_config = BuildConfiguration::detect(&project);
 
     // Build the bloaty runtime blob
-    build_bloaty_blob(
-        &build_config.blob_build_profile,
-        &project,
-        default_rustflags,
-        cargo_cmd,
-    );
+    build_bloaty_blob(&build_config.blob_build_profile, &project, default_rustflags, cargo_cmd);
 
     // Get the name of the bloaty runtime blob.
     let bloaty_blob_default_name = get_blob_name(project_cargo_toml);
-    let bloaty_blob_out_name = bloaty_blob_out_name_override
-        .unwrap_or_else(|| bloaty_blob_default_name.clone());
+    let bloaty_blob_out_name = bloaty_blob_out_name_override.unwrap_or_else(|| bloaty_blob_default_name.clone());
 
     let bloaty_blob_binary = copy_bloaty_blob(
         &project,
@@ -140,30 +137,25 @@ pub(crate) fn create_and_compile(
     // This is because, by default the inner profile will be set to `Release`
     // even when the outer profile is `Debug`, because the blob built in
     // `Debug` profile is too slow for normal development activities.
-    let (compact_blob_path, compact_compressed_blob_path) =
-        if build_config.outer_build_profile.wants_compact() {
-            let compact_blob_path = compact_wasm(
-                &project,
-                &build_config.blob_build_profile,
-                project_cargo_toml,
-                &bloaty_blob_out_name,
-            );
-            // TODO: Compress the compacted blob.
-            (compact_blob_path, None)
-        } else {
-            (None, None)
-        };
+    let (compact_blob_path, compact_compressed_blob_path) = if build_config.outer_build_profile.wants_compact() {
+        let compact_blob_path = compact_wasm(
+            &project,
+            &build_config.blob_build_profile,
+            project_cargo_toml,
+            &bloaty_blob_out_name,
+        );
+        // TODO: Compress the compacted blob.
+        (compact_blob_path, None)
+    } else {
+        (None, None)
+    };
 
     if let Some(wasm_binary) = compact_blob_path.as_ref() {
         copy_blob_to_target_directory(project_cargo_toml, wasm_binary)
     }
 
-    if let Some(wasm_binary_compressed) = compact_compressed_blob_path.as_ref()
-    {
-        copy_blob_to_target_directory(
-            project_cargo_toml,
-            wasm_binary_compressed,
-        )
+    if let Some(wasm_binary_compressed) = compact_compressed_blob_path.as_ref() {
+        copy_blob_to_target_directory(project_cargo_toml, wasm_binary_compressed)
     }
 
     let final_blob_binary = compact_compressed_blob_path.or(compact_blob_path);
@@ -176,13 +168,8 @@ pub(crate) fn create_and_compile(
         &bloaty_blob_binary,
     );
 
-    if let Err(err) =
-        adjust_mtime(&bloaty_blob_binary, final_blob_binary.as_ref())
-    {
-        build_helper::warning!(
-            "Error while adjusting the mtime of the blob binaries: {}",
-            err
-        )
+    if let Err(err) = adjust_mtime(&bloaty_blob_binary, final_blob_binary.as_ref()) {
+        build_helper::warning!("Error while adjusting the mtime of the blob binaries: {}", err)
     }
 
     (final_blob_binary, bloaty_blob_binary)
@@ -264,11 +251,9 @@ fn find_cargo_lock(cargo_manifest: &Path) -> Option<PathBuf> {
 
 /// Extract the crate name from the given `Cargo.toml`.
 fn get_crate_name(cargo_manifest: &Path) -> String {
-    let cargo_toml: Table = toml::from_str(
-        &fs::read_to_string(cargo_manifest)
-            .expect("File exists as checked before; qed"),
-    )
-    .expect("Cargo manifest is a valid toml file; qed");
+    let cargo_toml: Table =
+        toml::from_str(&fs::read_to_string(cargo_manifest).expect("File exists as checked before; qed"))
+            .expect("Cargo manifest is a valid toml file; qed");
 
     let package = cargo_toml
         .get("package")
@@ -293,9 +278,7 @@ fn get_wasm_workspace_root() -> PathBuf {
 
     loop {
         match out_dir.parent() {
-            Some(parent) if out_dir.ends_with("build") => {
-                return parent.to_path_buf()
-            },
+            Some(parent) if out_dir.ends_with("build") => return parent.to_path_buf(),
             _ => {
                 if !out_dir.pop() {
                     break;
@@ -304,10 +287,7 @@ fn get_wasm_workspace_root() -> PathBuf {
         }
     }
 
-    panic!(
-        "Could not find target dir in: {}",
-        build_helper::out_dir().display()
-    )
+    panic!("Could not find target dir in: {}", build_helper::out_dir().display())
 }
 
 fn create_project_cargo_toml(
@@ -319,8 +299,7 @@ fn create_project_cargo_toml(
     enabled_features: impl Iterator<Item = String>,
 ) {
     let mut workspace_toml: Table = toml::from_str(
-        &fs::read_to_string(workspace_root_path.join("Cargo.toml"))
-            .expect("Workspace root `Cargo.toml` exists; qed"),
+        &fs::read_to_string(workspace_root_path.join("Cargo.toml")).expect("Workspace root `Cargo.toml` exists; qed"),
     )
     .expect("Workspace root `Cargo.toml` is a valid toml file; qed");
 
@@ -347,10 +326,7 @@ fn create_project_cargo_toml(
     wasm_workspace_toml.insert("profile".into(), profile.into());
 
     // Add patch section from the project root `Cargo.toml`
-    while let Some(mut patch) = workspace_toml
-        .remove("patch")
-        .and_then(|p| p.try_into::<Table>().ok())
-    {
+    while let Some(mut patch) = workspace_toml.remove("patch").and_then(|p| p.try_into::<Table>().ok()) {
         // Iterate over all patches and make the patch path absolute from the
         // workspace root path.
         patch
@@ -361,19 +337,13 @@ fn create_project_cargo_toml(
             })
             .flatten()
             .for_each(|p| {
-                p.iter_mut()
-                    .filter(|(k, _)| k == &"path")
-                    .for_each(|(_, v)| {
-                        if let Some(path) = v.as_str().map(PathBuf::from) {
-                            if path.is_relative() {
-                                *v = workspace_root_path
-                                    .join(path)
-                                    .display()
-                                    .to_string()
-                                    .into();
-                            }
+                p.iter_mut().filter(|(k, _)| k == &"path").for_each(|(_, v)| {
+                    if let Some(path) = v.as_str().map(PathBuf::from) {
+                        if path.is_relative() {
+                            *v = workspace_root_path.join(path).display().to_string().into();
                         }
-                    })
+                    }
+                })
             });
 
         wasm_workspace_toml.insert("patch".into(), patch.into());
@@ -398,10 +368,7 @@ fn create_project_cargo_toml(
     wasm_project.insert("package".into(), crate_name.into());
     wasm_project.insert("path".into(), crate_path.display().to_string().into());
     wasm_project.insert("default-features".into(), false.into());
-    wasm_project.insert(
-        "features".into(),
-        enabled_features.collect::<Vec<_>>().into(),
-    );
+    wasm_project.insert("features".into(), enabled_features.collect::<Vec<_>>().into());
 
     dependencies.insert("wasm-project".into(), wasm_project.into());
 
@@ -411,8 +378,7 @@ fn create_project_cargo_toml(
 
     write_file_if_changed(
         wasm_workspace.join("Cargo.toml"),
-        toml::to_string_pretty(&wasm_workspace_toml)
-            .expect("Wasm workspace toml is valid; qed"),
+        toml::to_string_pretty(&wasm_workspace_toml).expect("Wasm workspace toml is valid; qed"),
     );
 }
 
@@ -452,9 +418,7 @@ fn find_package_by_manifest_path<'a>(
             pkg
         }
     } else {
-        panic!(
-            "Failed to find entry for package {pkg_name} ({manifest_path:?})."
-        );
+        panic!("Failed to find entry for package {pkg_name} ({manifest_path:?}).");
     }
 }
 
@@ -464,8 +428,7 @@ fn project_enabled_features(
     cargo_manifest: &Path,
     crate_metadata: &cargo_metadata::Metadata,
 ) -> Vec<String> {
-    let package =
-        find_package_by_manifest_path(pkg_name, cargo_manifest, crate_metadata);
+    let package = find_package_by_manifest_path(pkg_name, cargo_manifest, crate_metadata);
 
     let std_enabled = package.features.get("std");
 
@@ -520,8 +483,7 @@ fn has_runtime_wasm_feature_declared(
     cargo_manifest: &Path,
     crate_metadata: &cargo_metadata::Metadata,
 ) -> bool {
-    let package =
-        find_package_by_manifest_path(pkg_name, cargo_manifest, crate_metadata);
+    let package = find_package_by_manifest_path(pkg_name, cargo_manifest, crate_metadata);
 
     package.features.keys().any(|k| k == "runtime-wasm")
 }
@@ -539,31 +501,19 @@ fn create_project(
     features_to_enable: Vec<String>,
 ) -> PathBuf {
     let crate_name = get_crate_name(project_cargo_toml);
-    let crate_path = project_cargo_toml
-        .parent()
-        .expect("Parent path exists; qed");
+    let crate_path = project_cargo_toml.parent().expect("Parent path exists; qed");
     let wasm_binary = get_blob_name(project_cargo_toml);
     let wasm_project_folder = wasm_workspace.join(&crate_name);
 
-    fs::create_dir_all(wasm_project_folder.join("src"))
-        .expect("Wasm project dir create can not fail; qed");
+    fs::create_dir_all(wasm_project_folder.join("src")).expect("Wasm project dir create can not fail; qed");
 
-    let mut enabled_features = project_enabled_features(
-        &crate_name,
-        project_cargo_toml,
-        crate_metadata,
-    );
+    let mut enabled_features = project_enabled_features(&crate_name, project_cargo_toml, crate_metadata);
 
-    if has_runtime_wasm_feature_declared(
-        &crate_name,
-        project_cargo_toml,
-        crate_metadata,
-    ) {
+    if has_runtime_wasm_feature_declared(&crate_name, project_cargo_toml, crate_metadata) {
         enabled_features.push("runtime-wasm".into());
     }
 
-    let mut enabled_features =
-        enabled_features.into_iter().collect::<HashSet<_>>();
+    let mut enabled_features = enabled_features.into_iter().collect::<HashSet<_>>();
     enabled_features.extend(features_to_enable);
 
     create_project_cargo_toml(
@@ -582,10 +532,7 @@ fn create_project(
 
     if let Some(crate_lock_file) = find_cargo_lock(project_cargo_toml) {
         // Use the `Cargo.lock` of the main project.
-        crate::copy_file_if_changed(
-            crate_lock_file,
-            wasm_project_folder.join("Cargo.lock"),
-        );
+        crate::copy_file_if_changed(crate_lock_file, wasm_project_folder.join("Cargo.lock"));
     }
 
     wasm_project_folder
@@ -626,7 +573,9 @@ impl Profile {
     }
 
     /// Whether the resulting binary should be compacted and compressed.
-    fn wants_compact(&self) -> bool { !matches!(self, Self::Debug) }
+    fn wants_compact(&self) -> bool {
+        !matches!(self, Self::Debug)
+    }
 }
 
 /// The build configuration for this build.
@@ -661,9 +610,7 @@ impl BuildConfiguration {
     ///
     /// Can be overriden by setting [`crate::WASM_BUILD_TYPE_ENV`].
     fn detect(wasm_project: &Path) -> Self {
-        let (name, overriden) = if let Ok(name) =
-            env::var(crate::WASM_BUILD_TYPE_ENV)
-        {
+        let (name, overriden) = if let Ok(name) = env::var(crate::WASM_BUILD_TYPE_ENV) {
             (name, true)
         } else {
             // First go backwards to the beginning of the target directory.
@@ -672,25 +619,23 @@ impl BuildConfiguration {
             // root there might be a chance that someone has
             // a "wbuild" directory somewhere in the path.
             let name = wasm_project
-                    .components()
-                    .rev()
-                    .take_while(|c| c.as_os_str() != "target")
-                    .collect::<Vec<_>>()
-                    .iter()
-                    .rev()
-                    .take_while(|c| c.as_os_str() != "wbuild")
-                    .last()
-                    .expect("We put the wasm project within a `target/.../wbuild` path; qed")
-                    .as_os_str()
-                    .to_str()
-                    .expect("All our profile directory names are ascii; qed")
-                    .to_string();
+                .components()
+                .rev()
+                .take_while(|c| c.as_os_str() != "target")
+                .collect::<Vec<_>>()
+                .iter()
+                .rev()
+                .take_while(|c| c.as_os_str() != "wbuild")
+                .last()
+                .expect("We put the wasm project within a `target/.../wbuild` path; qed")
+                .as_os_str()
+                .to_str()
+                .expect("All our profile directory names are ascii; qed")
+                .to_string();
             (name, false)
         };
-        let outer_build_profile =
-            Profile::iter().find(|p| p.directory() == name);
-        let blob_build_profile = match (outer_build_profile.clone(), overriden)
-        {
+        let outer_build_profile = Profile::iter().find(|p| p.directory() == name);
+        let blob_build_profile = match (outer_build_profile.clone(), overriden) {
             // When not overriden by a env variable we default to using the
             // `Release` profile for the wasm build even when the
             // main build uses the debug build. This is because the
@@ -724,15 +669,16 @@ impl BuildConfiguration {
             },
         };
         BuildConfiguration {
-            outer_build_profile: outer_build_profile
-                .unwrap_or(Profile::Release),
+            outer_build_profile: outer_build_profile.unwrap_or(Profile::Release),
             blob_build_profile,
         }
     }
 }
 
 /// Check environment whether we should build without network
-fn offline_build() -> bool { env::var(OFFLINE).map_or(false, |v| v == "true") }
+fn offline_build() -> bool {
+    env::var(OFFLINE).map_or(false, |v| v == "true")
+}
 
 /// Build the project and create the bloaty runtime blob.
 fn build_bloaty_blob(
@@ -748,7 +694,7 @@ fn build_bloaty_blob(
         "-C target-cpu=mvp -C target-feature=-sign-ext -C link-arg=--export-table {} {}",
         default_rustflags,
         env::var(crate::WASM_BUILD_RUSTFLAGS_ENV).unwrap_or_default(),
-	);
+    );
 
     build_cmd
         .args(["rustc", "--target=wasm32-unknown-unknown"])
@@ -800,15 +746,9 @@ fn build_bloaty_blob(
 
     println!(
         "{}",
-        colorize_info_message(
-            "Information that should be included in a bug report."
-        )
+        colorize_info_message("Information that should be included in a bug report.")
     );
-    println!(
-        "{} {:?}",
-        colorize_info_message("Executing build command:"),
-        build_cmd
-    );
+    println!("{} {:?}", colorize_info_message("Executing build command:"), build_cmd);
     println!(
         "{} {}",
         colorize_info_message("Using rustc version:"),
@@ -821,12 +761,7 @@ fn build_bloaty_blob(
     }
 }
 
-fn compact_wasm(
-    project: &Path,
-    inner_profile: &Profile,
-    cargo_manifest: &Path,
-    out_name: &str,
-) -> Option<WasmBinary> {
+fn compact_wasm(project: &Path, inner_profile: &Profile, cargo_manifest: &Path, out_name: &str) -> Option<WasmBinary> {
     let default_out_name = get_blob_name(cargo_manifest);
     let in_path = project
         .join("target/wasm32-unknown-unknown")
@@ -849,34 +784,24 @@ fn compact_wasm(
     Some(WasmBinary(wasm_compact_path))
 }
 
-fn copy_bloaty_blob(
-    project: &Path,
-    inner_profile: &Profile,
-    in_name: &str,
-    out_name: &str,
-) -> WasmBinaryBloaty {
+fn copy_bloaty_blob(project: &Path, inner_profile: &Profile, in_name: &str, out_name: &str) -> WasmBinaryBloaty {
     let in_path = project
         .join("target/wasm32-unknown-unknown")
         .join(inner_profile.directory())
         .join(format!("{}.wasm", in_name));
 
     let bloaty_path = project.join(format!("{}.wasm", out_name));
-    fs::copy(in_path, &bloaty_path)
-        .expect("Copying the bloaty file to the project dir.");
+    fs::copy(in_path, &bloaty_path).expect("Copying the bloaty file to the project dir.");
     WasmBinaryBloaty(bloaty_path)
 }
 
-fn process_bloaty_blob(
-    bloty_blob_binary: WasmBinaryBloaty,
-) -> WasmBinaryBloaty {
+fn process_bloaty_blob(bloty_blob_binary: WasmBinaryBloaty) -> WasmBinaryBloaty {
     let processor = externref::processor::Processor::default();
-    let wasm_bytes = fs::read(bloty_blob_binary.bloaty_path())
-        .expect("Reading the bloaty file.");
+    let wasm_bytes = fs::read(bloty_blob_binary.bloaty_path()).expect("Reading the bloaty file.");
     let processed_wasm_bytes = processor
         .process_bytes(&wasm_bytes)
         .expect("Processing the bloaty file.");
-    fs::write(bloty_blob_binary.bloaty_path(), processed_wasm_bytes)
-        .expect("Writing the bloaty file.");
+    fs::write(bloty_blob_binary.bloaty_path(), processed_wasm_bytes).expect("Writing the bloaty file.");
     bloty_blob_binary
 }
 
@@ -892,20 +817,21 @@ impl<'a> From<&'a cargo_metadata::Package> for DeduplicatePackage<'a> {
     fn from(package: &'a cargo_metadata::Package) -> Self {
         Self {
             package,
-            identifier: format!(
-                "{}{}{:?}",
-                package.name, package.version, package.source
-            ),
+            identifier: format!("{}{}{:?}", package.name, package.version, package.source),
         }
     }
 }
 
 impl<'a> Hash for DeduplicatePackage<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) { self.identifier.hash(state); }
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.identifier.hash(state);
+    }
 }
 
 impl<'a> PartialEq for DeduplicatePackage<'a> {
-    fn eq(&self, other: &Self) -> bool { self.identifier == other.identifier }
+    fn eq(&self, other: &Self) -> bool {
+        self.identifier == other.identifier
+    }
 }
 
 impl<'a> Eq for DeduplicatePackage<'a> {}
@@ -913,7 +839,9 @@ impl<'a> Eq for DeduplicatePackage<'a> {}
 impl<'a> Deref for DeduplicatePackage<'a> {
     type Target = cargo_metadata::Package;
 
-    fn deref(&self) -> &Self::Target { self.package }
+    fn deref(&self) -> &Self::Target {
+        self.package
+    }
 }
 
 fn create_metadata_command(path: impl Into<PathBuf>) -> MetadataCommand {
@@ -978,8 +906,7 @@ fn generate_rerun_if_changed_instructions(
                 // this is a git or path dep. A git or path
                 // dependency can only occur once, so we don't
                 // need to check the version.
-                (path_or_git_dep || dependency.req.matches(&p.version))
-                    && dependency.name == p.name
+                (path_or_git_dep || dependency.req.matches(&p.version)) && dependency.name == p.name
             });
 
         if let Some(package) = package {
@@ -1001,14 +928,8 @@ fn generate_rerun_if_changed_instructions(
     // Register our env variables
     println!("cargo:rerun-if-env-changed={}", crate::SKIP_BUILD_ENV);
     println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_TYPE_ENV);
-    println!(
-        "cargo:rerun-if-env-changed={}",
-        crate::WASM_BUILD_RUSTFLAGS_ENV
-    );
-    println!(
-        "cargo:rerun-if-env-changed={}",
-        crate::WASM_TARGET_DIRECTORY
-    );
+    println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_RUSTFLAGS_ENV);
+    println!("cargo:rerun-if-env-changed={}", crate::WASM_TARGET_DIRECTORY);
     println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_TOOLCHAIN);
     println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_STD);
 }
@@ -1029,25 +950,16 @@ fn package_rerun_if_changed(package: &DeduplicatePackage) {
             // the current package. This is done to ignore sub-crates of a
             // crate. If such a sub-crate is a dependency, it will be processed
             // independently anyway.
-            p.path() == manifest_path
-                || !p.path().is_dir()
-                || !p.path().join("Cargo.toml").exists()
+            p.path() == manifest_path || !p.path().is_dir() || !p.path().join("Cargo.toml").exists()
         })
         .filter_map(|p| p.ok().map(|p| p.into_path()))
-        .filter(|p| {
-            p.extension()
-                .map(|e| e == "rs" || e == "toml")
-                .unwrap_or_default()
-        })
+        .filter(|p| p.extension().map(|e| e == "rs" || e == "toml").unwrap_or_default())
         .for_each(rerun_if_changed);
 }
 
 /// Copy the blob binary to the target directory set in `WASM_TARGET_DIRECTORY`
 /// environment variable. If the variable is not set, this is a no-op.
-fn copy_blob_to_target_directory(
-    cargo_manifest: &Path,
-    blob_binary: &WasmBinary,
-) {
+fn copy_blob_to_target_directory(cargo_manifest: &Path, blob_binary: &WasmBinary) {
     let target_dir = match env::var(crate::WASM_TARGET_DIRECTORY) {
         Ok(path) => PathBuf::from(path),
         Err(_) => return,

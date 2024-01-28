@@ -16,11 +16,11 @@ impl<'storage> SliceReader<'storage> {
         SliceReader { slice: bytes }
     }
 
-    fn get_ref(&self) -> &'storage [u8] { self.slice }
+    fn get_ref(&self) -> &'storage [u8] {
+        self.slice
+    }
 
-    fn get_byte_array<const N: usize>(
-        &mut self,
-    ) -> Result<[u8; N], TQSerdeError> {
+    fn get_byte_array<const N: usize>(&mut self) -> Result<[u8; N], TQSerdeError> {
         if N > self.slice.len() {
             return Err(TQSerdeError::Eof);
         }
@@ -40,10 +40,7 @@ impl<'storage> SliceReader<'storage> {
         Ok(read_slice[0])
     }
 
-    fn get_byte_slice(
-        &mut self,
-        len: usize,
-    ) -> Result<&'storage [u8], TQSerdeError> {
+    fn get_byte_slice(&mut self, len: usize) -> Result<&'storage [u8], TQSerdeError> {
         if len > self.slice.len() {
             return Err(TQSerdeError::Eof);
         }
@@ -170,10 +167,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         Visitor::visit_bytes(visitor, self.input.get_ref())
     }
 
-    fn deserialize_byte_buf<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, TQSerdeError>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
@@ -182,10 +176,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_byte_buf(bytes.to_vec())
     }
 
-    fn deserialize_option<V>(
-        self,
-        _visitor: V,
-    ) -> Result<V::Value, TQSerdeError>
+    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
@@ -201,22 +192,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     // Unit struct means a named value containing no data.
-    fn deserialize_unit_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> Result<V::Value, TQSerdeError>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
         self.deserialize_unit(visitor)
     }
 
-    fn deserialize_newtype_struct<V>(
-        self,
-        _name: &'static str,
-        visitor: V,
-    ) -> Result<V::Value, TQSerdeError>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
@@ -232,23 +215,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_tuple(len, visitor)
     }
 
-    fn deserialize_tuple<V>(
-        self,
-        len: usize,
-        visitor: V,
-    ) -> Result<V::Value, TQSerdeError>
+    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
         visitor.visit_seq(Access { de: self, len })
     }
 
-    fn deserialize_tuple_struct<V>(
-        self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> Result<V::Value, TQSerdeError>
+    fn deserialize_tuple_struct<V>(self, _name: &'static str, _len: usize, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
@@ -286,20 +260,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         Err(TQSerdeError::Unspported)
     }
 
-    fn deserialize_identifier<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, TQSerdeError>
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_ignored_any<V>(
-        self,
-        visitor: V,
-    ) -> Result<V::Value, TQSerdeError>
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, TQSerdeError>
     where
         V: Visitor<'de>,
     {
@@ -317,10 +285,7 @@ struct Access<'a, 'de: 'a> {
 impl<'de, 'a> SeqAccess<'de> for Access<'a, 'de> {
     type Error = TQSerdeError;
 
-    fn next_element_seed<T>(
-        &mut self,
-        seed: T,
-    ) -> Result<Option<T::Value>, TQSerdeError>
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, TQSerdeError>
     where
         T: DeserializeSeed<'de>,
     {
@@ -349,11 +314,10 @@ fn test_struct_de() {
     }
 
     let test: MsgAccount = from_bytes(&[
-        0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-        0x0, 0x0, 0x0, 0x31, 0x32, 0x33, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5a, 0x65, 0x75, 0x73, 0x0, 0x0, 0x0,
-        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x76, 0x61, 0x72,
-        0x5f, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x2, 0x0, 0x0, 0x0,
+        0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x31, 0x32, 0x33, 0x0,
+        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5a, 0x65, 0x75, 0x73, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x76, 0x61, 0x72, 0x5f, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x2, 0x0,
+        0x0, 0x0,
     ])
     .unwrap();
     assert_eq!(

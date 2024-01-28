@@ -28,7 +28,9 @@ pub enum RejectionCode {
 }
 
 impl RejectionCode {
-    pub fn packet(self) -> MsgConnectRejection { MsgConnectEx::from_code(self) }
+    pub fn packet(self) -> MsgConnectRejection {
+        MsgConnectEx::from_code(self)
+    }
 }
 
 #[derive(Debug, Serialize, PacketID)]

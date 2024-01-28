@@ -30,7 +30,9 @@ where
 impl<const N: usize, M> Deref for FixedString<N, M> {
     type Target = str;
 
-    fn deref(&self) -> &Self::Target { &self.inner }
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl<const N: usize, M> fmt::Display for FixedString<N, M> {
@@ -92,78 +94,57 @@ pub struct Encrypted;
 pub struct Masked;
 
 impl<const N: usize> Serialize for FixedString<N, ClearText> {
-    fn serialize<S: Serializer>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         encode_fixed_string::<N>(&self.inner).serialize(serializer)
     }
 }
 
 impl<const N: usize> Serialize for FixedString<N, Masked> {
-    fn serialize<S: Serializer>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         encode_fixed_string::<N>(&self.inner).serialize(serializer)
     }
 }
 
 impl Serialize for FixedString<16, Encrypted> {
-    fn serialize<S: Serializer>(
-        &self,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         // FIXME: encrypt password
         encode_fixed_string::<16>(&self.inner).serialize(serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for FixedString<10, ClearText> {
-    fn deserialize<D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let slice: [u8; 10] = Deserialize::deserialize(deserializer)?;
-        let result =
-            core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+        let result = core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
 }
 
 impl<'de> Deserialize<'de> for FixedString<16, ClearText> {
-    fn deserialize<D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
-        let result =
-            core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+        let result = core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
 }
 
 impl<'de> Deserialize<'de> for FixedString<16, Masked> {
-    fn deserialize<D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
-        let result =
-            core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+        let result = core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }
 }
 
 impl<'de> Deserialize<'de> for FixedString<16, Encrypted> {
-    fn deserialize<D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let mut slice: [u8; 16] = Deserialize::deserialize(deserializer)?;
         let rc5 = TQRC5::new();
         rc5.decrypt(&mut slice);
-        let result =
-            core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
+        let result = core::str::from_utf8(&slice).map_err(serde::de::Error::custom)?;
         let result = result.trim_end_matches('\0');
         Ok(result.into())
     }

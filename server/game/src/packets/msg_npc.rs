@@ -35,11 +35,7 @@ impl PacketProcess for MsgNpc {
     type Error = crate::Error;
     type State = crate::State;
 
-    async fn process(
-        &self,
-        state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, state: &Self::State, actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         tracing::debug!(
             npc_id = self.npc_id,
             data = self.data,
@@ -48,8 +44,7 @@ impl PacketProcess for MsgNpc {
             "MsgNpc received"
         );
         let me = actor.entity();
-        let mycharacter =
-            me.as_character().ok_or(crate::Error::CharacterNotFound)?;
+        let mycharacter = me.as_character().ok_or(crate::Error::CharacterNotFound)?;
         let mymap = state.try_map(me.basic().map_id())?;
         let npc = match mymap.npc(self.npc_id) {
             Some(npc) => npc,
@@ -87,9 +82,7 @@ impl PacketProcess for MsgNpc {
         let npc_name = npc.entity().name();
         // For now, lets try sending a dummy dialog
         let dialog = MsgTaskDialog::builder()
-            .text(format!(
-                "Hello, My name is {npc_name} and my id is {npc_id}",
-            ))
+            .text(format!("Hello, My name is {npc_name} and my id is {npc_id}",))
             .with_edit(1, "What is your name?")
             .with_option(255, "Nice to meet you")
             .and()

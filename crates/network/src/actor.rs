@@ -46,8 +46,7 @@ impl<S: ActorState> Hash for Actor<S> {
 
 impl<S: ActorState> PartialEq for Actor<S> {
     fn eq(&self, other: &Self) -> bool {
-        self.handle.id.load(Ordering::Relaxed)
-            == other.handle.id.load(Ordering::Relaxed)
+        self.handle.id.load(Ordering::Relaxed) == other.handle.id.load(Ordering::Relaxed)
     }
 }
 
@@ -56,11 +55,15 @@ impl<S: ActorState> Eq for Actor<S> {}
 impl<S: ActorState> Deref for Actor<S> {
     type Target = S;
 
-    fn deref(&self) -> &Self::Target { &self.state }
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
 }
 
 impl From<(u16, Bytes)> for Message {
-    fn from((id, bytes): (u16, Bytes)) -> Self { Self::Packet(id, bytes) }
+    fn from((id, bytes): (u16, Bytes)) -> Self {
+        Self::Packet(id, bytes)
+    }
 }
 
 #[async_trait]
@@ -91,18 +94,21 @@ impl<S: ActorState> Actor<S> {
     }
 
     /// Returns a cheap clone of the actor handle
-    pub fn handle(&self) -> ActorHandle { self.handle.clone() }
+    pub fn handle(&self) -> ActorHandle {
+        self.handle.clone()
+    }
 
-    pub fn id(&self) -> usize { self.handle.id() }
+    pub fn id(&self) -> usize {
+        self.handle.id()
+    }
 
-    pub fn set_id(&self, id: usize) { self.handle.set_id(id) }
+    pub fn set_id(&self, id: usize) {
+        self.handle.set_id(id)
+    }
 
     /// Enqueue the packet and send it to the client connected to this actor
     #[instrument(skip(self, packet))]
-    pub async fn send<P: PacketEncode>(
-        &self,
-        packet: P,
-    ) -> Result<(), P::Error> {
+    pub async fn send<P: PacketEncode>(&self, packet: P) -> Result<(), P::Error> {
         self.handle.send(packet).await
     }
 
@@ -129,16 +135,17 @@ impl<S: ActorState> Actor<S> {
 }
 
 impl ActorHandle {
-    pub fn id(&self) -> usize { self.id.load(Ordering::Relaxed) }
+    pub fn id(&self) -> usize {
+        self.id.load(Ordering::Relaxed)
+    }
 
-    pub fn set_id(&self, id: usize) { self.id.store(id, Ordering::Relaxed); }
+    pub fn set_id(&self, id: usize) {
+        self.id.store(id, Ordering::Relaxed);
+    }
 
     /// Enqueue the packet and send it to the client connected to this actor
     #[instrument(skip(self, packet))]
-    pub async fn send<P: PacketEncode>(
-        &self,
-        packet: P,
-    ) -> Result<(), P::Error> {
+    pub async fn send<P: PacketEncode>(&self, packet: P) -> Result<(), P::Error> {
         let msg = packet.encode()?;
         self.tx.send(msg.into()).map_err(Into::into).await?;
         Ok(())

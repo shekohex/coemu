@@ -31,10 +31,8 @@ impl State {
     /// Should only get called once.
     pub async fn init() -> Result<Self, Error> {
         let data_dir = dotenvy::var("DATA_LOCATION")?;
-        let default_db_location =
-            format!("sqlite://{data_dir}/coemu.db?mode=rwc");
-        let db_url =
-            dotenvy::var("DATABASE_URL").unwrap_or(default_db_location);
+        let default_db_location = format!("sqlite://{data_dir}/coemu.db?mode=rwc");
+        let db_url = dotenvy::var("DATABASE_URL").unwrap_or(default_db_location);
         let pool = SqlitePoolOptions::new()
             .max_connections(42)
             .min_connections(4)
@@ -68,9 +66,13 @@ impl State {
     }
 
     /// Get access to the database pool
-    pub fn pool(&self) -> &SqlitePool { &self.pool }
+    pub fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
 
-    pub fn maps(&self) -> &Maps { &self.maps }
+    pub fn maps(&self) -> &Maps {
+        &self.maps
+    }
 
     pub fn try_map(&self, map_id: u32) -> Result<&Map, Error> {
         self.maps.get(&map_id).ok_or(Error::MapNotFound)
@@ -104,27 +106,16 @@ impl State {
     ///
     /// The token will be stored internally, and can be later removed by calling
     /// [`TokenStore::remove_login_token`].
-    pub fn generate_login_token(
-        &self,
-        account_id: u32,
-        realm_id: u32,
-    ) -> Result<GeneratedLoginToken, crate::Error> {
+    pub fn generate_login_token(&self, account_id: u32, realm_id: u32) -> Result<GeneratedLoginToken, crate::Error> {
         let token = rand::random();
-        self.login_tokens.lock().insert(
-            token,
-            LoginToken {
-                account_id,
-                realm_id,
-            },
-        );
+        self.login_tokens
+            .lock()
+            .insert(token, LoginToken { account_id, realm_id });
         Ok(GeneratedLoginToken { token })
     }
 
     /// Remove a Login Token.
-    pub fn remove_login_token(
-        &self,
-        token: u64,
-    ) -> Result<LoginToken, crate::Error> {
+    pub fn remove_login_token(&self, token: u64) -> Result<LoginToken, crate::Error> {
         self.login_tokens
             .lock()
             .remove(&token)
@@ -134,27 +125,15 @@ impl State {
     /// Store a new CreationToken.
     /// The token will be stored internally, and can be later removed by calling
     /// [`TokenStore::remove_creation_token`].
-    pub fn store_creation_token(
-        &self,
-        token: u32,
-        account_id: u32,
-        realm_id: u32,
-    ) -> Result<(), crate::Error> {
-        self.creation_tokens.lock().insert(
-            token,
-            CreationToken {
-                account_id,
-                realm_id,
-            },
-        );
+    pub fn store_creation_token(&self, token: u32, account_id: u32, realm_id: u32) -> Result<(), crate::Error> {
+        self.creation_tokens
+            .lock()
+            .insert(token, CreationToken { account_id, realm_id });
         Ok(())
     }
 
     /// Remove a CreationToken.
-    pub fn remove_creation_token(
-        &self,
-        token: u32,
-    ) -> Result<CreationToken, crate::Error> {
+    pub fn remove_creation_token(&self, token: u32) -> Result<CreationToken, crate::Error> {
         self.creation_tokens
             .lock()
             .remove(&token)
@@ -174,9 +153,7 @@ impl State {
         let entities = self.drain_entities();
         for e in entities {
             match e.as_ref() {
-                GameEntity::Character(character) => {
-                    character.save(&self).await?
-                },
+                GameEntity::Character(character) => character.save(&self).await?,
                 GameEntity::Npc(_) => {
                     // Do nothing for now
                 },

@@ -29,10 +29,7 @@ use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use pretty_hex::{HexConfig, PrettyHex};
-use tokio::io::{
-    self, split, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf,
-    WriteHalf,
-};
+use tokio::io::{self, split, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio_stream::Stream;
 use tq_crypto::Cipher;
 
@@ -67,10 +64,7 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
     /// Read data from the socket.
     ///
     /// This only returns `Ready` when the socket has closed.
-    fn fill_read_buf(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), io::Error>> {
+    fn fill_read_buf(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         loop {
             // Ensure the read buffer has capacity.
             //
@@ -115,10 +109,7 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQDecoder<S, C> {
             tracing::trace!(%n, %packet_id, "decoded head");
             if n > MAX_PACKET_SIZE {
                 tracing::warn!(%n, %packet_id, "Frame too big!");
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Frame Too Big",
-                ));
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "Frame Too Big"));
             }
             (n as usize, packet_id)
         };
@@ -209,9 +200,7 @@ impl<S: AsyncRead + AsyncWrite, C: Cipher> TQEncoder<S, C> {
     fn buffer(&mut self, buf: &[u8]) {
         // Ensure the buffer has capacity. Ideally this would not be unbounded,
         // but to keep the example simple, we will not limit this.
-        if self.buf.capacity() <= buf.len()
-            && self.buf.capacity() < MAX_CAPACITY
-        {
+        if self.buf.capacity() <= buf.len() && self.buf.capacity() < MAX_CAPACITY {
             self.buf.reserve(buf.len());
         }
 
@@ -246,7 +235,9 @@ pub struct TQCodec<S: AsyncRead + AsyncWrite, C: Cipher + Clone> {
 }
 
 impl<S: AsyncRead + AsyncWrite, C: Cipher + Clone> TQCodec<S, C> {
-    pub fn new(stream: S, cipher: C) -> Self { Self { stream, cipher } }
+    pub fn new(stream: S, cipher: C) -> Self {
+        Self { stream, cipher }
+    }
 
     pub fn split(self) -> (TQEncoder<S, C>, TQDecoder<S, C>) {
         let (rdr, wrt) = split(self.stream);
@@ -273,10 +264,7 @@ where
     type Item = io::Result<(u16, Bytes)>;
 
     #[tracing::instrument(skip(self, cx))]
-    fn poll_next(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // First, read any new data that might have been received off the socket
         let sock_closed = self.fill_read_buf(cx)?.is_ready();
         tracing::trace!("Socket Close? {}", sock_closed);

@@ -18,15 +18,21 @@ impl core::fmt::Display for Error {
 }
 
 impl From<tq_network::Error> for Error {
-    fn from(e: tq_network::Error) -> Self { Self::TQNetwork(e) }
+    fn from(e: tq_network::Error) -> Self {
+        Self::TQNetwork(e)
+    }
 }
 
 impl From<std::net::AddrParseError> for Error {
-    fn from(e: std::net::AddrParseError) -> Self { Self::AddrParseError(e) }
+    fn from(e: std::net::AddrParseError) -> Self {
+        Self::AddrParseError(e)
+    }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self { Self::IO(e) }
+    fn from(e: std::io::Error) -> Self {
+        Self::IO(e)
+    }
 }
 
 impl std::error::Error for Error {}

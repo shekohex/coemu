@@ -27,10 +27,13 @@ tokio-stream.workspace = true
 num_enum.workspace = true
 futures.workspace = true
 rand.workspace = true
+rkyv = { workspace = true, default-features = false, features = ["alloc", "size_32"] }
+
 
 # Packets
 msg-account.workspace = true
 msg-connect.workspace = true
+msg-transfer.workspace = true
 
 
 [dependencies.tq-server]
@@ -51,9 +54,8 @@ features = ["env-filter", "ansi", "fmt", "smallvec"]
 # Runtime
 [dependencies.tokio]
 workspace = true
-optional = true
 default-features = false
-features = ["rt-multi-thread", "macros", "signal"]
+features = []
 
 # Database
 [dependencies.sqlx]
@@ -73,7 +75,10 @@ server = [
   "tq-serde/std",
   "msg-account/std",
   "msg-connect/std",
-  "dep:tokio",
+  "msg-transfer/std",
+  "tokio/rt-multi-thread",
+  "tokio/macros",
+  "tokio/signal",
   "dep:tq-server",
   "sqlx/runtime-tokio",
   "dep:tracing-subscriber",

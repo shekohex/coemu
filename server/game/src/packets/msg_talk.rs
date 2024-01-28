@@ -82,11 +82,7 @@ pub struct MsgTalk {
 }
 
 impl MsgTalk {
-    pub fn from_system(
-        character_id: u32,
-        channel: TalkChannel,
-        message: impl Into<String>,
-    ) -> Self {
+    pub fn from_system(character_id: u32, channel: TalkChannel, message: impl Into<String>) -> Self {
         MsgTalk {
             color: 0x00FF_FFFF,
             channel: channel.into(),
@@ -107,19 +103,11 @@ impl MsgTalk {
     }
 
     pub fn register_invalid() -> Self {
-        Self::from_system(
-            0,
-            TalkChannel::Register,
-            String::from("Register Invalid"),
-        )
+        Self::from_system(0, TalkChannel::Register, String::from("Register Invalid"))
     }
 
     pub fn register_ok() -> Self {
-        Self::from_system(
-            0,
-            TalkChannel::Register,
-            crate::constants::ANSWER_OK.to_owned(),
-        )
+        Self::from_system(0, TalkChannel::Register, crate::constants::ANSWER_OK.to_owned())
     }
 
     pub fn register_name_taken() -> Self {
@@ -131,19 +119,11 @@ impl MsgTalk {
     }
 
     pub fn login_ok() -> Self {
-        Self::from_system(
-            0,
-            TalkChannel::Login,
-            crate::constants::ANSWER_OK.to_owned(),
-        )
+        Self::from_system(0, TalkChannel::Login, crate::constants::ANSWER_OK.to_owned())
     }
 
     pub fn login_new_role() -> Self {
-        Self::from_system(
-            0,
-            TalkChannel::Login,
-            crate::constants::NEW_ROLE.to_owned(),
-        )
+        Self::from_system(0, TalkChannel::Login, crate::constants::NEW_ROLE.to_owned())
     }
 }
 
@@ -153,11 +133,7 @@ impl PacketProcess for MsgTalk {
     type Error = crate::Error;
     type State = State;
 
-    async fn process(
-        &self,
-        state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, state: &Self::State, actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         if self.message.starts_with('$') {
             // Command Message.
             let (_, command) = self.message.split_at(1);
@@ -169,9 +145,7 @@ impl PacketProcess for MsgTalk {
         let map_id = actor.entity().basic().map_id();
         let loc = actor.entity().basic().location();
         let mymap = state.try_map(map_id)?;
-        let myregion = mymap
-            .region(loc.x, loc.y)
-            .ok_or(crate::Error::MapRegionNotFound)?;
+        let myregion = mymap.region(loc.x, loc.y).ok_or(crate::Error::MapRegionNotFound)?;
         myregion.broadcast(self.clone()).await?;
         Ok(())
     }

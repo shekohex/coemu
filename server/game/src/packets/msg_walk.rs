@@ -43,19 +43,12 @@ impl PacketProcess for MsgWalk {
     /// the movement is valid, then distributes it to observing players. if
     /// the movement is invalid, the packet will not be sent back and the actor
     /// will be teleported back to the character's original position.
-    async fn process(
-        &self,
-        state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, state: &Self::State, actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         let direction = (self.direction % 8) as usize;
         let entity = actor.entity();
         let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let current_location = me.entity().location();
-        let offset = (
-            (WALK_XCOORDS[direction] as u16),
-            (WALK_YCOORDS[direction] as u16),
-        );
+        let offset = ((WALK_XCOORDS[direction] as u16), (WALK_YCOORDS[direction] as u16));
         let x = current_location.x.wrapping_add(offset.0);
         let y = current_location.y.wrapping_add(offset.1);
         let map = state.try_map(me.entity().map_id())?;
@@ -63,8 +56,7 @@ impl PacketProcess for MsgWalk {
             Some(tile) if tile.access > TileType::Npc => {
                 // The packet is valid. Assign character data:
                 // Send the movement back to the message server and client:
-                me.entity()
-                    .set_location(Location::new(x, y, direction as _));
+                me.entity().set_location(Location::new(x, y, direction as _));
                 me.set_elevation(tile.elevation);
                 actor.send(self.clone()).await?;
                 map.update_region_for(actor.entity());
@@ -72,11 +64,7 @@ impl PacketProcess for MsgWalk {
                 myscreen.send_movement(state, self.clone()).await?;
             },
             Some(_) | None => {
-                let msg = MsgTalk::from_system(
-                    me.id(),
-                    TalkChannel::TopLeft,
-                    "Invalid Location",
-                );
+                let msg = MsgTalk::from_system(me.id(), TalkChannel::TopLeft, "Invalid Location");
                 actor.send(msg).await?;
                 me.kick_back().await?;
                 return Ok(());

@@ -34,8 +34,7 @@ impl PacketHandler for Runtime {
         const ALLOC: &str = "__alloc";
         const PROCESS_PACKET: &str = "process_packet";
         const MEMORY: &str = "memory";
-        let mut store =
-            wasmtime::Store::new(&runtime.engine, runtime.state.clone());
+        let mut store = wasmtime::Store::new(&runtime.engine, runtime.state.clone());
         let actor = wasmtime::ExternRef::new(actor.handle());
         match packet.0 {
             msg_connect::MsgConnect::PACKET_ID => {
@@ -44,27 +43,18 @@ impl PacketHandler for Runtime {
                     .linker
                     .instantiate_async(&mut store, &runtime.packets.msg_connect)
                     .await?;
-                let alloc_packet = msg_connect
-                    .get_typed_func::<u32, i32>(&mut store, ALLOC)?;
-                let ptr = alloc_packet
-                    .call_async(&mut store, packet_len as u32)
-                    .await?;
+                let alloc_packet = msg_connect.get_typed_func::<u32, i32>(&mut store, ALLOC)?;
+                let ptr = alloc_packet.call_async(&mut store, packet_len as u32).await?;
                 let memory = msg_connect
                     .get_memory(&mut store, MEMORY)
                     .expect("Failed to get memory");
                 memory
                     .write(&mut store, ptr as usize, &packet.1)
                     .expect("Failed to write packet to memory");
-                let process = msg_connect
-                    .get_typed_func::<(i32, i32, Option<ExternRef>), i32>(
-                        &mut store,
-                        PROCESS_PACKET,
-                    )?;
+                let process =
+                    msg_connect.get_typed_func::<(i32, i32, Option<ExternRef>), i32>(&mut store, PROCESS_PACKET)?;
                 process
-                    .call_async(
-                        &mut store,
-                        (ptr, packet_len as i32, Some(actor)),
-                    )
+                    .call_async(&mut store, (ptr, packet_len as i32, Some(actor)))
                     .await?;
                 Ok(())
             },
@@ -77,13 +67,13 @@ impl PacketHandler for Runtime {
 }
 
 /// Add the runtime to the linker.
-pub fn add_to_linker(
-    linker: &mut Linker<crate::State>,
-) -> Result<(), error::Error> {
+pub fn add_to_linker(linker: &mut Linker<crate::State>) -> Result<(), error::Error> {
     linker::network::actor::shutdown(linker)?;
     linker::network::actor::send(linker)?;
     linker::log::trace_event(linker)?;
     linker::rand::getrandom(linker)?;
+    linker::db::account::auth(linker)?;
+    linker::db::realm::by_name(linker)?;
     Ok(())
 }
 
@@ -108,9 +98,7 @@ mod tests {
         let engine = Engine::new(&config).unwrap();
         let mut linker = Linker::new(&engine);
         add_to_linker(&mut linker).unwrap();
-        let msg_connect =
-            Module::from_file(&engine, msg_connect::WASM_BINARY.unwrap())
-                .unwrap();
+        let msg_connect = Module::from_file(&engine, msg_connect::WASM_BINARY.unwrap()).unwrap();
         std::env::set_var("DATABASE_URL", "sqlite::memory:");
         let state = State::init().await.unwrap();
         let packets = Packets { msg_connect };
@@ -164,9 +152,7 @@ mod tests {
         let actor = Actor::<()>::new(tx);
 
         let encoded = <MsgConnect as PacketEncode>::encode(&msg).unwrap();
-        Runtime::handle(encoded.clone(), &runtime, &actor)
-            .await
-            .unwrap();
+        Runtime::handle(encoded.clone(), &runtime, &actor).await.unwrap();
         let msg = rx.recv().await.unwrap();
         assert_eq!(msg, Message::Shutdown);
     }

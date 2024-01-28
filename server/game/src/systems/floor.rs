@@ -42,7 +42,9 @@ impl Floor {
         self.loaded.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn boundaries(&self) -> Size<i32> { *self.boundaries.read() }
+    pub fn boundaries(&self) -> Size<i32> {
+        *self.boundaries.read()
+    }
 
     pub fn with_coordinates<F, T>(&self, f: F) -> T
     where
@@ -90,8 +92,7 @@ impl Floor {
             }
             *self.boundaries.write() = boundaries;
             *self.coordinates.write() = coordinates;
-            self.loaded
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+            self.loaded.store(true, std::sync::atomic::Ordering::Relaxed);
             trace!("Loaded Map {}", self.path.display());
         } else {
             trace!("we didn't found the map at {}", map_path.display());
@@ -109,17 +110,13 @@ impl Floor {
     #[tracing::instrument(skip(self), fields(path = %self.path.display()))]
     pub fn unload(&self) {
         *self.coordinates.write() = Default::default();
-        self.loaded
-            .store(false, std::sync::atomic::Ordering::Relaxed);
+        self.loaded.store(false, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// This method converts a data map from TQ Digital's Conquer Online client
     /// to a compressed map file that only holds access values.
     #[tracing::instrument(skip(self), err, fields(path = %self.path.display()))]
-    async fn convert_and_load<P: Into<PathBuf>>(
-        &self,
-        path: P,
-    ) -> Result<(), Error> {
+    async fn convert_and_load<P: Into<PathBuf>>(&self, path: P) -> Result<(), Error> {
         let p = path.into();
         trace!("converting {}", p.display());
         let f = File::open(&p).await?;
@@ -192,21 +189,16 @@ impl Floor {
                     let (buf, _) = buf.split_at(terminator_byte_idx);
                     let scene_file_name = std::str::from_utf8(buf)?;
                     // replace backslashes with forward slashes
-                    let scene_file_name =
-                        scene_file_name.replace("map\\", "").replace('\\', "/");
+                    let scene_file_name = scene_file_name.replace("map\\", "").replace('\\', "/");
                     let data_path = PathBuf::from(env::var("DATA_LOCATION")?);
-                    let scene_path = data_path
-                        .join("GameMaps")
-                        .join(scene_file_name)
-                        .canonicalize()?;
+                    let scene_path = data_path.join("GameMaps").join(scene_file_name).canonicalize()?;
                     trace!("Loading scene file {}", scene_path.display());
                     let px = buffer.get_i32_le();
                     let py = buffer.get_i32_le();
                     let location = Point::new(px, py);
                     // Get scene Data from the scene file
                     let scene = File::open(scene_path).await?;
-                    let mut scene_reader =
-                        io::BufReader::with_capacity(1024, scene);
+                    let mut scene_reader = io::BufReader::with_capacity(1024, scene);
                     let mut buffer = Vec::new();
                     scene_reader.read_to_end(&mut buffer).await?;
                     let mut scene_buffer = Bytes::from(buffer);
@@ -256,8 +248,7 @@ impl Floor {
         trace!("loaded #{} scenery data", count);
         *self.boundaries.write() = boundaries;
         *self.coordinates.write() = coordinates;
-        self.loaded
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        self.loaded.store(true, std::sync::atomic::Ordering::Relaxed);
         self.save().await?;
         Ok(())
     }
@@ -269,10 +260,8 @@ impl Floor {
     #[tracing::instrument(skip(self), fields(path = %self.path.display()))]
     async fn save(&self) -> Result<(), Error> {
         let boundaries = self.boundaries();
-        let can_save = !self.path.exists()
-            && !self.loaded()
-            && boundaries.area() != 0
-            && !self.with_coordinates(|c| c.is_empty());
+        let can_save =
+            !self.path.exists() && !self.loaded() && boundaries.area() != 0 && !self.with_coordinates(|c| c.is_empty());
         trace!("Can we save {}? {}", self.path.display(), can_save);
         if can_save {
             let mut buffer = BytesMut::new();
@@ -292,8 +281,7 @@ impl Floor {
             let data_path = PathBuf::from(env::var("DATA_LOCATION")?);
             let map_path = data_path.join("Maps").join(&self.path);
             let f = File::create(map_path).await?;
-            let mut writer =
-                io::BufWriter::with_capacity(boundaries.area() as usize, f);
+            let mut writer = io::BufWriter::with_capacity(boundaries.area() as usize, f);
             writer.write_all(&buffer).await?;
             writer.flush().await?;
             debug!("Saved Map {}", self.path.display());
@@ -327,7 +315,9 @@ pub enum TileType {
 }
 
 impl Default for TileType {
-    fn default() -> Self { Self::Unknown }
+    fn default() -> Self {
+        Self::Unknown
+    }
 }
 
 /// This enumeration type defines the types of scenery files used by the client.

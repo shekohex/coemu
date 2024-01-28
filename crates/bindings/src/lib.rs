@@ -34,12 +34,8 @@ pub fn set_panic_hook_once(name: &'static str) {
                 .payload()
                 .downcast_ref::<&str>()
                 .copied()
-                .unwrap_or_else(|| {
-                    info.payload().downcast_ref::<String>().unwrap().as_str()
-                });
-            let location = info
-                .location()
-                .map(|l| format!("{}:{}", l.file(), l.line()));
+                .unwrap_or_else(|| info.payload().downcast_ref::<String>().unwrap().as_str());
+            let location = info.location().map(|l| format!("{}:{}", l.file(), l.line()));
             host::log(
                 tracing_wasm::Level::ERROR,
                 name,
@@ -65,17 +61,9 @@ extern "C" {
         packet_data_len: u32,
     );
 
-    fn tq_network_actor_set_id(
-        actor: &Resource<tq_network::ActorHandle>,
-        id: u32,
-    );
+    fn tq_network_actor_set_id(actor: &Resource<tq_network::ActorHandle>, id: u32);
 
-    fn tq_db_realm_by_name(
-        realm_name_ptr: *const u8,
-        realm_name_len: u32,
-        out_realm_ptr: *mut u8,
-        out_realm_len: *mut u32,
-    ) -> i32;
+    fn tq_db_realm_by_name(realm_name_ptr: *const u8, realm_name_len: u32) -> (i32, i32);
 
     fn tq_db_account_auth(
         username_ptr: *const u8,
@@ -91,11 +79,8 @@ extern "C" {
     ) -> u64;
 
     fn auth_server_bus_check(realm_ptr: *const u8, realm_len: u32) -> i32;
-    fn auth_server_bus_transfer(
-        actor: &Resource<tq_network::ActorHandle>,
-        realm_ptr: *const u8,
-        realm_len: u32,
-    ) -> u64;
+    fn auth_server_bus_transfer(actor: &Resource<tq_network::ActorHandle>, realm_ptr: *const u8, realm_len: u32)
+        -> u64;
 }
 
 /// Host bindings.
@@ -120,18 +105,10 @@ pub mod host {
 
             /// [`tq_network::actor::ActorHandle::send`] bindings.
             #[cfg(target_arch = "wasm32")]
-            pub fn send<T: tq_network::PacketEncode>(
-                actor: &Resource<ActorHandle>,
-                packet: T,
-            ) -> Result<(), T::Error> {
+            pub fn send<T: tq_network::PacketEncode>(actor: &Resource<ActorHandle>, packet: T) -> Result<(), T::Error> {
                 let (packet_id, packet_data) = packet.encode()?;
                 unsafe {
-                    crate::tq_network_actor_send(
-                        actor,
-                        packet_id,
-                        packet_data.as_ptr(),
-                        packet_data.len() as u32,
-                    )
+                    crate::tq_network_actor_send(actor, packet_id, packet_data.as_ptr(), packet_data.len() as u32)
                 }
                 Ok(())
             }
@@ -159,10 +136,7 @@ pub mod host {
         pub mod account {
             /// [`tq_db::account::Account::auth`] bindings.
             #[cfg(target_arch = "wasm32")]
-            pub fn auth(
-                username: &str,
-                password: &str,
-            ) -> Result<u32, tq_db::Error> {
+            pub fn auth(username: &str, password: &str) -> Result<u32, tq_db::Error> {
                 let res = unsafe {
                     crate::tq_db_account_auth(
                         username.as_ptr(),
@@ -183,10 +157,7 @@ pub mod host {
             }
 
             #[cfg(not(target_arch = "wasm32"))]
-            pub fn auth(
-                _username: &str,
-                _password: &str,
-            ) -> Result<u32, tq_db::Error> {
+            pub fn auth(_username: &str, _password: &str) -> Result<u32, tq_db::Error> {
                 unimplemented!("Not implemented on non-wasm32")
             }
         }
@@ -196,28 +167,15 @@ pub mod host {
             use tq_db::realm::Realm;
             /// [`tq_db::realm::Realm::by_name`] bindings.
             #[cfg(target_arch = "wasm32")]
-            pub fn by_name(
-                realm_name: &str,
-            ) -> Result<Option<Realm>, tq_db::Error> {
+            pub fn by_name(realm_name: &str) -> Result<Option<Realm>, tq_db::Error> {
                 use rkyv::Deserialize;
-
-                let realm = core::ptr::null_mut();
-                let mut realm_len = 0;
-                let res = unsafe {
-                    crate::tq_db_realm_by_name(
-                        realm_name.as_ptr(),
-                        realm_name.len() as u32,
-                        realm,
-                        &mut realm_len,
-                    )
-                };
-                if res == 0 && realm_len > 0 && !realm.is_null() {
+                let (realm_ptr, realm_len) =
+                    unsafe { crate::tq_db_realm_by_name(realm_name.as_ptr(), realm_name.len() as u32) };
+                if realm_ptr != 0 && realm_len > 0 {
                     let realm = unsafe {
-                        let bytes = core::slice::from_raw_parts(
-                            realm,
-                            realm_len as usize,
-                        );
-                        let archived = rkyv::archived_root::<Realm>(bytes);
+                        let bytes =
+                            std::vec::Vec::from_raw_parts(realm_ptr as *mut u8, realm_len as usize, realm_len as usize);
+                        let archived = rkyv::archived_root::<Realm>(&bytes);
                         archived.deserialize(&mut rkyv::Infallible).unwrap()
                     };
                     Ok(Some(realm))
@@ -227,9 +185,7 @@ pub mod host {
             }
 
             #[cfg(not(target_arch = "wasm32"))]
-            pub fn by_name(
-                _realm_name: &str,
-            ) -> Result<Option<Realm>, tq_db::Error> {
+            pub fn by_name(_realm_name: &str) -> Result<Option<Realm>, tq_db::Error> {
                 unimplemented!("Not implemented on non-wasm32")
             }
         }
@@ -242,24 +198,12 @@ pub mod host {
             use tq_network::ActorHandle;
             /// [`game::state::generate_login_token`] bindings.
             #[cfg(target_arch = "wasm32")]
-            pub fn generate_login_token(
-                actor: &Resource<ActorHandle>,
-                account_id: u32,
-                realm_id: u32,
-            ) -> u64 {
-                unsafe {
-                    crate::game_state_generate_login_token(
-                        actor, account_id, realm_id,
-                    )
-                }
+            pub fn generate_login_token(actor: &Resource<ActorHandle>, account_id: u32, realm_id: u32) -> u64 {
+                unsafe { crate::game_state_generate_login_token(actor, account_id, realm_id) }
             }
 
             #[cfg(not(target_arch = "wasm32"))]
-            pub fn generate_login_token(
-                _actor: &Resource<ActorHandle>,
-                _account_id: u32,
-                _realm_id: u32,
-            ) -> u64 {
+            pub fn generate_login_token(_actor: &Resource<ActorHandle>, _account_id: u32, _realm_id: u32) -> u64 {
                 unimplemented!("Not implemented on non-wasm32")
             }
         }
@@ -276,12 +220,7 @@ pub mod host {
             #[cfg(target_arch = "wasm32")]
             pub fn check(realm: &Realm) -> Result<(), tq_network::Error> {
                 let archived = rkyv::to_bytes::<_, 64>(realm).unwrap();
-                let res = unsafe {
-                    crate::auth_server_bus_check(
-                        archived.as_ptr(),
-                        archived.len() as u32,
-                    )
-                };
+                let res = unsafe { crate::auth_server_bus_check(archived.as_ptr(), archived.len() as u32) };
                 if res == 0 {
                     Ok(())
                 } else {
@@ -301,17 +240,9 @@ pub mod host {
                 realm: &Realm,
             ) -> Result<u64, tq_network::Error> {
                 let archived = rkyv::to_bytes::<_, 64>(realm).unwrap();
-                let token = unsafe {
-                    crate::auth_server_bus_transfer(
-                        actor,
-                        archived.as_ptr(),
-                        archived.len() as u32,
-                    )
-                };
+                let token = unsafe { crate::auth_server_bus_transfer(actor, archived.as_ptr(), archived.len() as u32) };
                 if token == 0 {
-                    Err(tq_network::Error::Other(String::from(
-                        "Server Timed Out",
-                    )))
+                    Err(tq_network::Error::Other(String::from("Server Timed Out")))
                 } else {
                     Ok(token)
                 }

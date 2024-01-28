@@ -19,7 +19,9 @@ impl core::fmt::Display for Error {
 }
 
 impl From<tq_serde::TQSerdeError> for Error {
-    fn from(e: tq_serde::TQSerdeError) -> Self { Self::TQSerde(e) }
+    fn from(e: tq_serde::TQSerdeError) -> Self {
+        Self::TQSerde(e)
+    }
 }
 
 impl<T> From<tokio::sync::mpsc::error::SendError<T>> for Error {

@@ -7,9 +7,7 @@
 use bytes::Bytes;
 use msg_connect::MsgConnect;
 use std::env;
-use tq_network::{
-    Actor, ActorHandle, PacketDecode, PacketHandler, PacketID, TQCipher,
-};
+use tq_network::{Actor, ActorHandle, PacketDecode, PacketHandler, PacketID, TQCipher};
 #[cfg(feature = "server")]
 use tq_server::TQServer;
 use wasmtime::{Config, Engine, ExternRef, Linker, Module, Store};
@@ -54,10 +52,7 @@ Copyright 2020-2023 Shady Khalifa (@shekohex)
     auth::add_to_linker(&mut linker)?;
     tracing::info!("Loading Packet and handlers..");
 
-    let msg_connect = Module::from_file(
-        &engine,
-        "./target/wasm32-unknown-unknown/wasm/msg_connect.s.wasm",
-    )?;
+    let msg_connect = Module::from_file(&engine, "./target/wasm32-unknown-unknown/wasm/msg_connect.s.wasm")?;
     tracing::info!("Initializing State ..");
     let state = State::init().await?;
     let packets = auth::Packets { msg_connect };

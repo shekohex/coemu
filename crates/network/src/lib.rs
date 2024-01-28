@@ -43,11 +43,7 @@ pub trait PacketProcess {
     /// structure packet fields and properties. For the server
     /// implementations, this is called in the packet handler after the
     /// message has been dequeued from the server's PacketProcessor
-    async fn process(
-        &self,
-        state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error>;
+    async fn process(&self, state: &Self::State, actor: &Actor<Self::ActorState>) -> Result<(), Self::Error>;
 }
 
 pub trait PacketEncode {
@@ -102,7 +98,9 @@ impl PacketEncode for (u16, Bytes) {
     type Error = Error;
     type Packet = ();
 
-    fn encode(&self) -> Result<(u16, Bytes), Self::Error> { Ok(self.clone()) }
+    fn encode(&self) -> Result<(u16, Bytes), Self::Error> {
+        Ok(self.clone())
+    }
 }
 
 impl<'a> PacketEncode for (u16, &'a [u8]) {
@@ -141,12 +139,16 @@ impl<T> IntoErrorPacket<T> for T
 where
     T: PacketEncode,
 {
-    fn error_packet(self) -> ErrorPacket<T> { ErrorPacket(self) }
+    fn error_packet(self) -> ErrorPacket<T> {
+        ErrorPacket(self)
+    }
 }
 
 impl<T> From<T> for ErrorPacket<T>
 where
     T: PacketEncode,
 {
-    fn from(v: T) -> Self { Self(v) }
+    fn from(v: T) -> Self {
+        Self(v)
+    }
 }

@@ -31,13 +31,7 @@ use tracing_subscriber::fmt::MakeWriter;
 #[link(wasm_import_module = "host")]
 #[cfg(target_arch = "wasm32")]
 extern "C" {
-    fn trace_event(
-        level: u8,
-        target: *const u8,
-        target_len: u32,
-        message: *const u8,
-        message_len: u32,
-    );
+    fn trace_event(level: u8, target: *const u8, target_len: u32, message: *const u8, message_len: u32);
 }
 
 /// A [`MakeWriter`] emitting the written text to the [`host`].
@@ -47,7 +41,9 @@ pub struct MakeWasmWriter {
 }
 
 impl Default for MakeWasmWriter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MakeWasmWriter {
@@ -129,7 +125,9 @@ impl std::io::Write for WasmWriter {
         self.buffer.write(buf)
     }
 
-    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 #[cfg(feature = "std")]
 impl<'a> MakeWriter<'a> for MakeWasmWriter {
@@ -144,10 +142,7 @@ impl<'a> MakeWriter<'a> for MakeWasmWriter {
         }
     }
 
-    fn make_writer_for(
-        &'a self,
-        meta: &tracing_core::Metadata<'_>,
-    ) -> Self::Writer {
+    fn make_writer_for(&'a self, meta: &tracing_core::Metadata<'_>) -> Self::Writer {
         let level = *meta.level();
         let target = meta.target().to_string();
         WasmWriter {

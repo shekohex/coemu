@@ -53,23 +53,16 @@ struct Portal {
 fn main() -> anyhow::Result<()> {
     dotenvy::dotenv()?;
     let data_path = env::var("DATA_LOCATION")?;
-    let dat_path = PathBuf::from(&data_path)
-        .join("GameMaps")
-        .join("GameMap.dat");
+    let dat_path = PathBuf::from(&data_path).join("GameMaps").join("GameMap.dat");
     let maps_csv = PathBuf::from(&data_path).join("Maps").join("Maps.csv");
-    let portals_csv =
-        PathBuf::from(&data_path).join("Maps").join("Portals.csv");
-    let csv_reader = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .from_path(maps_csv)?;
+    let portals_csv = PathBuf::from(&data_path).join("Maps").join("Portals.csv");
+    let csv_reader = csv::ReaderBuilder::new().has_headers(true).from_path(maps_csv)?;
     let mut maps = csv_reader
         .into_deserialize::<Map>()
         .filter_map(Result::ok)
         .map(|m| (m.uid, m))
         .collect::<HashMap<_, _>>();
-    let csv_reader = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .from_path(portals_csv)?;
+    let csv_reader = csv::ReaderBuilder::new().has_headers(true).from_path(portals_csv)?;
     let portals = csv_reader
         .into_deserialize::<Portal>()
         .filter_map(Result::ok)
@@ -136,9 +129,7 @@ fn main() -> anyhow::Result<()> {
     } in portals
     {
         match (maps.get(&from_map_id), maps.get(&to_map_id)) {
-            (Some(from), Some(to))
-                if !from.path.is_empty() && !to.path.is_empty() =>
-            {
+            (Some(from), Some(to)) if !from.path.is_empty() && !to.path.is_empty() => {
                 println!(
                     r#"INSERT INTO portals VALUES ({id}, {from_map_id}, {from_x}, {from_y}, {to_map_id}, {to_x}, {to_y});"#,
                 );

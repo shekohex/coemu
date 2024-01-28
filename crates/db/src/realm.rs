@@ -12,15 +12,11 @@ pub struct Realm {
 
 #[cfg(feature = "sqlx")]
 impl Realm {
-    pub async fn by_name(
-        pool: &sqlx::SqlitePool,
-        name: &str,
-    ) -> Result<Option<Self>, crate::Error> {
-        let realm =
-            sqlx::query_as::<_, Self>("SELECT * FROM realms WHERE name = ?;")
-                .bind(name)
-                .fetch_optional(pool)
-                .await?;
+    pub async fn by_name(pool: &sqlx::SqlitePool, name: &str) -> Result<Option<Self>, crate::Error> {
+        let realm = sqlx::query_as::<_, Self>("SELECT * FROM realms WHERE name = ?;")
+            .bind(name)
+            .fetch_optional(pool)
+            .await?;
         Ok(realm)
     }
 }

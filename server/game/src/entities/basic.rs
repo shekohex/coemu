@@ -75,25 +75,40 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn id(&self) -> u32 { self.id }
+    pub fn id(&self) -> u32 {
+        self.id
+    }
 
-    pub fn is_character(&self) -> bool { constants::is_character(self.id) }
+    pub fn is_character(&self) -> bool {
+        constants::is_character(self.id)
+    }
 
-    pub fn is_npc(&self) -> bool { constants::is_npc(self.id) }
+    pub fn is_npc(&self) -> bool {
+        constants::is_npc(self.id)
+    }
 
-    pub fn is_monster(&self) -> bool { constants::is_monster(self.id) }
+    pub fn is_monster(&self) -> bool {
+        constants::is_monster(self.id)
+    }
 
-    pub fn is_pet(&self) -> bool { constants::is_pet(self.id) }
+    pub fn is_pet(&self) -> bool {
+        constants::is_pet(self.id)
+    }
 
-    pub fn is_call_pet(&self) -> bool { constants::is_call_pet(self.id) }
+    pub fn is_call_pet(&self) -> bool {
+        constants::is_call_pet(self.id)
+    }
 
-    pub fn is_terrain_npc(&self) -> bool { constants::is_terrain_npc(self.id) }
+    pub fn is_terrain_npc(&self) -> bool {
+        constants::is_terrain_npc(self.id)
+    }
 
-    pub fn name(&self) -> &str { &self.name }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 
     pub fn flags(&self) -> Flags {
-        Flags::from_bits(self.flags.load(Ordering::Relaxed))
-            .unwrap_or(Flags::NONE)
+        Flags::from_bits(self.flags.load(Ordering::Relaxed)).unwrap_or(Flags::NONE)
     }
 
     pub fn set_flags(&self, flags: Flags) -> &Self {
@@ -101,14 +116,18 @@ impl Entity {
         self
     }
 
-    pub fn mesh(&self) -> u32 { self.mesh.load(Ordering::Relaxed) }
+    pub fn mesh(&self) -> u32 {
+        self.mesh.load(Ordering::Relaxed)
+    }
 
     pub fn set_mesh(&self, value: u32) -> &Self {
         self.mesh.store(value, Ordering::Relaxed);
         self
     }
 
-    pub fn map_id(&self) -> u32 { self.map_id.load(Ordering::Relaxed) }
+    pub fn map_id(&self) -> u32 {
+        self.map_id.load(Ordering::Relaxed)
+    }
 
     pub fn set_map_id(&self, value: u32) -> &Self {
         let prev_map_id = self.map_id();
@@ -117,7 +136,9 @@ impl Entity {
         self
     }
 
-    pub fn location(&self) -> Location { self.location.load(Ordering::Relaxed) }
+    pub fn location(&self) -> Location {
+        self.location.load(Ordering::Relaxed)
+    }
 
     pub fn set_location(&self, value: Location) -> &Self {
         let prev_location = self.location();
@@ -126,14 +147,18 @@ impl Entity {
         self
     }
 
-    pub fn level(&self) -> u16 { self.level.load(Ordering::Relaxed) }
+    pub fn level(&self) -> u16 {
+        self.level.load(Ordering::Relaxed)
+    }
 
     pub fn set_level(&self, value: u16) -> &Self {
         self.level.store(value, Ordering::Relaxed);
         self
     }
 
-    pub fn action(&self) -> u16 { self.action.load(Ordering::Relaxed) }
+    pub fn action(&self) -> u16 {
+        self.action.load(Ordering::Relaxed)
+    }
 
     pub fn set_action(&self, action: u16) -> &Self {
         self.action.store(action, Ordering::Relaxed);
@@ -148,11 +173,17 @@ impl Entity {
         self.prev_location.load(Ordering::Relaxed)
     }
 
-    pub fn hp(&self) -> Gauge { self.hp.load(Ordering::Relaxed) }
+    pub fn hp(&self) -> Gauge {
+        self.hp.load(Ordering::Relaxed)
+    }
 
-    pub fn is_alive(&self) -> bool { !self.flags().contains(Flags::DEAD) }
+    pub fn is_alive(&self) -> bool {
+        !self.flags().contains(Flags::DEAD)
+    }
 
-    pub fn is_dead(&self) -> bool { self.flags().contains(Flags::DEAD) }
+    pub fn is_dead(&self) -> bool {
+        self.flags().contains(Flags::DEAD)
+    }
 }
 
 impl From<&tq_db::character::Character> for Entity {
@@ -194,11 +225,7 @@ impl From<&tq_db::npc::Npc> for Entity {
             mesh: AtomicU32::new(v.look as _),
             name: v.name.clone(),
             map_id: AtomicU32::new(v.map_id as _),
-            location: Atomic::new(Location::new(
-                v.x as _,
-                v.y as _,
-                (v.look % 10) as _,
-            )),
+            location: Atomic::new(Location::new(v.x as _, v.y as _, (v.look % 10) as _)),
             flags: AtomicU64::new(Flags::NONE.bits()),
             level: AtomicU16::new(v.level as _),
             action: AtomicU16::new(100),

@@ -12,9 +12,13 @@ pub struct Size<I: PrimInt> {
 }
 
 impl<I: PrimInt> Size<I> {
-    pub const fn new(width: I, height: I) -> Self { Self { width, height } }
+    pub const fn new(width: I, height: I) -> Self {
+        Self { width, height }
+    }
 
-    pub fn area(&self) -> I { self.width * self.height }
+    pub fn area(&self) -> I {
+        self.width * self.height
+    }
 }
 
 impl<I: PrimInt + fmt::Display> fmt::Display for Size<I> {
@@ -30,7 +34,9 @@ pub struct Point<I: PrimInt> {
 }
 
 impl<I: PrimInt> Point<I> {
-    pub fn new(x: I, y: I) -> Self { Self { x, y } }
+    pub fn new(x: I, y: I) -> Self {
+        Self { x, y }
+    }
 }
 
 impl<I: PrimInt + fmt::Display> fmt::Display for Point<I> {
@@ -81,7 +87,9 @@ impl From<(u16, u16, u8)> for Location {
 }
 
 impl From<(u16, u16)> for Location {
-    fn from((x, y): (u16, u16)) -> Self { Self::new(x, y, 0) }
+    fn from((x, y): (u16, u16)) -> Self {
+        Self::new(x, y, 0)
+    }
 }
 
 impl From<Location> for (u16, u16, u8) {
@@ -91,16 +99,16 @@ impl From<Location> for (u16, u16, u8) {
 }
 
 impl From<Location> for (u16, u16) {
-    fn from(location: Location) -> Self { (location.x, location.y) }
+    fn from(location: Location) -> Self {
+        (location.x, location.y)
+    }
 }
 
 /// A Gauge is a value that can be incremented and decremented, but never
 /// exceeds a maximum value.
 ///
 /// Gauges are used to represent health, mana, and stamina.
-#[derive(
-    Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, NoUninit,
-)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, NoUninit)]
 #[repr(C, align(4))]
 pub struct Gauge {
     /// Current value
@@ -110,19 +118,33 @@ pub struct Gauge {
 }
 
 impl Gauge {
-    pub fn new(current: u16, max: u16) -> Self { Self { current, max } }
+    pub fn new(current: u16, max: u16) -> Self {
+        Self { current, max }
+    }
 
-    pub fn full(max: u16) -> Self { Self { current: max, max } }
+    pub fn full(max: u16) -> Self {
+        Self { current: max, max }
+    }
 
-    pub fn current(&self) -> u16 { self.current }
+    pub fn current(&self) -> u16 {
+        self.current
+    }
 
-    pub fn max(&self) -> u16 { self.max }
+    pub fn max(&self) -> u16 {
+        self.max
+    }
 
-    pub fn make_full(&mut self) { self.current = self.max }
+    pub fn make_full(&mut self) {
+        self.current = self.max
+    }
 
-    pub fn is_full(&self) -> bool { self.current == self.max }
+    pub fn is_full(&self) -> bool {
+        self.current == self.max
+    }
 
-    pub fn is_empty(&self) -> bool { self.current == 0 }
+    pub fn is_empty(&self) -> bool {
+        self.current == 0
+    }
 
     pub fn increment(&mut self, amount: u16) {
         self.current = (self.current + amount).min(self.max);
@@ -132,5 +154,7 @@ impl Gauge {
         self.current = self.current.saturating_sub(amount);
     }
 
-    pub fn set(&mut self, value: u16) { self.current = value.min(self.max); }
+    pub fn set(&mut self, value: u16) {
+        self.current = value.min(self.max);
+    }
 }

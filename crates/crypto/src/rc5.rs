@@ -77,7 +77,9 @@ impl TQRC5 {
 }
 
 impl Default for TQRC5 {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl crate::Cipher for TQRC5 {
@@ -99,11 +101,8 @@ impl crate::Cipher for TQRC5 {
             let sub = self.sub;
 
             for round in (1..=rounds).rev() {
-                b = (b.wrapping_sub(sub[(2 * round + 1) as usize]))
-                    .rotate_right(a)
-                    ^ a;
-                a = (a.wrapping_sub(sub[(2 * round) as usize])).rotate_right(b)
-                    ^ b;
+                b = (b.wrapping_sub(sub[(2 * round + 1) as usize])).rotate_right(a) ^ a;
+                a = (a.wrapping_sub(sub[(2 * round) as usize])).rotate_right(b) ^ b;
             }
             let chunk_a = &mut data[(8 * word)..];
             let a_bytes = a.wrapping_sub(sub[0]).to_le_bytes();
@@ -128,16 +127,12 @@ mod tests {
     fn test_rc5() {
         let rc5 = TQRC5::new();
         let mut buf = [
-            0x1C, 0xFD, 0x41, 0xC9, 0xA1, 0x69, 0xAA, 0xB6, 0x0D, 0xA6, 0x08,
-            0x4D, 0xF3, 0x67, 0xEB, 0x73,
+            0x1C, 0xFD, 0x41, 0xC9, 0xA1, 0x69, 0xAA, 0xB6, 0x0D, 0xA6, 0x08, 0x4D, 0xF3, 0x67, 0xEB, 0x73,
         ];
         rc5.decrypt(&mut buf);
         assert_eq!(
             buf,
-            [
-                0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-            ]
+            [0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
     }
 }

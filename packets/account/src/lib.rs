@@ -40,17 +40,13 @@ pub enum Error {
 }
 
 #[tq_network::packet_processor(MsgAccount)]
-pub fn process(
-    msg: MsgAccount,
-    actor: &Resource<ActorHandle>,
-) -> Result<(), crate::Error> {
+pub fn process(msg: MsgAccount, actor: &Resource<ActorHandle>) -> Result<(), crate::Error> {
     let maybe_accont_id = host::db::account::auth(&msg.username, &msg.password);
     let account_id = match maybe_accont_id {
         Ok(id) => id,
         Err(e) => {
             let res = match e {
-                tq_db::Error::AccountNotFound
-                | tq_db::Error::InvalidPassword => {
+                tq_db::Error::AccountNotFound | tq_db::Error::InvalidPassword => {
                     RejectionCode::InvalidPassword.packet()
                 },
                 _ => {

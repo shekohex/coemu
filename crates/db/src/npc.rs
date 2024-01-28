@@ -19,17 +19,13 @@ pub struct Npc {
 #[cfg(feature = "sqlx")]
 impl Npc {
     #[tracing::instrument]
-    pub async fn by_map(
-        pool: &sqlx::SqlitePool,
-        id: i32,
-    ) -> Result<Vec<Self>, crate::Error> {
+    pub async fn by_map(pool: &sqlx::SqlitePool, id: i32) -> Result<Vec<Self>, crate::Error> {
         use tokio_stream::StreamExt;
 
         let mut npcs = Vec::new();
-        let mut s =
-            sqlx::query_as::<_, Self>("SELECT * FROM npcs WHERE map_id = ?;")
-                .bind(id)
-                .fetch(pool);
+        let mut s = sqlx::query_as::<_, Self>("SELECT * FROM npcs WHERE map_id = ?;")
+            .bind(id)
+            .fetch(pool);
         while let Some(maybe_npc) = s.next().await {
             match maybe_npc {
                 Ok(npc) => npcs.push(npc),

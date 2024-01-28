@@ -22,9 +22,9 @@ pub(crate) fn check() -> Result<CargoCommandVersioned, String> {
 
     if !cargo_command.supports_substrate_wasm_env() {
         return Err(print_error_message(
-			"Cannot compile the WASM runtime: no compatible Rust compiler found!\n\
+            "Cannot compile the WASM runtime: no compatible Rust compiler found!\n\
 			 Install at least Rust 1.68.0 or a recent nightly version.",
-		));
+        ));
     }
 
     check_wasm_toolchain_installed(cargo_command)
@@ -33,8 +33,7 @@ pub(crate) fn check() -> Result<CargoCommandVersioned, String> {
 /// Creates a minimal dummy crate at the given path and returns the manifest
 /// path.
 fn create_minimal_crate(project_dir: &Path) -> std::path::PathBuf {
-    fs::create_dir_all(project_dir.join("src"))
-        .expect("Creating src dir does not fail; qed");
+    fs::create_dir_all(project_dir.join("src")).expect("Creating src dir does not fail; qed");
 
     let manifest_path = project_dir.join("Cargo.toml");
     write_file_if_changed(
@@ -53,9 +52,7 @@ fn create_minimal_crate(project_dir: &Path) -> std::path::PathBuf {
     manifest_path
 }
 
-fn check_wasm_toolchain_installed(
-    cargo_command: CargoCommand,
-) -> Result<CargoCommandVersioned, String> {
+fn check_wasm_toolchain_installed(cargo_command: CargoCommand) -> Result<CargoCommandVersioned, String> {
     let temp = tempdir().expect("Creating temp dir does not fail; qed");
     let manifest_path = create_minimal_crate(temp.path()).display().to_string();
 
@@ -87,33 +84,33 @@ fn check_wasm_toolchain_installed(
         cmd
     };
 
-    let err_msg = print_error_message(
-        "Rust WASM toolchain is not properly installed; please install it!",
-    );
-    let build_result = prepare_command("build")
-        .output()
-        .map_err(|_| err_msg.clone())?;
+    let err_msg = print_error_message("Rust WASM toolchain is not properly installed; please install it!");
+    let build_result = prepare_command("build").output().map_err(|_| err_msg.clone())?;
     if !build_result.status.success() {
         return match String::from_utf8(build_result.stderr) {
-			Ok(ref err) if err.contains("the `wasm32-unknown-unknown` target may not be installed") =>
-				Err(print_error_message("Cannot compile the WASM runtime: the `wasm32-unknown-unknown` target is not installed!\n\
-				                         You can install it with `rustup target add wasm32-unknown-unknown` if you're using `rustup`.")),
+            Ok(ref err) if err.contains("the `wasm32-unknown-unknown` target may not be installed") => {
+                Err(print_error_message(
+                    "Cannot compile the WASM runtime: the `wasm32-unknown-unknown` target is not installed!\n\
+				                         You can install it with `rustup target add wasm32-unknown-unknown` if you're using `rustup`.",
+                ))
+            },
 
-			// Apparently this can happen when we're running on a non Tier 1 platform.
-			Ok(ref err) if err.contains("linker `rust-lld` not found") =>
-				Err(print_error_message("Cannot compile the WASM runtime: `rust-lld` not found!")),
+            // Apparently this can happen when we're running on a non Tier 1 platform.
+            Ok(ref err) if err.contains("linker `rust-lld` not found") => Err(print_error_message(
+                "Cannot compile the WASM runtime: `rust-lld` not found!",
+            )),
 
-			Ok(ref err) => Err(format!(
-				"{}\n\n{}\n{}\n{}{}\n",
-				err_msg,
-				style("Further error information:").yellow().bold(),
-				style("-".repeat(60)).yellow().bold(),
-				err,
-				style("-".repeat(60)).yellow().bold(),
-			)),
+            Ok(ref err) => Err(format!(
+                "{}\n\n{}\n{}\n{}{}\n",
+                err_msg,
+                style("Further error information:").yellow().bold(),
+                style("-".repeat(60)).yellow().bold(),
+                err,
+                style("-".repeat(60)).yellow().bold(),
+            )),
 
-			Err(_) => Err(err_msg),
-		};
+            Err(_) => Err(err_msg),
+        };
     }
 
     let mut run_cmd = prepare_command("rustc");
@@ -128,11 +125,7 @@ fn check_wasm_toolchain_installed(
     if crate::build_std_required() {
         let mut sysroot_cmd = prepare_command("rustc");
         sysroot_cmd.args(["-q", "--", "--print", "sysroot"]);
-        if let Some(sysroot) = sysroot_cmd
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-        {
+        if let Some(sysroot) = sysroot_cmd.output().ok().and_then(|o| String::from_utf8(o.stdout).ok()) {
             let src_path = Path::new(sysroot.trim())
                 .join("lib")
                 .join("rustlib")
@@ -140,9 +133,9 @@ fn check_wasm_toolchain_installed(
                 .join("rust");
             if !src_path.exists() {
                 return Err(print_error_message(
-					"Cannot compile the WASM runtime: no standard library sources found!\n\
+                    "Cannot compile the WASM runtime: no standard library sources found!\n\
 					 You can install them with `rustup component add rust-src` if you're using `rustup`.",
-				));
+                ));
             }
         }
     }

@@ -44,29 +44,19 @@ pub struct Location {
 
 #[cfg(feature = "sqlx")]
 impl Character {
-    pub async fn from_account(
-        pool: &sqlx::SqlitePool,
-        id: u32,
-    ) -> Result<Option<Self>, crate::Error> {
-        let maybe_character = sqlx::query_as::<_, Self>(
-            "SELECT * FROM characters WHERE account_id = ?;",
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?;
+    pub async fn from_account(pool: &sqlx::SqlitePool, id: u32) -> Result<Option<Self>, crate::Error> {
+        let maybe_character = sqlx::query_as::<_, Self>("SELECT * FROM characters WHERE account_id = ?;")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
         Ok(maybe_character)
     }
 
-    pub async fn name_taken(
-        pool: &sqlx::SqlitePool,
-        name: &str,
-    ) -> Result<bool, crate::Error> {
-        let result = sqlx::query_as::<_, (i32,)>(
-            "SELECT EXISTS (SELECT 1 FROM characters WHERE name = ? LIMIT 1);",
-        )
-        .bind(name)
-        .fetch_optional(pool)
-        .await?;
+    pub async fn name_taken(pool: &sqlx::SqlitePool, name: &str) -> Result<bool, crate::Error> {
+        let result = sqlx::query_as::<_, (i32,)>("SELECT EXISTS (SELECT 1 FROM characters WHERE name = ? LIMIT 1);")
+            .bind(name)
+            .fetch_optional(pool)
+            .await?;
         match result {
             Some((1,)) => Ok(true),
             Some((0,)) => Ok(false),
@@ -75,23 +65,15 @@ impl Character {
         }
     }
 
-    pub async fn by_id(
-        pool: &sqlx::SqlitePool,
-        id: i32,
-    ) -> Result<Self, crate::Error> {
-        let c = sqlx::query_as::<_, Self>(
-            "SELECT * FROM characters WHERE character_id = ?;",
-        )
-        .bind(id)
-        .fetch_one(pool)
-        .await?;
+    pub async fn by_id(pool: &sqlx::SqlitePool, id: i32) -> Result<Self, crate::Error> {
+        let c = sqlx::query_as::<_, Self>("SELECT * FROM characters WHERE character_id = ?;")
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
         Ok(c)
     }
 
-    pub async fn save(
-        self,
-        pool: &sqlx::SqlitePool,
-    ) -> Result<i32, crate::Error> {
+    pub async fn save(self, pool: &sqlx::SqlitePool) -> Result<i32, crate::Error> {
         let (id,) = sqlx::query_as::<_, (i32,)>(
             "
             INSERT INTO characters
@@ -133,10 +115,7 @@ impl Character {
         Ok(id)
     }
 
-    pub async fn update(
-        self,
-        pool: &sqlx::SqlitePool,
-    ) -> Result<(), crate::Error> {
+    pub async fn update(self, pool: &sqlx::SqlitePool) -> Result<(), crate::Error> {
         sqlx::query(
             "
             UPDATE characters

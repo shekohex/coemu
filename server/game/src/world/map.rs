@@ -42,11 +42,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new(
-        inner: tq_db::map::Map,
-        portals: Vec<tq_db::portal::Portal>,
-        npcs: Vec<tq_db::npc::Npc>,
-    ) -> Self {
+    pub fn new(inner: tq_db::map::Map, portals: Vec<tq_db::portal::Portal>, npcs: Vec<tq_db::npc::Npc>) -> Self {
         let portals = portals.into_iter().map(Portal::new).collect();
         let npcs = npcs
             .into_iter()
@@ -55,10 +51,7 @@ impl Map {
             .collect();
         Self {
             floor: Floor::new(inner.path.clone()),
-            revive_point: Point::new(
-                inner.revive_point_x as u32,
-                inner.revive_point_y as u32,
-            ),
+            revive_point: Point::new(inner.revive_point_x as u32, inner.revive_point_y as u32),
             regions: RwLock::new(Vec::new()),
             npcs,
             portals,
@@ -66,9 +59,13 @@ impl Map {
         }
     }
 
-    pub fn id(&self) -> u32 { self.inner.id as u32 }
+    pub fn id(&self) -> u32 {
+        self.inner.id as u32
+    }
 
-    pub fn map_id(&self) -> u32 { self.inner.map_id as u32 }
+    pub fn map_id(&self) -> u32 {
+        self.inner.map_id as u32
+    }
 
     pub fn weather(&self) -> WeatherKind {
         WeatherKind::from(self.inner.weather as u32)
@@ -78,17 +75,29 @@ impl Map {
         MapFlags::from_bits(self.inner.flags as u32).unwrap_or_default()
     }
 
-    pub fn color(&self) -> u32 { self.inner.color as u32 }
+    pub fn color(&self) -> u32 {
+        self.inner.color as u32
+    }
 
-    pub fn revive_point(&self) -> Point<u32> { self.revive_point }
+    pub fn revive_point(&self) -> Point<u32> {
+        self.revive_point
+    }
 
-    pub fn is_static(&self) -> bool { self.inner.id == self.inner.map_id }
+    pub fn is_static(&self) -> bool {
+        self.inner.id == self.inner.map_id
+    }
 
-    pub fn is_copy(&self) -> bool { self.inner.id == self.inner.map_id }
+    pub fn is_copy(&self) -> bool {
+        self.inner.id == self.inner.map_id
+    }
 
-    pub fn portals(&self) -> &Portals { &self.portals }
+    pub fn portals(&self) -> &Portals {
+        &self.portals
+    }
 
-    pub fn tile(&self, x: u16, y: u16) -> Option<Tile> { self.floor.tile(x, y) }
+    pub fn tile(&self, x: u16, y: u16) -> Option<Tile> {
+        self.floor.tile(x, y)
+    }
 
     pub fn npc(&self, id: u32) -> Option<&Npc> {
         self.npcs.get(&id).and_then(|v| v.as_npc())
@@ -108,8 +117,7 @@ impl Map {
         let region_size = MapRegion::SIZE;
         let region_x = x as u32 / region_size.width;
         let region_y = y as u32 / region_size.height;
-        let width =
-            (map_size.width as f32 / region_size.width as f32).ceil() as u32;
+        let width = (map_size.width as f32 / region_size.width as f32).ceil() as u32;
         let region_index = region_x * width + region_y;
         tracing::trace!(%x, %y, %region_x, %region_y, %region_index, "Querying Region");
         regions.get(region_index as usize).cloned()
@@ -121,10 +129,8 @@ impl Map {
         let regions = self.regions.read();
         let map_size = self.floor.boundaries();
         let region_size = MapRegion::SIZE;
-        let height =
-            (map_size.height as f32 / region_size.height as f32).ceil() as u32;
-        let width =
-            (map_size.width as f32 / region_size.width as f32).ceil() as u32;
+        let height = (map_size.height as f32 / region_size.height as f32).ceil() as u32;
+        let width = (map_size.width as f32 / region_size.width as f32).ceil() as u32;
         let region_x = x as u32 / region_size.width;
         let region_y = y as u32 / region_size.height;
         let region_index = |x, y| (x * width + y) as usize;
@@ -136,11 +142,7 @@ impl Map {
         for i in 0..constants::WALK_XCOORDS.len() {
             let view_x = region_x as i32 + constants::WALK_XCOORDS[i] as i32;
             let view_y = region_y as i32 + constants::WALK_YCOORDS[i] as i32;
-            if view_x.is_negative()
-                || view_y.is_negative()
-                || view_x >= width as _
-                || view_y >= height as _
-            {
+            if view_x.is_negative() || view_y.is_negative() || view_x >= width as _ || view_y >= height as _ {
                 continue;
             }
             let j = region_index(view_x as u32, view_y as u32);
@@ -166,10 +168,8 @@ impl Map {
         let map_size = self.floor.boundaries();
         let region_size = MapRegion::SIZE;
         // ceil division to get the number of regions
-        let height =
-            (map_size.height as f32 / region_size.height as f32).ceil() as u32;
-        let width =
-            (map_size.width as f32 / region_size.width as f32).ceil() as u32;
+        let height = (map_size.height as f32 / region_size.height as f32).ceil() as u32;
+        let width = (map_size.width as f32 / region_size.width as f32).ceil() as u32;
         let number_of_regions = height * width;
         tracing::trace!(
             %map_size,
@@ -179,8 +179,7 @@ impl Map {
             number_of_regions,
             "Building regions",
         );
-        let mut regions =
-            vec![MapRegion::default(); number_of_regions as usize];
+        let mut regions = vec![MapRegion::default(); number_of_regions as usize];
         for y in 0..height {
             for x in 0..width {
                 let start_point = Point::new(x, y);
@@ -231,11 +230,7 @@ impl Map {
         self.remove_entity_by_id_and_location(e.id(), e.basic().location())
     }
 
-    pub fn remove_entity_by_id_and_location(
-        &self,
-        id: u32,
-        Location { x, y, .. }: Location,
-    ) -> Result<(), Error> {
+    pub fn remove_entity_by_id_and_location(&self, id: u32, Location { x, y, .. }: Location) -> Result<(), Error> {
         let region = self.region(x, y);
         if let Some(region) = region {
             region.remove_entity(id);
@@ -253,12 +248,7 @@ impl Map {
     /// and check that the player is not wall jumping. It checks all tiles
     /// in between the player and the jumping destination.
     #[tracing::instrument(skip(self), fields(map_id = self.id()))]
-    pub fn sample_elevation(
-        &self,
-        start: (u16, u16),
-        end: (u16, u16),
-        elevation: u16,
-    ) -> bool {
+    pub fn sample_elevation(&self, start: (u16, u16), end: (u16, u16), elevation: u16) -> bool {
         let distance = tq_math::get_distance(start, end) as u16;
         // If the distance is 0, we are not moving.
         if distance == 0 {
@@ -271,8 +261,7 @@ impl Map {
             let tile = self.floor.tile(x, y);
             match tile {
                 Some(tile) => {
-                    let within_elevation =
-                        tq_math::within_elevation(tile.elevation, elevation);
+                    let within_elevation = tq_math::within_elevation(tile.elevation, elevation);
                     if !within_elevation {
                         return false;
                     }
@@ -350,10 +339,7 @@ impl Map {
         Ok(())
     }
 
-    pub async fn change_weather(
-        &self,
-        weather: WeatherKind,
-    ) -> Result<(), Error> {
+    pub async fn change_weather(&self, weather: WeatherKind) -> Result<(), Error> {
         let msg = MsgWeather::new(weather);
         self.broadcast(msg).map_err(Into::into).await
     }
@@ -385,7 +371,9 @@ pub struct MapRegion {
 
 impl Eq for MapRegion {}
 impl PartialEq for MapRegion {
-    fn eq(&self, other: &Self) -> bool { self.start_point == other.start_point }
+    fn eq(&self, other: &Self) -> bool {
+        self.start_point == other.start_point
+    }
 }
 
 impl fmt::Display for MapRegion {
@@ -398,8 +386,7 @@ impl fmt::Display for MapRegion {
 
 impl MapRegion {
     /// WIDTH and HEIGHT are the number of tiles in a region.
-    pub const SIZE: Size<u32> =
-        Size::new(SCREEN_DISTANCE as _, SCREEN_DISTANCE as _);
+    pub const SIZE: Size<u32> = Size::new(SCREEN_DISTANCE as _, SCREEN_DISTANCE as _);
 
     pub fn new(start_point: Point<u32>, map_size: Size<i32>) -> Self {
         Self {
@@ -410,13 +397,14 @@ impl MapRegion {
     }
 
     pub fn id(&self) -> usize {
-        let width = (self.map_size.width as f32 / Self::SIZE.width as f32)
-            .ceil() as u32;
+        let width = (self.map_size.width as f32 / Self::SIZE.width as f32).ceil() as u32;
         let Point { x, y } = self.start_point;
         (x * width + y) as usize
     }
 
-    pub fn is_empty(&self) -> bool { self.with_entities(|c| c.is_empty()) }
+    pub fn is_empty(&self) -> bool {
+        self.with_entities(|c| c.is_empty())
+    }
 
     pub fn try_entities(&self, id: u32) -> Option<Weak<GameEntity>> {
         self.with_entities(|c| c.get(&id).cloned())
@@ -438,9 +426,7 @@ impl MapRegion {
 
     #[tracing::instrument(skip_all, fields(map_id = self.id(), entity_id = entity.as_ref().id()))]
     pub fn insert_entity(&self, entity: Arc<GameEntity>) {
-        self.with_entities_mut(|c| {
-            c.insert(entity.id(), Arc::downgrade(&entity))
-        });
+        self.with_entities_mut(|c| c.insert(entity.id(), Arc::downgrade(&entity)));
     }
 
     #[tracing::instrument(skip_all, fields(map_id = self.id(), entity_id = id))]
@@ -457,8 +443,7 @@ impl MapRegion {
         self.with_entities(|entities| {
             for character in entities.values() {
                 let p = packet.clone();
-                let Some(owner) = character.upgrade().and_then(|c| c.owner())
-                else {
+                let Some(owner) = character.upgrade().and_then(|c| c.owner()) else {
                     continue;
                 };
                 let f = async move { owner.send(p).await };

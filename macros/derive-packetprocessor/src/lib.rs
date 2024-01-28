@@ -23,10 +23,7 @@ macro_rules! syn_assert {
     };
 }
 
-fn derive_packet_processor(
-    args: Args,
-    inner_fn: ItemFn,
-) -> syn::Result<TokenStream> {
+fn derive_packet_processor(args: Args, inner_fn: ItemFn) -> syn::Result<TokenStream> {
     let msg_ty = args.msg;
     // make sure the function has the right signature
     // fn process(msg: msg_ty, actor: &Resource<ActorHandle>) -> Result<(),
@@ -36,18 +33,9 @@ fn derive_packet_processor(
     syn_assert!(fn_sig.asyncness.is_none(), "async fn not supported");
     syn_assert!(fn_sig.abi.is_none(), "abi fn not supported");
     syn_assert!(fn_sig.unsafety.is_none(), "unsafe fn not supported");
-    syn_assert!(
-        fn_sig.generics.params.is_empty(),
-        "generic fn not supported"
-    );
-    syn_assert!(
-        fn_sig.generics.where_clause.is_none(),
-        "generic fn not supported"
-    );
-    syn_assert!(
-        fn_sig.inputs.len() == 2,
-        "packet processor must have two arguments"
-    );
+    syn_assert!(fn_sig.generics.params.is_empty(), "generic fn not supported");
+    syn_assert!(fn_sig.generics.where_clause.is_none(), "generic fn not supported");
+    syn_assert!(fn_sig.inputs.len() == 2, "packet processor must have two arguments");
     syn_assert!(
         fn_sig.output != ReturnType::Default,
         "packet processor must have a return type"
@@ -138,6 +126,5 @@ fn derive_packet_processor(
 pub fn packet_processor(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemFn);
     let args = parse_macro_input!(args as Args);
-    derive_packet_processor(args, input)
-        .unwrap_or_else(|err| err.to_compile_error().into())
+    derive_packet_processor(args, input).unwrap_or_else(|err| err.to_compile_error().into())
 }

@@ -49,10 +49,7 @@ pub trait TQServer: Sized + Send + Sync {
     /// Runs the server and listen on the configured Address for new
     /// Connections.
     #[tracing::instrument(skip(state))]
-    async fn run<A>(
-        addr: A,
-        state: &'static <Self::PacketHandler as PacketHandler>::State,
-    ) -> Result<(), Error>
+    async fn run<A>(addr: A, state: &'static <Self::PacketHandler as PacketHandler>::State) -> Result<(), Error>
     where
         A: Debug + ToSocketAddrs + Send + Sync,
     {
@@ -64,10 +61,7 @@ pub trait TQServer: Sized + Send + Sync {
             while let Some(stream) = incoming.next().await {
                 let stream = match stream {
                     Ok(s) => {
-                        tracing::debug!(
-                            "Got Connection from {}",
-                            s.peer_addr()?
-                        );
+                        tracing::debug!("Got Connection from {}", s.peer_addr()?);
                         s.set_nodelay(true)?;
                         s.set_linger(None)?;
                         s.set_ttl(5)?;
@@ -83,14 +77,13 @@ pub trait TQServer: Sized + Send + Sync {
                 };
                 Builder::new().name("TCP Stream").spawn(async {
                     tracing::trace!("Calling on_connected lifetime hook");
-                    Self::on_connected(state, stream.peer_addr()?)
-                        .await?;
+                    Self::on_connected(state, stream.peer_addr()?).await?;
                     let (tx, rx) = mpsc::channel(1024);
                     let actor = Actor::<Self::ActorState>::new(tx);
                     match handle_stream::<Self>(stream, state, &actor, rx).await {
                         Err(e) => {
                             tracing::error!("{e}");
-                        }
+                        },
                         Ok(_) => {
                             tracing::debug!("Client Disconnected.");
                         },
@@ -133,15 +126,10 @@ async fn handle_stream<S: TQServer>(
 
     while let Some(packet) = decoder.next().await {
         let (id, bytes) = packet?;
-        if let Err(err) =
-            S::PacketHandler::handle((id, bytes), state, actor).await
-        {
+        if let Err(err) = S::PacketHandler::handle((id, bytes), state, actor).await {
             let result = actor.send(err).await;
             if let Err(e) = result {
-                tracing::error!(
-                    ?e,
-                    "Got Error while sending error packet, stopping task."
-                );
+                tracing::error!(?e, "Got Error while sending error packet, stopping task.");
                 break;
             }
         }

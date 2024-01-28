@@ -108,17 +108,14 @@ impl super::Cipher for CQCipher {
             key2[i] = key1[i] ^ tmp1[i % 4];
             key2[i + C] = key1[i + C] ^ tmp2[i % 4];
         }
-        self.active_key
-            .store(ActiveKey::Key2 as u8, Ordering::SeqCst);
+        self.active_key.store(ActiveKey::Key2 as u8, Ordering::SeqCst);
         self.decrypt_counter.store(0, Ordering::SeqCst);
     }
 
     /// Decrypts data with the COCAC algorithm.
     fn decrypt(&self, data: &mut [u8]) {
         let key1 = self.key1.read();
-        let mut x = self
-            .decrypt_counter
-            .fetch_add(data.len() as u16, Ordering::SeqCst);
+        let mut x = self.decrypt_counter.fetch_add(data.len() as u16, Ordering::SeqCst);
         (0..data.len()).for_each(|i| {
             data[i] ^= key1[((x >> 8) + 0x100) as usize];
             data[i] ^= key1[(x & 0xff) as usize];
@@ -132,9 +129,7 @@ impl super::Cipher for CQCipher {
     fn encrypt(&self, data: &mut [u8]) {
         let active_key_value = self.active_key.load(Ordering::SeqCst);
         let active_key = ActiveKey::from(active_key_value);
-        let mut x = self
-            .encrypt_counter
-            .fetch_add(data.len() as u16, Ordering::SeqCst);
+        let mut x = self.encrypt_counter.fetch_add(data.len() as u16, Ordering::SeqCst);
         let key1 = self.key1.read();
         let key2 = self.key2.read();
         (0..data.len()).for_each(|i| {
@@ -156,7 +151,9 @@ impl super::Cipher for CQCipher {
 }
 
 impl Default for CQCipher {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]

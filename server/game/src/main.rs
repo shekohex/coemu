@@ -139,9 +139,7 @@ fn setup_logger(verbosity: i32) -> Result<(), Error> {
         .add_directive("runtime=trace".parse().unwrap());
 
     #[cfg(feature = "console")]
-    let console_layer = console_subscriber::ConsoleLayer::builder()
-        .with_default_env()
-        .spawn();
+    let console_layer = console_subscriber::ConsoleLayer::builder().with_default_env().spawn();
 
     let registry = tracing_subscriber::registry().with(env_filter).with(logger);
 

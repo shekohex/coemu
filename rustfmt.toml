@@ -1,6 +1,6 @@
-max_width = 80
+max_width = 120
 tab_spaces = 4
-fn_single_line = true
+fn_single_line = false
 match_block_trailing_comma = true
 normalize_comments = true
 wrap_comments = true

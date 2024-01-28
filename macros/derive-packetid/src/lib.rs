@@ -37,9 +37,12 @@ fn derive_packet_id(input: DeriveInput) -> syn::Result<TokenStream> {
         .attrs
         .iter()
         .find(|a| a.path().is_ident("packet"))
-        .ok_or_else( ||
-            syn::Error::new(name.span(),"Missing Packet id! please add #[packet(id = ..)] on the struct"),
-        )?;
+        .ok_or_else(|| {
+            syn::Error::new(
+                name.span(),
+                "Missing Packet id! please add #[packet(id = ..)] on the struct",
+            )
+        })?;
     let args: Args = attr.parse_args()?;
     let id = args.id;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();

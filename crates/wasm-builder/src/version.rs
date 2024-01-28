@@ -14,10 +14,14 @@ pub struct Version {
 
 impl Version {
     /// Returns if `self` is a stable version.
-    pub fn is_stable(&self) -> bool { !self.is_nightly }
+    pub fn is_stable(&self) -> bool {
+        !self.is_nightly
+    }
 
     /// Return if `self` is a nightly version.
-    pub fn is_nightly(&self) -> bool { self.is_nightly }
+    pub fn is_nightly(&self) -> bool {
+        self.is_nightly
+    }
 
     /// Extract from the given `version` string.
     pub fn extract(version: &str) -> Option<Self> {
@@ -46,9 +50,7 @@ impl Version {
             .nth(3)
             .map(|date| {
                 date.split('-')
-                    .filter_map(|v| {
-                        v.trim().strip_suffix(')').unwrap_or(v).parse().ok()
-                    })
+                    .filter_map(|v| v.trim().strip_suffix(')').unwrap_or(v).parse().ok())
                     .collect::<Vec<u32>>()
             })
             .unwrap_or_default();
@@ -113,20 +115,13 @@ mod tests {
 
     #[test]
     fn version_compare_and_extract_works() {
-        let version_1_66_0 =
-            Version::extract("cargo 1.66.0 (d65d197ad 2022-11-15)").unwrap();
-        let version_1_66_1 =
-            Version::extract("cargo 1.66.1 (d65d197ad 2022-11-15)").unwrap();
-        let version_1_66_0_nightly =
-            Version::extract("cargo 1.66.0-nightly (d65d197ad 2022-10-15)")
-                .unwrap();
+        let version_1_66_0 = Version::extract("cargo 1.66.0 (d65d197ad 2022-11-15)").unwrap();
+        let version_1_66_1 = Version::extract("cargo 1.66.1 (d65d197ad 2022-11-15)").unwrap();
+        let version_1_66_0_nightly = Version::extract("cargo 1.66.0-nightly (d65d197ad 2022-10-15)").unwrap();
         let version_1_66_0_nightly_older_date =
-            Version::extract("cargo 1.66.0-nightly (d65d197ad 2022-10-14)")
-                .unwrap();
-        let version_1_65_0 =
-            Version::extract("cargo 1.65.0 (d65d197ad 2022-10-15)").unwrap();
-        let version_1_65_0_older_date =
-            Version::extract("cargo 1.65.0 (d65d197ad 2022-10-14)").unwrap();
+            Version::extract("cargo 1.66.0-nightly (d65d197ad 2022-10-14)").unwrap();
+        let version_1_65_0 = Version::extract("cargo 1.65.0 (d65d197ad 2022-10-15)").unwrap();
+        let version_1_65_0_older_date = Version::extract("cargo 1.65.0 (d65d197ad 2022-10-14)").unwrap();
 
         assert!(version_1_66_1 > version_1_66_0);
         assert!(version_1_66_1 > version_1_65_0);
@@ -166,8 +161,7 @@ mod tests {
 
     #[test]
     fn parse_with_newline() {
-        let version_1_66_0 =
-            Version::extract("cargo 1.66.0 (d65d197ad 2022-11-15)\n").unwrap();
+        let version_1_66_0 = Version::extract("cargo 1.66.0 (d65d197ad 2022-11-15)\n").unwrap();
         assert_eq!(
             Version {
                 major: 1,
@@ -203,8 +197,7 @@ mod tests {
 
     #[test]
     fn parse_rustc_version() {
-        let version =
-            Version::extract("rustc 1.73.0 (cc66ad468 2023-10-03)").unwrap();
+        let version = Version::extract("rustc 1.73.0 (cc66ad468 2023-10-03)").unwrap();
         assert_eq!(
             version,
             Version {

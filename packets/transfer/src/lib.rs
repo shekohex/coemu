@@ -8,9 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
 use msg_connect_ex::{AccountCredentials, RejectionCode};
 use serde::{Deserialize, Serialize};
 use tq_bindings::{host, Resource};
-use tq_network::{
-    ActorHandle, ErrorPacket, IntoErrorPacket, PacketEncode, PacketID,
-};
+use tq_network::{ActorHandle, ErrorPacket, IntoErrorPacket, PacketEncode, PacketID};
 
 /// Defines account parameters to be transferred from the account server to the
 /// game server. Account information is supplied from the account database, and
@@ -18,25 +16,19 @@ use tq_network::{
 #[derive(Clone, Default, Debug, Deserialize, Serialize, PacketID)]
 #[packet(id = 4001)]
 pub struct MsgTransfer {
-    account_id: u32,
-    realm_id: u32,
-    token: u64,
+    pub account_id: u32,
+    pub realm_id: u32,
+    pub token: u64,
 }
 
 impl MsgTransfer {
-    pub fn handle(
-        actor: &Resource<ActorHandle>,
-        realm: &str,
-    ) -> Result<AccountCredentials, Error> {
+    pub fn handle(actor: &Resource<ActorHandle>, realm: &str) -> Result<AccountCredentials, Error> {
         let maybe_realm = host::db::realm::by_name(realm)?;
         // Check if there is a realm with that name
         let realm = match maybe_realm {
             Some(realm) => realm,
             None => {
-                return Err(RejectionCode::ServerLocked
-                    .packet()
-                    .error_packet()
-                    .into());
+                return Err(RejectionCode::ServerLocked.packet().error_packet().into());
             },
         };
         // Try to connect to that realm first.
@@ -48,10 +40,7 @@ impl MsgTransfer {
                 error = ?e,
                 "Failed to connect to realm"
             );
-            host::network::actor::send(
-                actor,
-                RejectionCode::ServerDown.packet(),
-            )?;
+            host::network::actor::send(actor, RejectionCode::ServerDown.packet())?;
             host::network::actor::shutdown(actor);
             return Err(e.into());
         }
@@ -71,10 +60,7 @@ impl MsgTransfer {
                     error = ?e,
                     "Failed to transfer account"
                 );
-                Err(RejectionCode::ServerTimedOut
-                    .packet()
-                    .error_packet()
-                    .into())
+                Err(RejectionCode::ServerTimedOut.packet().error_packet().into())
             },
         }
     }
@@ -107,15 +93,8 @@ impl<T: PacketEncode> From<ErrorPacket<T>> for Error {
 }
 
 #[tq_network::packet_processor(MsgTransfer)]
-pub fn process(
-    msg: MsgTransfer,
-    actor: &Resource<ActorHandle>,
-) -> Result<(), crate::Error> {
-    let token = host::game::state::generate_login_token(
-        actor,
-        msg.account_id,
-        msg.realm_id,
-    );
+pub fn process(msg: MsgTransfer, actor: &Resource<ActorHandle>) -> Result<(), crate::Error> {
+    let token = host::game::state::generate_login_token(actor, msg.account_id, msg.realm_id);
     let msg = MsgTransfer {
         account_id: msg.account_id,
         realm_id: msg.realm_id,

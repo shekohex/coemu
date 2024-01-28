@@ -158,12 +158,9 @@ const WASM_BUILD_STD: &str = "WASM_BUILD_STD";
 
 /// Write to the given `file` if the `content` is different.
 fn write_file_if_changed(file: impl AsRef<Path>, content: impl AsRef<str>) {
-    if fs::read_to_string(file.as_ref()).ok().as_deref()
-        != Some(content.as_ref())
-    {
-        fs::write(file.as_ref(), content.as_ref()).unwrap_or_else(|_| {
-            panic!("Writing `{}` can not fail!", file.as_ref().display())
-        });
+    if fs::read_to_string(file.as_ref()).ok().as_deref() != Some(content.as_ref()) {
+        fs::write(file.as_ref(), content.as_ref())
+            .unwrap_or_else(|_| panic!("Writing `{}` can not fail!", file.as_ref().display()));
     }
 }
 
@@ -173,29 +170,19 @@ fn copy_file_if_changed(src: PathBuf, dst: PathBuf) {
     let dst_file = fs::read_to_string(&dst).ok();
 
     if src_file != dst_file {
-        fs::copy(&src, &dst).unwrap_or_else(|_| {
-            panic!(
-                "Copying `{}` to `{}` can not fail; qed",
-                src.display(),
-                dst.display()
-            )
-        });
+        fs::copy(&src, &dst)
+            .unwrap_or_else(|_| panic!("Copying `{}` to `{}` can not fail; qed", src.display(), dst.display()));
     }
 }
 
 /// Get a cargo command that should be used to invoke the compilation.
 fn get_cargo_command() -> CargoCommand {
-    let env_cargo = CargoCommand::new(
-        &env::var("CARGO")
-            .expect("`CARGO` env variable is always set by cargo"),
-    );
+    let env_cargo = CargoCommand::new(&env::var("CARGO").expect("`CARGO` env variable is always set by cargo"));
     let default_cargo = CargoCommand::new("cargo");
     let wasm_toolchain = env::var(WASM_BUILD_TOOLCHAIN).ok();
 
     // First check if the user requested a specific toolchain
-    if let Some(cmd) = wasm_toolchain
-        .map(|t| CargoCommand::new_with_args("rustup", &["run", &t, "cargo"]))
-    {
+    if let Some(cmd) = wasm_toolchain.map(|t| CargoCommand::new_with_args("rustup", &["run", &t, "cargo"])) {
         cmd
     } else if env_cargo.supports_substrate_wasm_env() {
         env_cargo
@@ -215,26 +202,16 @@ fn get_cargo_command() -> CargoCommand {
 /// Stable versions are always favored over nightly versions even if the nightly
 /// versions are newer.
 fn get_rustup_command() -> Option<CargoCommand> {
-    let host = format!(
-        "-{}",
-        env::var("HOST").expect("`HOST` is always set by cargo")
-    );
+    let host = format!("-{}", env::var("HOST").expect("`HOST` is always set by cargo"));
 
-    let output = Command::new("rustup")
-        .args(["toolchain", "list"])
-        .output()
-        .ok()?
-        .stdout;
+    let output = Command::new("rustup").args(["toolchain", "list"]).output().ok()?.stdout;
     let lines = output.as_slice().lines();
 
     let mut versions = Vec::new();
     for line in lines.map_while(Result::ok) {
         let rustup_version = line.trim_end_matches(&host);
 
-        let cmd = CargoCommand::new_with_args(
-            "rustup",
-            &["run", rustup_version, "cargo"],
-        );
+        let cmd = CargoCommand::new_with_args("rustup", &["run", rustup_version, "cargo"]);
 
         if !cmd.supports_substrate_wasm_env() {
             continue;
@@ -252,10 +229,7 @@ fn get_rustup_command() -> Option<CargoCommand> {
     versions.sort_by_key(|v| v.0);
     let version = &versions.last()?.1;
 
-    Some(CargoCommand::new_with_args(
-        "rustup",
-        &["run", version, "cargo"],
-    ))
+    Some(CargoCommand::new_with_args("rustup", &["run", version, "cargo"]))
 }
 
 /// Wraps a specific command which represents a cargo invocation.
@@ -306,12 +280,13 @@ impl CargoCommand {
 
     /// Returns the version of this cargo command or `None` if it failed to
     /// extract the version.
-    fn version(&self) -> Option<Version> { self.version }
+    fn version(&self) -> Option<Version> {
+        self.version
+    }
 
     /// Returns whether this version of the toolchain supports nightly features.
     fn supports_nightly_features(&self) -> bool {
-        self.version.map_or(false, |version| version.is_nightly)
-            || env::var("RUSTC_BOOTSTRAP").is_ok()
+        self.version.map_or(false, |version| version.is_nightly) || env::var("RUSTC_BOOTSTRAP").is_ok()
     }
 
     /// Check if the supplied cargo command supports our Substrate wasm
@@ -336,9 +311,7 @@ impl CargoCommand {
 
         // Check if major and minor are greater or equal than 1.68 or this is a
         // nightly.
-        version.major > 1
-            || (version.major == 1 && version.minor >= 68)
-            || version.is_nightly
+        version.major > 1 || (version.major == 1 && version.minor >= 68) || version.is_nightly
     }
 }
 
@@ -354,13 +327,17 @@ impl CargoCommandVersioned {
     }
 
     /// Returns the `rustc` version.
-    fn rustc_version(&self) -> &str { &self.version }
+    fn rustc_version(&self) -> &str {
+        &self.version
+    }
 }
 
 impl std::ops::Deref for CargoCommandVersioned {
     type Target = CargoCommand;
 
-    fn deref(&self) -> &CargoCommand { &self.command }
+    fn deref(&self) -> &CargoCommand {
+        &self.command
+    }
 }
 
 /// Returns `true` when color output is enabled.
@@ -380,9 +357,9 @@ fn get_bool_environment_variable(name: &str) -> Option<bool> {
         Some(false)
     } else {
         build_helper::warning!(
-			"the '{}' environment variable has an invalid value; it must be either '1' or '0'",
-			name
-		);
+            "the '{}' environment variable has an invalid value; it must be either '1' or '0'",
+            name
+        );
         std::process::exit(1);
     }
 }

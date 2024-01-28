@@ -95,13 +95,7 @@ pub struct MsgAction {
 }
 
 impl MsgAction {
-    pub fn new(
-        character_id: u32,
-        data1: u32,
-        data2: u32,
-        details: u16,
-        action_type: ActionType,
-    ) -> Self {
+    pub fn new(character_id: u32, data1: u32, data2: u32, details: u16, action_type: ActionType) -> Self {
         Self {
             client_timestamp: utils::current_ts(),
             character_id,
@@ -112,11 +106,7 @@ impl MsgAction {
         }
     }
 
-    pub fn from_character(
-        character: &Character,
-        data1: u32,
-        action_type: ActionType,
-    ) -> Self {
+    pub fn from_character(character: &Character, data1: u32, action_type: ActionType) -> Self {
         let character_id = character.id();
         let (x, y, d) = character.entity().location().into();
         let data2 = u32::constract(y, x);
@@ -125,15 +115,10 @@ impl MsgAction {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_send_location(
-        &self,
-        state: &State,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_send_location(&self, state: &State, actor: &Actor<ActorState>) -> Result<(), Error> {
         let mut res = self.clone();
         let entity = actor.try_entity()?;
-        let character =
-            entity.as_character().ok_or(Error::CharacterNotFound)?;
+        let character = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let map_id = character.entity().map_id();
         let location = character.entity().location();
         match state.try_map(map_id) {
@@ -173,15 +158,10 @@ impl MsgAction {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_map_argb(
-        &self,
-        state: &State,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_map_argb(&self, state: &State, actor: &Actor<ActorState>) -> Result<(), Error> {
         let mut res = self.clone();
         let entity = actor.try_entity()?;
-        let character =
-            entity.as_character().ok_or(Error::CharacterNotFound)?;
+        let character = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let map_id = character.entity().map_id();
         let location = character.entity().location();
         let map = state.try_map(map_id)?;
@@ -192,22 +172,14 @@ impl MsgAction {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_login_completed(
-        &self,
-        _state: &State,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_login_completed(&self, _state: &State, actor: &Actor<ActorState>) -> Result<(), Error> {
         let res = self.clone();
         actor.send(res).await?;
         Ok(())
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_leave_booth(
-        &self,
-        state: &State,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_leave_booth(&self, state: &State, actor: &Actor<ActorState>) -> Result<(), Error> {
         // Remove Player from Booth.
         let myscreen = actor.screen();
         myscreen.clear()?;
@@ -216,11 +188,7 @@ impl MsgAction {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_jump(
-        &self,
-        state: &State,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_jump(&self, state: &State, actor: &Actor<ActorState>) -> Result<(), Error> {
         let new_x = self.data1.lo();
         let new_y = self.data1.hi();
         let current_x = self.data2.lo();
@@ -243,19 +211,14 @@ impl MsgAction {
         }
 
         let mymap = state.try_map(mymap_id)?;
-        let within_elevation = mymap.sample_elevation(
-            (loc.x, loc.y),
-            (new_x, new_y),
-            me.elevation(),
-        );
+        let within_elevation = mymap.sample_elevation((loc.x, loc.y), (new_x, new_y), me.elevation());
         if !within_elevation {
             tracing::debug!(%loc.x, %loc.y, %new_x, %new_y, "Elevation diff > 210");
             me.kick_back().await?;
             return Ok(());
         }
 
-        let direction =
-            tq_math::get_direction_sector((loc.x, loc.y), (new_x, new_y));
+        let direction = tq_math::get_direction_sector((loc.x, loc.y), (new_x, new_y));
         match mymap.tile(new_x, new_y) {
             Some(tile) if tile.access > TileType::Npc => {
                 // I guess everything seems to be valid .. send the jump.
@@ -270,11 +233,7 @@ impl MsgAction {
             },
             Some(_) | None => {
                 // Invalid Location move them back
-                let msg = MsgTalk::from_system(
-                    me.id(),
-                    TalkChannel::TopLeft,
-                    String::from("Invalid Location"),
-                );
+                let msg = MsgTalk::from_system(me.id(), TalkChannel::TopLeft, String::from("Invalid Location"));
                 actor.send(msg).await?;
                 me.kick_back().await?;
                 tracing::debug!(id = %me.id(), %loc.x, %loc.y, %new_x, %new_y, "Invalid Location");
@@ -285,10 +244,7 @@ impl MsgAction {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_change_facing(
-        &self,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_change_facing(&self, actor: &Actor<ActorState>) -> Result<(), Error> {
         let current_x = self.data2.lo();
         let current_y = self.data2.hi();
         let entity = actor.try_entity()?;
@@ -311,42 +267,24 @@ impl MsgAction {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_query_entity(
-        &self,
-        state: &State,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_query_entity(&self, state: &State, actor: &Actor<ActorState>) -> Result<(), Error> {
         let entity = actor.try_entity()?;
         let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let mymap_id = me.entity().map_id();
         let mymap = state.try_map(mymap_id)?;
-        let other = mymap.with_regions(|r| {
-            r.iter().find_map(|r| r.try_entities(self.data1))
-        });
-        if let Some(other) = other
-            .and_then(|o| o.upgrade())
-            .as_ref()
-            .and_then(|o| o.as_character())
-        {
+        let other = mymap.with_regions(|r| r.iter().find_map(|r| r.try_entities(self.data1)));
+        if let Some(other) = other.and_then(|o| o.upgrade()).as_ref().and_then(|o| o.as_character()) {
             let msg = super::MsgPlayer::from(other);
             actor.send(msg).await?;
         } else {
-            let msg = super::MsgTalk::from_system(
-                me.id(),
-                TalkChannel::System,
-                "Player not found",
-            );
+            let msg = super::MsgTalk::from_system(me.id(), TalkChannel::System, "Player not found");
             actor.send(msg).await?;
         }
         Ok(())
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_change_map(
-        &self,
-        state: &State,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_change_map(&self, state: &State, actor: &Actor<ActorState>) -> Result<(), Error> {
         let portal_x = self.data1.lo();
         let portal_y = self.data1.hi();
         let entity = actor.try_entity()?;
@@ -360,20 +298,17 @@ impl MsgAction {
             return Ok(());
         }
         let mymap = state.try_map(mymap_id)?;
-        let maybe_portal = mymap.portals().iter().find(|p| {
-            tq_math::in_circle((loc.x, loc.y, 5), (p.from_x(), p.from_y()))
-        });
+        let maybe_portal = mymap
+            .portals()
+            .iter()
+            .find(|p| tq_math::in_circle((loc.x, loc.y, 5), (p.from_x(), p.from_y())));
         match maybe_portal {
             Some(portal) => {
                 let portal_map = state.try_map(portal.to_map_id())?;
                 mymap.remove_entity(&entity)?;
                 portal_map.insert_entity(entity.clone()).await?;
-                me.teleport(
-                    state,
-                    portal.to_map_id(),
-                    (portal.to_x(), portal.to_y()),
-                )
-                .await?;
+                me.teleport(state, portal.to_map_id(), (portal.to_x(), portal.to_y()))
+                    .await?;
             },
             None => {
                 tracing::debug!(%portal_x, %portal_y, %loc.x, %loc.y, "Portal not found");
@@ -384,26 +319,20 @@ impl MsgAction {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn handle_set_kill_mode(
-        &self,
-        _state: &State,
-        actor: &Actor<ActorState>,
-    ) -> Result<(), Error> {
+    async fn handle_set_kill_mode(&self, _state: &State, actor: &Actor<ActorState>) -> Result<(), Error> {
         let kill_mode = KillMode::from(self.data1 as u16);
         // TODO: Update player kill mode.
         // TODO: handle i18n
         let notice = match kill_mode {
             KillMode::Free => "In free mode, you can attack everybody.",
             KillMode::Safe => "In safe mode, you can only attack monsters.",
-            KillMode::Team => "In team mode, you can attack everybody, except your friends, your teammates, and your guildmates.",
+            KillMode::Team => {
+                "In team mode, you can attack everybody, except your friends, your teammates, and your guildmates."
+            },
             KillMode::Arrestment => "In arrestment mode, you can only attack monsters and black name players.",
         };
         actor.send(self.clone()).await?;
-        let msg = super::MsgTalk::from_system(
-            actor.entity().id(),
-            TalkChannel::System,
-            notice,
-        );
+        let msg = super::MsgTalk::from_system(actor.entity().id(), TalkChannel::System, notice);
         actor.send(msg).await?;
         Ok(())
     }
@@ -415,23 +344,13 @@ impl PacketProcess for MsgAction {
     type Error = Error;
     type State = State;
 
-    async fn process(
-        &self,
-        state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, state: &Self::State, actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         let ty = self.action_type.into();
         match ty {
-            ActionType::SendLocation => {
-                self.handle_send_location(state, actor).await
-            },
+            ActionType::SendLocation => self.handle_send_location(state, actor).await,
             ActionType::MapARGB => self.handle_map_argb(state, actor).await,
-            ActionType::SetKillMode => {
-                self.handle_set_kill_mode(state, actor).await
-            },
-            ActionType::LeaveBooth => {
-                self.handle_leave_booth(state, actor).await
-            },
+            ActionType::SetKillMode => self.handle_set_kill_mode(state, actor).await,
+            ActionType::LeaveBooth => self.handle_leave_booth(state, actor).await,
             ActionType::SendItems => {
                 // TODO: send MsgItemInfo
                 actor.send(self.clone()).await?;
@@ -460,31 +379,21 @@ impl PacketProcess for MsgAction {
                 actor.send(self.clone()).await?;
                 Ok(())
             },
-            ActionType::LoginCompeleted => {
-                self.handle_login_completed(state, actor).await
-            },
+            ActionType::LoginCompeleted => self.handle_login_completed(state, actor).await,
             ActionType::Jump => self.handle_jump(state, actor).await,
             ActionType::ChangeFacing => self.handle_change_facing(actor).await,
-            ActionType::QueryEntity => {
-                self.handle_query_entity(state, actor).await
-            },
+            ActionType::QueryEntity => self.handle_query_entity(state, actor).await,
             ActionType::ChangeMap => self.handle_change_map(state, actor).await,
             _ => {
                 let p = MsgTalk::from_system(
                     self.character_id,
                     TalkChannel::Talk,
-                    format!(
-                        "Missing Action Type {ty:?} = {}",
-                        self.action_type
-                    ),
+                    format!("Missing Action Type {ty:?} = {}", self.action_type),
                 );
                 actor.send(p).await?;
                 let res = self.clone();
                 actor.send(res).await?;
-                tracing::warn!(
-                    "Missing Action Type {ty:?} = {}",
-                    self.action_type
-                );
+                tracing::warn!("Missing Action Type {ty:?} = {}", self.action_type);
                 Ok(())
             },
         }

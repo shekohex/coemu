@@ -11,50 +11,28 @@ struct Args {
 
 impl Parse for Args {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let ident1: Ident = input.parse().map_err(|e| {
-            syn::Error::new(
-                e.span(),
-                "expected `state` or `actor_state` but got nothing",
-            )
-        })?;
-        let _: Token!(=) = input
+        let ident1: Ident = input
             .parse()
-            .map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
+            .map_err(|e| syn::Error::new(e.span(), "expected `state` or `actor_state` but got nothing"))?;
+        let _: Token!(=) = input.parse().map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
         let ident1_value: Expr = input
             .parse()
             .map_err(|e| syn::Error::new(e.span(), "expected `Expr`"))?;
-        let _: Token!(,) = input
+        let _: Token!(,) = input.parse().map_err(|e| syn::Error::new(e.span(), "expected `,`"))?;
+        let ident2: Ident = input
             .parse()
-            .map_err(|e| syn::Error::new(e.span(), "expected `,`"))?;
-        let ident2: Ident = input.parse().map_err(|e| {
-            syn::Error::new(
-                e.span(),
-                "expected `state` or `actor_state` but got nothing",
-            )
-        })?;
-        let _: Token!(=) = input
-            .parse()
-            .map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
+            .map_err(|e| syn::Error::new(e.span(), "expected `state` or `actor_state` but got nothing"))?;
+        let _: Token!(=) = input.parse().map_err(|e| syn::Error::new(e.span(), "expected `=`"))?;
         let ident2_value: Expr = input
             .parse()
             .map_err(|e| syn::Error::new(e.span(), "expected `Expr`"))?;
         let (state, actor_state) = match (ident1, ident2) {
-            (ident1, ident2)
-                if ident1 == "state" && ident2 == "actor_state" =>
-            {
-                (ident1_value, ident2_value)
-            },
-            (ident1, ident2)
-                if ident1 == "actor_state" && ident2 == "state" =>
-            {
-                (ident2_value, ident1_value)
-            },
+            (ident1, ident2) if ident1 == "state" && ident2 == "actor_state" => (ident1_value, ident2_value),
+            (ident1, ident2) if ident1 == "actor_state" && ident2 == "state" => (ident2_value, ident1_value),
             (v1, v2) => {
                 return Err(syn::Error::new(
                     input.span(),
-                    format!(
-                    "expected `state` or `actor_state` but got {v1} and {v2}",
-                ),
+                    format!("expected `state` or `actor_state` but got {v1} and {v2}",),
                 ))
             },
         };
@@ -78,9 +56,12 @@ fn derive_packet_handler(input: DeriveInput) -> syn::Result<TokenStream> {
         .attrs
         .iter()
         .find(|a| a.path().is_ident("handle"))
-        .ok_or_else( ||
-            syn::Error::new(name.span(),"Missing State and ActorState! please add #[handle(state = .., actor_state = ...)] on the enum"),
-        )?;
+        .ok_or_else(|| {
+            syn::Error::new(
+                name.span(),
+                "Missing State and ActorState! please add #[handle(state = .., actor_state = ...)] on the enum",
+            )
+        })?;
     let args: Args = attr.parse_args()?;
     let state = args.state;
     let actor_state = args.actor_state;
@@ -144,6 +125,5 @@ fn body(e: DataEnum) -> syn::Result<proc_macro2::TokenStream> {
 pub fn derive(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(input as DeriveInput);
-    derive_packet_handler(input)
-        .unwrap_or_else(|err| err.to_compile_error().into())
+    derive_packet_handler(input).unwrap_or_else(|err| err.to_compile_error().into())
 }

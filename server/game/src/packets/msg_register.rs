@@ -21,15 +21,10 @@ pub struct MsgRegister {
 }
 
 impl MsgRegister {
-    pub fn build_character(
-        &self,
-        account_id: u32,
-        realm_id: u32,
-    ) -> Result<tq_db::character::Character, Error> {
+    pub fn build_character(&self, account_id: u32, realm_id: u32) -> Result<tq_db::character::Character, Error> {
         Self::build_character_with(
             self.character_name.to_string(),
-            BodyType::try_from(self.mesh)
-                .map_err(|_| Error::InvalidBodyType)?,
+            BodyType::try_from(self.mesh).map_err(|_| Error::InvalidBodyType)?,
             BaseClass::try_from(self.class).map_err(|_| Error::InvalidClass)?,
             account_id,
             realm_id,
@@ -54,8 +49,7 @@ impl MsgRegister {
             _ => rng.gen_range(201..249),
         };
 
-        let hair_style = rng.gen_range(3..9) * 100
-            + crate::constants::HAIR_STYLES[rng.gen_range(0..12)];
+        let hair_style = rng.gen_range(3..9) * 100 + crate::constants::HAIR_STYLES[rng.gen_range(0..12)];
         let strength = match class {
             BaseClass::Taoist => 2,
             _ => 4,
@@ -67,8 +61,7 @@ impl MsgRegister {
             _ => 0,
         };
 
-        let health_points =
-            (strength * 3) + (agility * 3) + (spirit * 3) + (vitality * 24);
+        let health_points = (strength * 3) + (agility * 3) + (spirit * 3) + (vitality * 24);
         let mana_points = spirit * 5;
 
         let c = tq_db::character::Character {
@@ -121,37 +114,24 @@ impl PacketProcess for MsgRegister {
     type Error = Error;
     type State = State;
 
-    async fn process(
-        &self,
-        state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, state: &Self::State, actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         let info = state
             .remove_creation_token(self.token)
             .map_err(|_| MsgTalk::register_invalid().error_packet())?;
 
-        if tq_db::character::Character::name_taken(
-            state.pool(),
-            &self.character_name,
-        )
-        .await?
-        {
+        if tq_db::character::Character::name_taken(state.pool(), &self.character_name).await? {
             return Err(MsgTalk::register_name_taken().error_packet().into());
         }
 
         // Validate Data.
-        BodyType::try_from(self.mesh)
-            .map_err(|_| MsgTalk::register_invalid().error_packet())?;
-        BaseClass::try_from(self.class)
-            .map_err(|_| MsgTalk::register_invalid().error_packet())?;
+        BodyType::try_from(self.mesh).map_err(|_| MsgTalk::register_invalid().error_packet())?;
+        BaseClass::try_from(self.class).map_err(|_| MsgTalk::register_invalid().error_packet())?;
 
         let character_id = self
             .build_character(info.account_id, info.realm_id)?
             .save(state.pool())
             .await?;
-        let character =
-            tq_db::character::Character::by_id(state.pool(), character_id)
-                .await?;
+        let character = tq_db::character::Character::by_id(state.pool(), character_id).await?;
         let map_id = character.map_id;
         let me = Character::new(actor.handle(), character);
         let screen = Screen::new(actor.handle());

@@ -9,8 +9,7 @@ fn main() {
         eprintln!("Failed to read input file: {}", err);
         std::process::exit(1);
     });
-    let processed: Vec<u8> =
-        Processor::default().process_bytes(&module).unwrap();
+    let processed: Vec<u8> = Processor::default().process_bytes(&module).unwrap();
     std::fs::write(output, processed).unwrap_or_else(|err| {
         eprintln!("Failed to write output file: {}", err);
         std::process::exit(1);
@@ -18,9 +17,6 @@ fn main() {
 }
 
 fn print_usage<'a>() -> &'a String {
-    eprintln!(
-        "Usage: {} <input> <output>",
-        std::env::args().next().unwrap()
-    );
+    eprintln!("Usage: {} <input> <output>", std::env::args().next().unwrap());
     std::process::exit(1);
 }

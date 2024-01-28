@@ -81,10 +81,7 @@ impl MultiTaskDialogBuilder<AddingText> {
     /// # Arguments
     ///
     /// * `text` - A string slice representing the text to be added to the task.
-    pub fn text<T: AsRef<str>>(
-        mut self,
-        text: T,
-    ) -> MultiTaskDialogBuilder<AddingOptionOrEdit> {
+    pub fn text<T: AsRef<str>>(mut self, text: T) -> MultiTaskDialogBuilder<AddingOptionOrEdit> {
         let text = text.as_ref();
         let msgs = text
             .as_bytes()
@@ -106,12 +103,7 @@ impl MultiTaskDialogBuilder<AddingText> {
 }
 
 impl MultiTaskDialogBuilder<AddingOptionOrEdit> {
-    fn mk_option<T: AsRef<str>>(
-        mut self,
-        option_id: u8,
-        text: T,
-        action: DialogActionKind,
-    ) -> Self {
+    fn mk_option<T: AsRef<str>>(mut self, option_id: u8, text: T, action: DialogActionKind) -> Self {
         let s = text.as_ref();
         // Truncate the text to the maximum allowed length.
         let option_text = if s.len() <= constants::MAX_TXT_LEN {
@@ -189,11 +181,7 @@ impl PacketProcess for MsgTaskDialog {
     type Error = crate::Error;
     type State = crate::State;
 
-    async fn process(
-        &self,
-        _state: &Self::State,
-        _actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, _state: &Self::State, _actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         tracing::debug!(msg = ?self, "MsgTaskDialog received");
         Ok(())
     }

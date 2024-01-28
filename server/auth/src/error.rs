@@ -19,36 +19,52 @@ pub enum Error {
 }
 
 impl From<tq_db::Error> for Error {
-    fn from(v: tq_db::Error) -> Self { Self::Db(v) }
+    fn from(v: tq_db::Error) -> Self {
+        Self::Db(v)
+    }
 }
 
 impl From<sqlx::Error> for Error {
-    fn from(v: sqlx::Error) -> Self { Self::Sqlx(v) }
+    fn from(v: sqlx::Error) -> Self {
+        Self::Sqlx(v)
+    }
 }
 
 impl From<std::env::VarError> for Error {
-    fn from(v: std::env::VarError) -> Self { Self::Env(v) }
+    fn from(v: std::env::VarError) -> Self {
+        Self::Env(v)
+    }
 }
 
 impl From<dotenvy::Error> for Error {
-    fn from(v: dotenvy::Error) -> Self { Self::DotEnv(v) }
+    fn from(v: dotenvy::Error) -> Self {
+        Self::DotEnv(v)
+    }
 }
 
 impl From<std::io::Error> for Error {
-    fn from(v: std::io::Error) -> Self { Self::IO(v) }
+    fn from(v: std::io::Error) -> Self {
+        Self::IO(v)
+    }
 }
 
 #[cfg(feature = "server")]
 impl From<tq_server::Error> for Error {
-    fn from(v: tq_server::Error) -> Self { Self::Server(v) }
+    fn from(v: tq_server::Error) -> Self {
+        Self::Server(v)
+    }
 }
 
 impl From<tq_network::Error> for Error {
-    fn from(v: tq_network::Error) -> Self { Self::Network(v) }
+    fn from(v: tq_network::Error) -> Self {
+        Self::Network(v)
+    }
 }
 
 impl From<wasmtime::Error> for Error {
-    fn from(v: wasmtime::Error) -> Self { Self::Wasmtime(v) }
+    fn from(v: wasmtime::Error) -> Self {
+        Self::Wasmtime(v)
+    }
 }
 
 impl std::error::Error for Error {}

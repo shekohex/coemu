@@ -26,13 +26,17 @@ impl WeatherKind {
     ///
     /// [`None`]: WeatherKind::None
     #[must_use]
-    pub fn is_none(&self) -> bool { matches!(self, Self::None) }
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
 
     /// Returns `true` if the weather kind is [`Unknwon`].
     ///
     /// [`Unknwon`]: WeatherKind::Unknwon
     #[must_use]
-    pub fn is_unknwon(&self) -> bool { matches!(self, Self::Unknwon) }
+    pub fn is_unknwon(&self) -> bool {
+        matches!(self, Self::Unknwon)
+    }
 }
 
 /// This packet is sent from the game server to the client for invoking weather
@@ -62,15 +66,25 @@ impl MsgWeather {
         }
     }
 
-    pub fn none() -> Self { Self::new(WeatherKind::None) }
+    pub fn none() -> Self {
+        Self::new(WeatherKind::None)
+    }
 
-    pub fn rain() -> Self { Self::new(WeatherKind::Rain) }
+    pub fn rain() -> Self {
+        Self::new(WeatherKind::Rain)
+    }
 
-    pub fn snow() -> Self { Self::new(WeatherKind::Snow) }
+    pub fn snow() -> Self {
+        Self::new(WeatherKind::Snow)
+    }
 
-    pub fn rain_wind() -> Self { Self::new(WeatherKind::RainWind) }
+    pub fn rain_wind() -> Self {
+        Self::new(WeatherKind::RainWind)
+    }
 
-    pub fn autumn_leaves() -> Self { Self::new(WeatherKind::AutumnLeaves) }
+    pub fn autumn_leaves() -> Self {
+        Self::new(WeatherKind::AutumnLeaves)
+    }
 
     pub fn cherry_blossom_petals() -> Self {
         Self::new(WeatherKind::CherryBlossomPetals)
@@ -80,7 +94,11 @@ impl MsgWeather {
         Self::new(WeatherKind::CherryBlossomPetalsWind)
     }
 
-    pub fn blowing_cotten() -> Self { Self::new(WeatherKind::BlowingCotten) }
+    pub fn blowing_cotten() -> Self {
+        Self::new(WeatherKind::BlowingCotten)
+    }
 
-    pub fn atoms() -> Self { Self::new(WeatherKind::Atoms) }
+    pub fn atoms() -> Self {
+        Self::new(WeatherKind::Atoms)
+    }
 }

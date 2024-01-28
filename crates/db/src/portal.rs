@@ -13,18 +13,13 @@ pub struct Portal {
 #[cfg(feature = "sqlx")]
 impl Portal {
     #[tracing::instrument]
-    pub async fn by_map(
-        pool: &sqlx::SqlitePool,
-        from: i32,
-    ) -> Result<Vec<Self>, crate::Error> {
+    pub async fn by_map(pool: &sqlx::SqlitePool, from: i32) -> Result<Vec<Self>, crate::Error> {
         use tokio_stream::StreamExt;
 
         let mut portals = Vec::new();
-        let mut s = sqlx::query_as::<_, Self>(
-            "SELECT * FROM portals WHERE from_map_id = ?;",
-        )
-        .bind(from)
-        .fetch(pool);
+        let mut s = sqlx::query_as::<_, Self>("SELECT * FROM portals WHERE from_map_id = ?;")
+            .bind(from)
+            .fetch(pool);
         while let Some(maybe_portal) = s.next().await {
             match maybe_portal {
                 Ok(portal) => portals.push(portal),
