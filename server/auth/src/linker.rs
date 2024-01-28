@@ -1,8 +1,16 @@
 use wasmtime::Linker;
 
-const MODULE: &str = "host";
-const ALLOC: &str = "__alloc";
-const MEMORY: &str = "memory";
+pub const MODULE: &str = "host";
+pub const ALLOC: &str = "__alloc";
+pub const MEMORY: &str = "memory";
+
+pub fn encode_ptr_len(a: *mut u8, b: usize) -> u64 {
+    (a as u64) << 32 | b as u64
+}
+
+pub fn decode_ptr_len(c: u64) -> (*mut u8, usize) {
+    ((c >> 32) as u32 as *mut u8, c as u32 as usize)
+}
 
 macro_rules! memof {
     ($caller:expr) => {
@@ -82,10 +90,10 @@ pub mod network {
 
         pub fn send(linker: &mut Linker<crate::State>) -> Result<(), crate::error::Error> {
             const NAME: &str = "tq_network_actor_send";
-            linker.func_wrap4_async::<Option<ExternRef>, i32, i32, i32, ()>(
+            linker.func_wrap3_async::<Option<ExternRef>, u32, u64, ()>(
                 MODULE,
                 NAME,
-                |mut caller, actor_ref, packet_id, packet_data_ptr, packet_data_len| {
+                |mut caller, actor_ref, packet_id, packet_data| {
                     Box::new(async move {
                         let actor_ref = actor_ref.expect("actor ref not null");
                         let actor = actor_ref
@@ -93,6 +101,7 @@ pub mod network {
                             .downcast_ref::<tq_network::ActorHandle>()
                             .expect("actor ref is valid");
                         let mem = memof!(caller);
+                        let (packet_data_ptr, packet_data_len) = crate::linker::decode_ptr_len(packet_data);
                         let packet_data = mread!(caller, mem, packet_data_ptr, packet_data_len);
                         let _ = actor.send((packet_id as u16, packet_data)).await;
                     }) as _
@@ -111,9 +120,10 @@ pub mod rand {
 
     pub fn getrandom(linker: &mut Linker<crate::State>) -> Result<(), crate::error::Error> {
         const NAME: &str = "getrandom";
-        linker.func_wrap2_async::<i32, i32, i32>(MODULE, NAME, |mut caller, ptr, len| {
+        linker.func_wrap1_async::<u64, i32>(MODULE, NAME, |mut caller, buffer| {
             Box::new(async move {
                 let mem = memof!(caller);
+                let (ptr, len) = crate::linker::decode_ptr_len(buffer);
                 let slice = mread_mut!(caller, mem, ptr, len);
                 let mut rng = rand::thread_rng();
                 rng.fill(slice);
@@ -160,30 +170,28 @@ pub mod db {
 
         pub fn auth(linker: &mut Linker<crate::State>) -> Result<(), crate::error::Error> {
             const NAME: &str = "tq_db_account_auth";
-            linker.func_wrap4_async::<i32, i32, i32, i32, i32>(
-                MODULE,
-                NAME,
-                |mut caller, username_ptr, username_len, password_ptr, password_len| {
-                    Box::new(async move {
-                        let mem = memof!(caller);
-                        let username_slice = mread!(caller, mem, username_ptr, username_len);
-                        let username = std::str::from_utf8(username_slice).expect("valid utf8");
-                        let password_slice = mread!(caller, mem, password_ptr, password_len);
-                        let password = std::str::from_utf8(password_slice).expect("valid utf8");
-                        let pool = caller.data().pool();
-                        let account = tq_db::account::Account::auth(pool, username, password).await;
-                        match account {
-                            Ok(account) => account.account_id,
-                            Err(tq_db::Error::AccountNotFound) => -1,
-                            Err(tq_db::Error::InvalidPassword) => -2,
-                            Err(e) => {
-                                tracing::error!("Failed to auth account: {}", e);
-                                -1
-                            },
-                        }
-                    }) as _
-                },
-            )?;
+            linker.func_wrap2_async::<u64, u64, i32>(MODULE, NAME, |mut caller, username, password| {
+                Box::new(async move {
+                    let mem = memof!(caller);
+                    let (username_ptr, username_len) = crate::linker::decode_ptr_len(username);
+                    let username_slice = mread!(caller, mem, username_ptr, username_len);
+                    let username = std::str::from_utf8(username_slice).expect("valid utf8");
+                    let (password_ptr, password_len) = crate::linker::decode_ptr_len(password);
+                    let password_slice = mread!(caller, mem, password_ptr, password_len);
+                    let password = std::str::from_utf8(password_slice).expect("valid utf8");
+                    let pool = caller.data().pool();
+                    let account = tq_db::account::Account::auth(pool, username, password).await;
+                    match account {
+                        Ok(account) => account.account_id,
+                        Err(tq_db::Error::AccountNotFound) => -1,
+                        Err(tq_db::Error::InvalidPassword) => -2,
+                        Err(e) => {
+                            tracing::error!("Failed to auth account: {}", e);
+                            -1
+                        },
+                    }
+                }) as _
+            })?;
             Ok(())
         }
     }
@@ -195,19 +203,20 @@ pub mod db {
 
         pub fn by_name(linker: &mut Linker<crate::State>) -> Result<(), crate::error::Error> {
             const NAME: &str = "tq_db_realm_by_name";
-            linker.func_wrap2_async::<i32, i32, (i32, i32)>(MODULE, NAME, |mut caller, name_ptr, name_len| {
+            linker.func_wrap1_async::<u64, u64>(MODULE, NAME, |mut caller, name| {
                 Box::new(async move {
                     let mem = memof!(caller);
+                    let (name_ptr, name_len) = crate::linker::decode_ptr_len(name);
                     let name_slice = mread!(caller, mem, name_ptr, name_len);
                     let name = std::str::from_utf8(name_slice).expect("valid utf8");
                     let pool = caller.data().pool();
                     let realm = tq_db::realm::Realm::by_name(pool, name).await;
                     let archived = match realm {
                         Ok(Some(realm)) => rkyv::to_bytes::<_, 64>(&realm).expect("failed to archive realm"),
-                        Ok(None) => return (0, 0),
+                        Ok(None) => return 0,
                         Err(e) => {
                             tracing::error!("Failed to get realm by name: {e}",);
-                            return (-1, -1);
+                            return 0;
                         },
                     };
                     let alloc = alloc!(caller);
@@ -217,7 +226,7 @@ pub mod db {
                         .expect("failed to allocate memory");
                     mem.write(&mut caller, ptr as usize, &archived)
                         .expect("failed to write realm to memory");
-                    (ptr, archived.len() as i32)
+                    crate::linker::encode_ptr_len(ptr as *mut u8, archived.len())
                 }) as _
             })?;
             Ok(())
@@ -237,9 +246,10 @@ pub mod server_bus {
 
     pub fn check(linker: &mut Linker<crate::State>) -> Result<(), crate::error::Error> {
         const NAME: &str = "auth_server_bus_check";
-        linker.func_wrap2_async::<i32, i32, i32>(MODULE, NAME, |mut caller, realm_ptr, realm_len| {
+        linker.func_wrap1_async::<u64, i32>(MODULE, NAME, |mut caller, realm| {
             Box::new(async move {
                 let mem = memof!(caller);
+                let (realm_ptr, realm_len) = crate::linker::decode_ptr_len(realm);
                 let realm_slice = mread!(caller, mem, realm_ptr, realm_len);
                 let realm = unsafe {
                     rkyv::from_bytes_unchecked::<tq_db::realm::Realm>(realm_slice).expect("failed to deserialize realm")
@@ -269,71 +279,67 @@ pub mod server_bus {
 
     pub fn transfer(linker: &mut Linker<crate::State>) -> Result<(), crate::error::Error> {
         const NAME: &str = "auth_server_bus_transfer";
-        linker.func_wrap3_async::<Option<ExternRef>, i32, i32, i64>(
-            MODULE,
-            NAME,
-            |mut caller, actor_ref, realm_ptr, realm_len| {
-                Box::new(async move {
-                    let actor_ref = actor_ref.expect("actor ref not null");
-                    let actor = actor_ref
-                        .data()
-                        .downcast_ref::<tq_network::ActorHandle>()
-                        .expect("actor ref is valid");
-                    let mem = memof!(caller);
-                    let realm_slice = mread!(caller, mem, realm_ptr, realm_len);
-                    let realm = unsafe {
-                        rkyv::from_bytes_unchecked::<tq_db::realm::Realm>(realm_slice)
-                            .expect("failed to deserialize realm")
-                    };
-                    let ip = realm.game_ip_address.as_str();
-                    let port = realm.game_port;
-                    let stream = TcpStream::connect(format!("{ip}:{port}"))
-                        .instrument(tracing::info_span!("realm_connect", %ip, %port, realm_id = realm.realm_id))
-                        .await;
-                    let tcp_stream = match stream {
-                        Ok(s) => s,
-                        Err(e) => {
-                            tracing::error!(
-                                %ip,
-                                %port,
-                                realm_id = realm.realm_id,
-                                error = ?e,
-                                "Failed to connect to realm"
-                            );
-                            return -1;
-                        },
-                    };
-                    let cipher = CQCipher::new();
-                    let (mut encoder, mut decoder) = TQCodec::new(tcp_stream, cipher).split();
-                    let transfer = MsgTransfer {
-                        account_id: actor.id() as _,
-                        realm_id: realm.realm_id as _,
-                        ..Default::default()
-                    };
+        linker.func_wrap2_async::<Option<ExternRef>, u64, i64>(MODULE, NAME, |mut caller, actor_ref, realm| {
+            Box::new(async move {
+                let actor_ref = actor_ref.expect("actor ref not null");
+                let actor = actor_ref
+                    .data()
+                    .downcast_ref::<tq_network::ActorHandle>()
+                    .expect("actor ref is valid");
+                let mem = memof!(caller);
+                let (realm_ptr, realm_len) = crate::linker::decode_ptr_len(realm);
+                let realm_slice = mread!(caller, mem, realm_ptr, realm_len);
+                let realm = unsafe {
+                    rkyv::from_bytes_unchecked::<tq_db::realm::Realm>(realm_slice).expect("failed to deserialize realm")
+                };
+                let ip = realm.game_ip_address.as_str();
+                let port = realm.game_port;
+                let stream = TcpStream::connect(format!("{ip}:{port}"))
+                    .instrument(tracing::info_span!("realm_connect", %ip, %port, realm_id = realm.realm_id))
+                    .await;
+                let tcp_stream = match stream {
+                    Ok(s) => s,
+                    Err(e) => {
+                        tracing::error!(
+                            %ip,
+                            %port,
+                            realm_id = realm.realm_id,
+                            error = ?e,
+                            "Failed to connect to realm"
+                        );
+                        return -1;
+                    },
+                };
+                let cipher = CQCipher::new();
+                let (mut encoder, mut decoder) = TQCodec::new(tcp_stream, cipher).split();
+                let transfer = MsgTransfer {
+                    account_id: actor.id() as _,
+                    realm_id: realm.realm_id as _,
+                    ..Default::default()
+                };
 
-                    let transfer = transfer.encode().expect("failed to encode transfer");
-                    encoder.send(transfer).await.expect("failed to send transfer");
-                    let res = decoder.next().await;
-                    let res = match res {
-                        Some(Ok((MsgTransfer::PACKET_ID, bytes))) => {
-                            MsgTransfer::decode(&bytes).expect("failed to decode transfer")
-                        },
-                        Some(Ok((id, _))) => {
-                            tracing::error!(packet_id = ?id, "Unexpected packet id");
-                            return -1;
-                        },
-                        Some(Err(e)) => {
-                            tracing::error!(error = ?e, "Failed to decode transfer");
-                            return -1;
-                        },
-                        None => {
-                            return -1;
-                        },
-                    };
-                    res.token as i64
-                }) as _
-            },
-        )?;
+                let transfer = transfer.encode().expect("failed to encode transfer");
+                encoder.send(transfer).await.expect("failed to send transfer");
+                let res = decoder.next().await;
+                let res = match res {
+                    Some(Ok((MsgTransfer::PACKET_ID, bytes))) => {
+                        MsgTransfer::decode(&bytes).expect("failed to decode transfer")
+                    },
+                    Some(Ok((id, _))) => {
+                        tracing::error!(packet_id = ?id, "Unexpected packet id");
+                        return -1;
+                    },
+                    Some(Err(e)) => {
+                        tracing::error!(error = ?e, "Failed to decode transfer");
+                        return -1;
+                    },
+                    None => {
+                        return -1;
+                    },
+                };
+                res.token as i64
+            }) as _
+        })?;
         Ok(())
     }
 }

@@ -91,6 +91,14 @@ impl WasmBuilder {
         self
     }
 
+    /// Enable Support for Multi-Value Return in the WASM binary.
+    ///
+    /// This adds `-Ctarget-feature=+multivalue` to `RUST_FLAGS`.
+    pub fn support_multi_value(mut self) -> Self {
+        self.rust_flags.push("-Ctarget-feature=+multivalue".into());
+        self
+    }
+
     /// Set the name of the file that will be generated in `OUT_DIR`.
     ///
     /// This file needs to be included to get access to the build WASM binary.

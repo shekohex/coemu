@@ -699,7 +699,7 @@ fn build_bloaty_blob(
     build_cmd
         .args(["rustc", "--target=wasm32-unknown-unknown"])
         .arg(format!("--manifest-path={}", manifest_path.display()))
-        .env("RUSTFLAGS", rustflags)
+        .env("RUSTFLAGS", &rustflags)
         // Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
         // exclusive). The runner project is created in `CARGO_TARGET_DIR` and executing it will
         // create a sub target directory inside of `CARGO_TARGET_DIR`.
@@ -748,6 +748,7 @@ fn build_bloaty_blob(
         "{}",
         colorize_info_message("Information that should be included in a bug report.")
     );
+    println!("RUSTC_FLAGS: {}", colorize_info_message(&rustflags));
     println!("{} {:?}", colorize_info_message("Executing build command:"), build_cmd);
     println!(
         "{} {}",

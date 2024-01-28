@@ -7,14 +7,14 @@ include!(concat!(env!("OUT_DIR"), "/wasm.rs"));
 
 use msg_connect_ex::{MsgConnectEx, RejectionCode};
 use msg_transfer::MsgTransfer;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tq_bindings::{host, Resource};
 use tq_network::PacketID;
 use tq_serde::{String16, TQPassword};
 
 use tq_network::ActorHandle;
 
-#[derive(Debug, Deserialize, PacketID)]
+#[derive(Default, Debug, Serialize, Deserialize, PacketID)]
 #[packet(id = 1051)]
 pub struct MsgAccount {
     pub username: String16,

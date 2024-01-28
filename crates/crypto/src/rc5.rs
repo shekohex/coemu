@@ -114,8 +114,32 @@ impl crate::Cipher for TQRC5 {
         }
     }
 
-    fn encrypt(&self, _data: &mut [u8]) {
-        unimplemented!("RC5 encryption is not implemented")
+    fn encrypt(&self, data: &mut [u8]) {
+        let mut src_len = data.len() / 8;
+        if data.len() % 8 > 0 {
+            src_len += 1;
+        }
+
+        for word in 0..src_len {
+            let mut chunk_a = &data[8 * word..];
+            let mut chunk_b = &data[(8 * word + 4)..];
+            let mut a = chunk_a.get_u32_le();
+            let mut b = chunk_b.get_u32_le();
+            let rounds = self.rounds;
+            let sub = self.sub;
+
+            for round in 1..=rounds {
+                a = a.rotate_left(b) ^ b.wrapping_add(sub[(2 * round) as usize]);
+                b = b.rotate_left(a) ^ a.wrapping_add(sub[(2 * round + 1) as usize]);
+            }
+            let chunk_a = &mut data[(8 * word)..];
+            let a_bytes = a.wrapping_add(sub[0]).to_le_bytes();
+            chunk_a[..4].copy_from_slice(&a_bytes);
+
+            let chunk_b = &mut data[(8 * word + 4)..];
+            let b_bytes = b.wrapping_add(sub[1]).to_le_bytes();
+            chunk_b[..4].copy_from_slice(&b_bytes);
+        }
     }
 }
 
@@ -124,7 +148,7 @@ mod tests {
     use super::TQRC5;
     use crate::Cipher;
     #[test]
-    fn test_rc5() {
+    fn rc5() {
         let rc5 = TQRC5::new();
         let mut buf = [
             0x1C, 0xFD, 0x41, 0xC9, 0xA1, 0x69, 0xAA, 0xB6, 0x0D, 0xA6, 0x08, 0x4D, 0xF3, 0x67, 0xEB, 0x73,
@@ -134,5 +158,15 @@ mod tests {
             buf,
             [0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
+    }
+
+    #[test]
+    fn encrypt_decrypt() {
+        let rc5 = TQRC5::new();
+        let mut buf = [0x31; 16];
+        let origional = buf;
+        rc5.encrypt(&mut buf);
+        rc5.decrypt(&mut buf);
+        assert_eq!(buf, origional);
     }
 }

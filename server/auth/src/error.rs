@@ -16,6 +16,7 @@ pub enum Error {
     Other(String),
     Msg(u16, Bytes),
     ActorNotFound,
+    InvalidPacket,
 }
 
 impl From<tq_db::Error> for Error {
@@ -87,6 +88,7 @@ impl core::fmt::Display for Error {
                 write!(f, "Error packet: id = {}, body = {:?}", id, bytes)
             },
             Self::ActorNotFound => write!(f, "Actor Not Found"),
+            Self::InvalidPacket => write!(f, "Invalid Packet"),
         }
     }
 }

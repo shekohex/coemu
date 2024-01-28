@@ -17,7 +17,7 @@ path = "src/lib.rs"
 thiserror.workspace = true
 serde.workspace = true
 bytes.workspace = true
-tq-db.workspace = true
+tq-db = { workspace = true, features = ["sqlx"] }
 tq-network.workspace = true
 tq-serde.workspace = true
 async-trait.workspace = true
