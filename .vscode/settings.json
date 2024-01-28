@@ -5,12 +5,6 @@
   "rust-analyzer.lens.implementations.enable": true,
   "rust-analyzer.check.allTargets": true,
   "rust-analyzer.checkOnSave": true,
-  "rust-analyzer.check.targets": [
-    "x86_64-unknown-linux-gnu",
-    "x86_64-pc-windows-msvc",
-    "aarch64-apple-darwin",
-    "wasm32-unknown-unknown"
-  ],
   "sqltools.useNodeRuntime": true,
   "sqltools.connections": [
     {
