@@ -158,6 +158,12 @@ mod tests {
 
         std::env::set_var("DATABASE_URL", "sqlite::memory:");
         let state = State::init().await.unwrap();
+
+        // Run database migrations
+        sqlx::migrate!("../../migrations")
+            .run(state.pool())
+            .await
+            .expect("Failed to migrate database");
         let packets = Packets {
             msg_connect,
             msg_account,
@@ -171,7 +177,7 @@ mod tests {
         }
     }
 
-    fn setup_logger(verbosity: i32) {
+    fn setup_logger(verbosity: i32) -> tracing::subscriber::DefaultGuard {
         use tracing::Level;
         let log_level = match verbosity {
             0 => Level::ERROR,
@@ -196,12 +202,12 @@ mod tests {
             .with_target(true)
             .with_max_level(log_level)
             .with_env_filter(env_filter);
-        logger.init();
+        tracing::subscriber::set_default(logger.finish())
     }
 
     #[tokio::test]
     async fn msg_connect() {
-        setup_logger(3);
+        let _guard = setup_logger(3);
         let (tx, mut rx) = tokio::sync::mpsc::channel(100);
         let runtime = create_runtime().await;
         let msg = MsgConnect {
@@ -219,7 +225,7 @@ mod tests {
 
     #[tokio::test]
     async fn msg_account() {
-        setup_logger(3);
+        let _guard = setup_logger(3);
         let (tx, mut rx) = tokio::sync::mpsc::channel(100);
         let runtime = create_runtime().await;
         let msg = MsgAccount {
@@ -230,9 +236,13 @@ mod tests {
         };
         let actor = Actor::<()>::new(tx);
 
-        let encoded = <MsgAccount as PacketEncode>::encode(&msg).unwrap();
+        let encoded = msg.encode().unwrap();
         Runtime::handle(encoded.clone(), &runtime, &actor).await.unwrap();
+        let code = msg_connect_ex::RejectionCode::InvalidPassword;
+        let expected_msg = msg_connect_ex::MsgConnectEx::from_code(code);
+
+        let encoded = expected_msg.encode().unwrap();
         let msg = rx.recv().await.unwrap();
-        assert_eq!(msg, Message::Shutdown);
+        assert_eq!(msg, Message::from(encoded));
     }
 }

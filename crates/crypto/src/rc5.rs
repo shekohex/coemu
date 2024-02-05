@@ -19,35 +19,17 @@
 //! consists of a number of modular additions and eXclusive OR (XOR)s. The
 //! general structure of the algorithm is a Feistel-like network.
 
-use bytes::Buf;
+const PW32: u32 = 0xB7E15163;
+const QW32: u32 = 0x61C88647;
 
-const SUB_KEY_SEED: [u32; 26] = [
-    0xA991_5556,
-    0x48E4_4110,
-    0x9F32_308F,
-    0x27F4_1D3E,
-    0xCF4F_3523,
-    0xEAC3_C6B4,
-    0xE9EA_5E03,
-    0xE597_4BBA,
-    0x334D_7692,
-    0x2C6B_CF2E,
-    0x0DC5_3B74,
-    0x995C_92A6,
-    0x7E4F_6D77,
-    0x1EB2_B79F,
-    0x1D34_8D89,
-    0xED64_1354,
-    0x15E0_4A9D,
-    0x488D_A159,
-    0x6478_17D3,
-    0x8CA0_BC20,
-    0x9264_F7FE,
-    0x91E7_8C6C,
-    0x5C9A_07FB,
-    0xABD4_DCCE,
-    0x6416_F98D,
-    0x6642_AB5B,
+const RC5_12: usize = 12;
+const RC5_16: usize = 16;
+
+const RC5_SUB: usize = RC5_12 * 2 + 2;
+const RC5_KEY: usize = RC5_16 / 4;
+
+const SEED: [u8; RC5_16] = [
+    0x3C, 0xDC, 0xFE, 0xE8, 0xC4, 0x54, 0xD6, 0x7E, 0x16, 0xA6, 0xF8, 0x1A, 0xE8, 0xD0, 0x38, 0xBE,
 ];
 
 /// Rivest Cipher 5 is implemented for interoperability with the Conquer Online
@@ -57,7 +39,7 @@ const SUB_KEY_SEED: [u32; 26] = [
 /// exchange protocol).
 #[derive(Copy, Clone)]
 pub struct TQRC5 {
-    rounds: u8,
+    rounds: usize,
     sub: [u32; 26],
 }
 
@@ -67,12 +49,46 @@ impl TQRC5 {
     /// In later versions of the client, a random buffer is used to seed the
     /// cipher. This random buffer is sent to the client to establish a
     /// shared initial key.
-    pub const fn new() -> Self {
-        let rounds = 12;
-        Self {
-            rounds,
-            sub: SUB_KEY_SEED,
+    pub fn new() -> Self {
+        let mut key = unsafe { core::mem::transmute::<[u8; RC5_16], [u32; RC5_KEY]>(SEED) };
+        let mut sub = [0u32; RC5_SUB];
+        sub[0] = PW32;
+
+        for i in 1..RC5_SUB {
+            sub[i] = sub[i - 1].wrapping_sub(QW32);
         }
+
+        let mut i = 0;
+        let mut j = 0;
+        let mut x = 0;
+        let mut y = 0;
+        let count = core::cmp::max(RC5_SUB, RC5_KEY) * 3;
+
+        for _ in 0..count {
+            let value = sub[i].wrapping_add(x).wrapping_add(y);
+            sub[i] = Self::rotl(value, 3);
+            x = sub[i];
+            i = (i + 1).wrapping_rem(RC5_SUB);
+            let value = key[j].wrapping_add(x).wrapping_add(y);
+            let count = x.wrapping_add(y);
+            key[j] = Self::rotl(value, count);
+            y = key[j];
+            j = (j + 1).wrapping_rem(RC5_KEY);
+        }
+
+        Self { rounds: RC5_12, sub }
+    }
+
+    const fn rotl(value: u32, count: u32) -> u32 {
+        let left_shift = count % 32;
+        let right_shift = 32 - left_shift;
+        value.wrapping_shl(left_shift) | value.wrapping_shr(right_shift)
+    }
+
+    const fn rotr(value: u32, count: u32) -> u32 {
+        let right_shift = count % 32;
+        let left_shift = 32 - right_shift;
+        value.wrapping_shr(right_shift) | value.wrapping_shl(left_shift)
     }
 }
 
@@ -91,26 +107,28 @@ impl crate::Cipher for TQRC5 {
         if data.len() % 8 > 0 {
             src_len += 1;
         }
-        // Decrypt the buffer
-        for word in 0..src_len {
-            let mut chunk_a = &data[8 * word..];
-            let mut chunk_b = &data[(8 * word + 4)..];
-            let mut a = chunk_a.get_u32_le();
-            let mut b = chunk_b.get_u32_le();
-            let rounds = self.rounds;
-            let sub = self.sub;
 
-            for round in (1..=rounds).rev() {
-                b = (b.wrapping_sub(sub[(2 * round + 1) as usize])).rotate_right(a) ^ a;
-                a = (a.wrapping_sub(sub[(2 * round) as usize])).rotate_right(b) ^ b;
+        for k in 0..src_len {
+            let (lv_bytes, lf, lt) = {
+                let (from, to) = (8 * k, (8 * k) + 4);
+                (&data[from..to].try_into().unwrap(), from, to)
+            };
+            let (rv_bytes, rf, rt) = {
+                let (from, to) = (lt, lt + 4);
+                (&data[from..to].try_into().unwrap(), from, to)
+            };
+            let mut lv = u32::from_le_bytes(*lv_bytes);
+            let mut rv = u32::from_le_bytes(*rv_bytes);
+
+            for i in (1..=self.rounds).rev() {
+                rv = Self::rotr(rv.wrapping_sub(self.sub[2 * i + 1]), lv) ^ lv;
+                lv = Self::rotr(lv.wrapping_sub(self.sub[2 * i]), rv) ^ rv;
             }
-            let chunk_a = &mut data[(8 * word)..];
-            let a_bytes = a.wrapping_sub(sub[0]).to_le_bytes();
-            chunk_a[..4].copy_from_slice(&a_bytes);
 
-            let chunk_b = &mut data[(8 * word + 4)..];
-            let b_bytes = b.wrapping_sub(sub[1]).to_le_bytes();
-            chunk_b[..4].copy_from_slice(&b_bytes);
+            lv = lv.wrapping_sub(self.sub[0]);
+            rv = rv.wrapping_sub(self.sub[1]);
+            data[lf..lt].copy_from_slice(&lv.to_le_bytes());
+            data[rf..rt].copy_from_slice(&rv.to_le_bytes());
         }
     }
 
@@ -120,25 +138,25 @@ impl crate::Cipher for TQRC5 {
             src_len += 1;
         }
 
-        for word in 0..src_len {
-            let mut chunk_a = &data[8 * word..];
-            let mut chunk_b = &data[(8 * word + 4)..];
-            let mut a = chunk_a.get_u32_le();
-            let mut b = chunk_b.get_u32_le();
-            let rounds = self.rounds;
-            let sub = self.sub;
+        for k in 0..src_len {
+            let (lv_bytes, lf, lt) = {
+                let (from, to) = (8 * k, (8 * k) + 4);
+                (&data[from..to].try_into().unwrap(), from, to)
+            };
+            let (rv_bytes, rf, rt) = {
+                let (from, to) = (lt, lt + 4);
+                (&data[from..to].try_into().unwrap(), from, to)
+            };
+            let mut lv = u32::from_le_bytes(*lv_bytes).wrapping_add(self.sub[0]);
+            let mut rv = u32::from_le_bytes(*rv_bytes).wrapping_add(self.sub[1]);
 
-            for round in 1..=rounds {
-                a = a.rotate_left(b) ^ b.wrapping_add(sub[(2 * round) as usize]);
-                b = b.rotate_left(a) ^ a.wrapping_add(sub[(2 * round + 1) as usize]);
+            for i in 1..=self.rounds {
+                lv = Self::rotl(lv ^ rv, rv).wrapping_add(self.sub[2 * i]);
+                rv = Self::rotl(rv ^ lv, lv).wrapping_add(self.sub[2 * i + 1]);
             }
-            let chunk_a = &mut data[(8 * word)..];
-            let a_bytes = a.wrapping_add(sub[0]).to_le_bytes();
-            chunk_a[..4].copy_from_slice(&a_bytes);
 
-            let chunk_b = &mut data[(8 * word + 4)..];
-            let b_bytes = b.wrapping_add(sub[1]).to_le_bytes();
-            chunk_b[..4].copy_from_slice(&b_bytes);
+            data[lf..lt].copy_from_slice(&lv.to_le_bytes());
+            data[rf..rt].copy_from_slice(&rv.to_le_bytes());
         }
     }
 }
@@ -147,6 +165,41 @@ impl crate::Cipher for TQRC5 {
 mod tests {
     use super::TQRC5;
     use crate::Cipher;
+    #[test]
+    fn seed() {
+        const EXPECTED_SUB_KEY_SEED: [u32; 26] = [
+            0xA991_5556,
+            0x48E4_4110,
+            0x9F32_308F,
+            0x27F4_1D3E,
+            0xCF4F_3523,
+            0xEAC3_C6B4,
+            0xE9EA_5E03,
+            0xE597_4BBA,
+            0x334D_7692,
+            0x2C6B_CF2E,
+            0x0DC5_3B74,
+            0x995C_92A6,
+            0x7E4F_6D77,
+            0x1EB2_B79F,
+            0x1D34_8D89,
+            0xED64_1354,
+            0x15E0_4A9D,
+            0x488D_A159,
+            0x6478_17D3,
+            0x8CA0_BC20,
+            0x9264_F7FE,
+            0x91E7_8C6C,
+            0x5C9A_07FB,
+            0xABD4_DCCE,
+            0x6416_F98D,
+            0x6642_AB5B,
+        ];
+
+        let rc5 = TQRC5::new();
+        assert_eq!(rc5.sub, EXPECTED_SUB_KEY_SEED);
+    }
+
     #[test]
     fn rc5() {
         let rc5 = TQRC5::new();

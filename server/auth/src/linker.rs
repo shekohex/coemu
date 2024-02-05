@@ -4,12 +4,12 @@ pub const MODULE: &str = "host";
 pub const ALLOC: &str = "__alloc";
 pub const MEMORY: &str = "memory";
 
-pub fn encode_ptr_len(a: *mut u8, b: usize) -> u64 {
+pub fn encode_ptr_len(a: i32, b: usize) -> u64 {
     (a as u64) << 32 | b as u64
 }
 
-pub fn decode_ptr_len(c: u64) -> (*mut u8, usize) {
-    ((c >> 32) as u32 as *mut u8, c as u32 as usize)
+pub fn decode_ptr_len(c: u64) -> (i32, usize) {
+    ((c >> 32) as u32 as i32, c as u32 as usize)
 }
 
 macro_rules! memof {
@@ -226,7 +226,7 @@ pub mod db {
                         .expect("failed to allocate memory");
                     mem.write(&mut caller, ptr as usize, &archived)
                         .expect("failed to write realm to memory");
-                    crate::linker::encode_ptr_len(ptr as *mut u8, archived.len())
+                    crate::linker::encode_ptr_len(ptr, archived.len())
                 }) as _
             })?;
             Ok(())

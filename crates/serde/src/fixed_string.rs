@@ -56,7 +56,7 @@ impl<const N: usize> fmt::Debug for FixedString<N, Encrypted> {
         f.debug_struct("FixedString")
             .field("inner", &self.inner)
             .field("max_len", &N)
-            .field("mode", &"cipher")
+            .field("mode", &"encrypted")
             .finish()
     }
 }
@@ -107,8 +107,10 @@ impl<const N: usize> Serialize for FixedString<N, Masked> {
 
 impl Serialize for FixedString<16, Encrypted> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        // FIXME: encrypt password
-        encode_fixed_string::<16>(&self.inner).serialize(serializer)
+        let mut final_string = encode_fixed_string::<16>(&self.inner);
+        let rc5 = TQRC5::new();
+        rc5.encrypt(&mut final_string);
+        final_string.serialize(serializer)
     }
 }
 

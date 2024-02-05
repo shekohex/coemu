@@ -176,6 +176,7 @@ dependencies = [
  "futures",
  "msg-account",
  "msg-connect",
+ "msg-connect-ex",
  "msg-transfer",
  "num_enum",
  "rand",
