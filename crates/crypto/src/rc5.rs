@@ -217,7 +217,7 @@ mod tests {
     fn encrypt_decrypt() {
         let rc5 = TQRC5::new();
         let mut buf = [0x31; 16];
-        let origional = buf;
+        let original = buf;
         rc5.encrypt(&mut buf);
         rc5.decrypt(&mut buf);
         assert_eq!(buf, origional);
