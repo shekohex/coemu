@@ -10,4 +10,4 @@ tq-crypto.workspace = true
 tracing.workspace = true
 tokio-stream = { workspace = true, features = ["io-util"] }
 tokio = { workspace = true, default-features = false, features = ["io-util"] }
-pretty-hex = "0.3"
+pretty-hex = "0.4"
