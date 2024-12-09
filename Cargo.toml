@@ -37,7 +37,7 @@ async-trait = "0.1"
 tracing = "0.1"
 dotenvy = "0.15"
 once_cell = "1.4"
-bitflags = "2.4"
+bitflags = "2.6"
 argh = "0.1"
 tokio-stream = "0.1.8"
 parking_lot = { version = "0.12.1", default-features = false, features = [] }
