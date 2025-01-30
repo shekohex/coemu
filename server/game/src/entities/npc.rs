@@ -4,9 +4,7 @@ use crate::Error;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use tq_network::ActorHandle;
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Default, FromPrimitive, IntoPrimitive,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, FromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum NpcKind {
     #[default]
@@ -37,9 +35,7 @@ pub enum NpcKind {
     NeighbourGate = 27,
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Default, FromPrimitive, IntoPrimitive,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, FromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum NpcSort {
     #[default]
@@ -54,9 +50,7 @@ pub enum NpcSort {
     Table = 1 << 7,
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Default, FromPrimitive, IntoPrimitive,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, FromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum NpcBase {
     #[default]
@@ -102,28 +96,41 @@ impl Npc {
     }
 
     #[inline]
-    pub fn id(&self) -> u32 { self.inner.id as _ }
+    pub fn id(&self) -> u32 {
+        self.inner.id as _
+    }
 
-    pub fn kind(&self) -> NpcKind { self.kind }
+    pub fn kind(&self) -> NpcKind {
+        self.kind
+    }
 
-    pub fn sort(&self) -> NpcSort { self.sort }
+    pub fn sort(&self) -> NpcSort {
+        self.sort
+    }
 
-    pub fn base(&self) -> NpcBase { self.base }
+    pub fn base(&self) -> NpcBase {
+        self.base
+    }
 
     #[inline]
-    pub fn entity(&self) -> &Entity { &self.entity }
+    pub fn entity(&self) -> &Entity {
+        &self.entity
+    }
 
-    pub fn is_shopkeeper(&self) -> bool { self.kind == NpcKind::ShopKeeper }
+    pub fn is_shopkeeper(&self) -> bool {
+        self.kind == NpcKind::ShopKeeper
+    }
 
-    pub fn is_storage(&self) -> bool { self.kind == NpcKind::Storage }
+    pub fn is_storage(&self) -> bool {
+        self.kind == NpcKind::Storage
+    }
 
-    pub fn is_booth(&self) -> bool { self.kind == NpcKind::Booth }
+    pub fn is_booth(&self) -> bool {
+        self.kind == NpcKind::Booth
+    }
 
     #[tracing::instrument(skip(self, to), fields(npc = self.entity.id()))]
-    pub(super) async fn send_spawn(
-        &self,
-        to: &ActorHandle,
-    ) -> Result<(), Error> {
+    pub(super) async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {
         let msg = if self.is_booth() {
             MsgNpcInfo::from_npc_with_name(self)
         } else {
@@ -136,5 +143,7 @@ impl Npc {
 }
 
 impl From<tq_db::npc::Npc> for Npc {
-    fn from(value: tq_db::npc::Npc) -> Self { Self::new(value) }
+    fn from(value: tq_db::npc::Npc) -> Self {
+        Self::new(value)
+    }
 }

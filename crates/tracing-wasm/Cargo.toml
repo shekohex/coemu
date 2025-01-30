@@ -1,0 +1,12 @@
+[package]
+name = "tracing-wasm"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+tracing-core = { workspace = true, default-features = false }
+tracing-subscriber = { workspace = true, default-features = false, features = ["alloc"] }
+
+[features]
+default = []
+std = ["tracing-subscriber/std", "tracing-subscriber/fmt"]

@@ -1,15 +1,19 @@
 use crate::{Error, PacketEncode};
 use async_trait::async_trait;
 use bytes::Bytes;
+use core::hash::Hash;
+use core::ops::Deref;
+use core::sync::atomic::{AtomicUsize, Ordering};
 use futures::TryFutureExt;
-use std::hash::Hash;
-use std::ops::Deref;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 use tracing::instrument;
 
-#[derive(Clone, Debug)]
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, sync::Arc};
+#[cfg(feature = "std")]
+use std::sync::Arc;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Message {
     GenerateKeys(u64),
     Packet(u16, Bytes),
@@ -35,17 +39,14 @@ pub struct ActorHandle {
 }
 
 impl<S: ActorState> Hash for Actor<S> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.handle.id.load(Ordering::Relaxed).hash(state);
     }
 }
 
 impl<S: ActorState> PartialEq for Actor<S> {
     fn eq(&self, other: &Self) -> bool {
-        self.handle
-            .id
-            .load(Ordering::Relaxed)
-            .eq(&other.handle.id.load(Ordering::Relaxed))
+        self.handle.id.load(Ordering::Relaxed) == other.handle.id.load(Ordering::Relaxed)
     }
 }
 
@@ -54,21 +55,24 @@ impl<S: ActorState> Eq for Actor<S> {}
 impl<S: ActorState> Deref for Actor<S> {
     type Target = S;
 
-    fn deref(&self) -> &Self::Target { &self.state }
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
 }
 
 impl From<(u16, Bytes)> for Message {
-    fn from((id, bytes): (u16, Bytes)) -> Self { Self::Packet(id, bytes) }
+    fn from((id, bytes): (u16, Bytes)) -> Self {
+        Self::Packet(id, bytes)
+    }
 }
 
 #[async_trait]
 pub trait ActorState: Send + Sync + Sized {
     fn init() -> Self;
     /// A good chance to dispose the state and clear anything.
-    #[instrument(skip_all, err, fields(id = %handle.id()))]
+    #[instrument(skip_all, err)]
     async fn dispose(&self, handle: ActorHandle) -> Result<(), Error> {
-        let _ = handle;
-        tracing::debug!("Disposing Actor State");
+        tracing::debug!(actor_id = %handle.id(), "Disposing Actor State");
         Ok(())
     }
 }
@@ -89,18 +93,21 @@ impl<S: ActorState> Actor<S> {
     }
 
     /// Returns a cheap clone of the actor handle
-    pub fn handle(&self) -> ActorHandle { self.handle.clone() }
+    pub fn handle(&self) -> ActorHandle {
+        self.handle.clone()
+    }
 
-    pub fn id(&self) -> usize { self.handle.id() }
+    pub fn id(&self) -> usize {
+        self.handle.id()
+    }
 
-    pub fn set_id(&self, id: usize) { self.handle.set_id(id) }
+    pub fn set_id(&self, id: usize) {
+        self.handle.set_id(id)
+    }
 
     /// Enqueue the packet and send it to the client connected to this actor
     #[instrument(skip(self, packet))]
-    pub async fn send<P: PacketEncode>(
-        &self,
-        packet: P,
-    ) -> Result<(), P::Error> {
+    pub async fn send<P: PacketEncode>(&self, packet: P) -> Result<(), P::Error> {
         self.handle.send(packet).await
     }
 
@@ -127,16 +134,17 @@ impl<S: ActorState> Actor<S> {
 }
 
 impl ActorHandle {
-    pub fn id(&self) -> usize { self.id.load(Ordering::Relaxed) }
+    pub fn id(&self) -> usize {
+        self.id.load(Ordering::Relaxed)
+    }
 
-    pub fn set_id(&self, id: usize) { self.id.store(id, Ordering::Relaxed); }
+    pub fn set_id(&self, id: usize) {
+        self.id.store(id, Ordering::Relaxed);
+    }
 
     /// Enqueue the packet and send it to the client connected to this actor
     #[instrument(skip(self, packet))]
-    pub async fn send<P: PacketEncode>(
-        &self,
-        packet: P,
-    ) -> Result<(), P::Error> {
+    pub async fn send<P: PacketEncode>(&self, packet: P) -> Result<(), P::Error> {
         let msg = packet.encode()?;
         self.tx.send(msg.into()).map_err(Into::into).await?;
         Ok(())

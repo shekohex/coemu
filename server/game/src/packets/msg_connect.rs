@@ -26,21 +26,13 @@ impl PacketProcess for MsgConnect {
     type Error = Error;
     type State = State;
 
-    async fn process(
-        &self,
-        state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, state: &Self::State, actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         let info = state
             .remove_login_token(self.token)
             .map_err(|_| MsgTalk::login_invalid().error_packet())?;
         actor.generate_keys(self.token).await?;
         actor.set_id(info.account_id as usize);
-        let maybe_character = tq_db::character::Character::from_account(
-            state.pool(),
-            info.account_id,
-        )
-        .await?;
+        let maybe_character = tq_db::character::Character::from_account(state.pool(), info.account_id).await?;
         match maybe_character {
             Some(character) => {
                 let me = Character::new(actor.handle(), character);
@@ -58,11 +50,7 @@ impl PacketProcess for MsgConnect {
                 actor.send(MsgData::now()).await?;
             },
             None => {
-                state.store_creation_token(
-                    self.token as u32,
-                    info.account_id,
-                    info.realm_id,
-                )?;
+                state.store_creation_token(self.token as u32, info.account_id, info.realm_id)?;
                 actor.send(MsgTalk::login_new_role()).await?;
             },
         };

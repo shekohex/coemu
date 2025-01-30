@@ -3,6 +3,8 @@
   "rust-analyzer.lens.references.adt.enable": true,
   "rust-analyzer.lens.references.method.enable": true,
   "rust-analyzer.lens.implementations.enable": true,
+  "rust-analyzer.check.allTargets": true,
+  "rust-analyzer.checkOnSave": true,
   "sqltools.useNodeRuntime": true,
   "sqltools.connections": [
     {

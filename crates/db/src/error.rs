@@ -1,5 +1,6 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[cfg(feature = "sqlx")]
     #[error(transparent)]
     Db(#[from] sqlx::Error),
     #[error(transparent)]

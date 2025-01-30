@@ -64,11 +64,17 @@ impl MsgMapInfo {
         }
     }
 
-    pub fn is_static(&self) -> bool { self.uid == self.map_id }
+    pub fn is_static(&self) -> bool {
+        self.uid == self.map_id
+    }
 
-    pub fn is_copy(&self) -> bool { self.uid != self.map_id }
+    pub fn is_copy(&self) -> bool {
+        self.uid != self.map_id
+    }
 }
 
 impl From<&Map> for MsgMapInfo {
-    fn from(map: &Map) -> Self { Self::from_map(map) }
+    fn from(map: &Map) -> Self {
+        Self::from_map(map)
+    }
 }

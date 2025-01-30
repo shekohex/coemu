@@ -10,6 +10,8 @@ pub enum Error {
     #[error(transparent)]
     Network(#[from] tq_network::Error),
     #[error(transparent)]
+    Server(#[from] tq_server::Error),
+    #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
     DotEnv(#[from] dotenvy::Error),
@@ -62,11 +64,15 @@ pub enum Error {
 }
 
 impl<T> From<mpsc::error::SendError<T>> for Error {
-    fn from(_: mpsc::error::SendError<T>) -> Self { Self::SendError }
+    fn from(_: mpsc::error::SendError<T>) -> Self {
+        Self::SendError
+    }
 }
 
 impl From<oneshot::error::RecvError> for Error {
-    fn from(_: oneshot::error::RecvError) -> Self { Self::RecvError }
+    fn from(_: oneshot::error::RecvError) -> Self {
+        Self::RecvError
+    }
 }
 
 impl<T: PacketEncode> From<ErrorPacket<T>> for Error {
@@ -84,65 +90,37 @@ impl PacketEncode for Error {
         match self {
             Self::Msg(id, bytes) => Ok((*id, bytes.clone())),
             Self::MapNotFound => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::TopLeft,
-                    "Map not found!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::TopLeft, "Map not found!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
             Self::MapRegionNotFound => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::TopLeft,
-                    "Map Region not found!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::TopLeft, "Map Region not found!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
             Self::LoginTokenNotFound => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::Login,
-                    "Login Token not found!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::Login, "Login Token not found!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
             Self::CreationTokenNotFound => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::Register,
-                    "Creation Token not found!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::Register, "Creation Token not found!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
             Self::RealmNotFound => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::Login,
-                    "Realm not found!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::Login, "Realm not found!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
             Self::CharacterNotFound => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::TopLeft,
-                    "Character not found!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::TopLeft, "Character not found!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
             Self::ScreenNotFound => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::TopLeft,
-                    "Screen not found!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::TopLeft, "Screen not found!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
@@ -156,29 +134,17 @@ impl PacketEncode for Error {
                 Ok((id, bytes))
             },
             Self::InvalidSceneFileName => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::TopLeft,
-                    "Invalid Scene File Name!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::TopLeft, "Invalid Scene File Name!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
             Self::InvalidBodyType => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::Register,
-                    "Invalid Body Type!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::Register, "Invalid Body Type!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
             Self::InvalidClass => {
-                let msg = MsgTalk::from_system(
-                    0,
-                    crate::packets::TalkChannel::Register,
-                    "Invalid Class!",
-                );
+                let msg = MsgTalk::from_system(0, crate::packets::TalkChannel::Register, "Invalid Class!");
                 let (id, bytes) = msg.encode()?;
                 Ok((id, bytes))
             },
@@ -188,5 +154,13 @@ impl PacketEncode for Error {
 }
 
 impl From<Error> for tq_network::Error {
-    fn from(v: Error) -> Self { Self::Other(v.to_string()) }
+    fn from(v: Error) -> Self {
+        Self::Other(v.to_string())
+    }
+}
+
+impl From<Error> for tq_server::Error {
+    fn from(v: Error) -> Self {
+        Self::Internal(Box::new(v))
+    }
 }

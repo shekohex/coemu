@@ -10,9 +10,15 @@ thiserror.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
 futures.workspace = true
+rkyv = { workspace = true, default-features = false, features = ["alloc", "size_32"] }
 
 # Database
 [dependencies.sqlx]
 workspace = true
 default-features = false
-features = ["runtime-tokio-rustls", "sqlite", "macros"]
+optional = true
+features = ["sqlite", "macros"]
+
+[features]
+default = ["sqlx"]
+sqlx = ["dep:sqlx"]

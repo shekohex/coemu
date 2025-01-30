@@ -7,7 +7,11 @@ edition.workspace = true
 [dependencies]
 bytes.workspace = true
 tq-crypto.workspace = true
-tracing.workspace = true
+tracing = { workspace = true, features = ["attributes"] }
 tokio-stream = { workspace = true, features = ["io-util"] }
 tokio = { workspace = true, default-features = false, features = ["io-util"] }
-pretty-hex = "0.3"
+pretty-hex = { version = "0.4", default-features = false }
+
+[features]
+default = ["std"]
+std = ["bytes/std", "tq-crypto/std", "tracing/std", "pretty-hex/alloc"]

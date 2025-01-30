@@ -5,7 +5,6 @@ authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
 edition.workspace = true
 
 [dependencies]
-thiserror.workspace = true
 serde.workspace = true
 bytes.workspace = true
 tq-serde.workspace = true
@@ -14,13 +13,29 @@ tq-crypto.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 futures.workspace = true
-tokio-stream = { workspace = true, features = ["io-util", "net"] }
 
 # macros
 derive-packetid.workspace = true
 derive-packethandler.workspace = true
+derive-packetprocessor.workspace = true
+
+[dependencies.tokio-stream]
+workspace = true
+default-features = false
+optional = true
+features = ["io-util", "net"]
 
 [dependencies.tokio]
 workspace = true
 default-features = false
-features = ["rt-multi-thread", "io-util", "net", "sync"]
+features = ["io-util", "sync"]
+
+[features]
+default = []
+std = [
+  "tq-serde/std",
+  "tq-codec/std",
+  "tq-crypto/std",
+  "tracing/std",
+  "futures/std"
+]

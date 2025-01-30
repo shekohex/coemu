@@ -66,11 +66,7 @@ impl PacketProcess for MsgItem {
     type Error = crate::Error;
     type State = State;
 
-    async fn process(
-        &self,
-        _state: &Self::State,
-        actor: &Actor<Self::ActorState>,
-    ) -> Result<(), Self::Error> {
+    async fn process(&self, _state: &Self::State, actor: &Actor<Self::ActorState>) -> Result<(), Self::Error> {
         let action = self.action_type.into();
         match action {
             ItemActionType::Ping => {

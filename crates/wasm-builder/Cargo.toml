@@ -1,0 +1,16 @@
+[package]
+name = "tq-wasm-builder"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+build-helper = "0.1"
+cargo_metadata = "0.18"
+console = "0.15"
+strum = { version = "0.25", features = ["derive"] }
+tempfile = "3.1"
+toml = "0.8"
+walkdir = "2.3"
+filetime = "0.2"
+wasm-opt = "0.116"
+externref = { workspace = true, features = ["processor"] }

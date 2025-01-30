@@ -1,0 +1,26 @@
+[package]
+name = "tq-server"
+version = "0.1.0"
+authors = ["Shady Khalifa <dev@shadykhalifa.me>"]
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+bytes.workspace = true
+tq-serde.workspace = true
+tq-codec.workspace = true
+tq-crypto.workspace = true
+tq-network.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+futures.workspace = true
+
+[dependencies.tokio-stream]
+workspace = true
+default-features = false
+features = ["io-util", "net"]
+
+[dependencies.tokio]
+workspace = true
+default-features = false
+features = ["io-util", "sync", "tracing"]

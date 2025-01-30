@@ -76,34 +76,24 @@ impl Screen {
     /// screen object is being added, and the object is of type character, then
     /// the owner will be added to the observer's screen as well.
     #[tracing::instrument(skip(self, observer), fields(me = self.owner.id()))]
-    pub fn insert_entity(
-        &self,
-        observer: Weak<GameEntity>,
-    ) -> Result<bool, Error> {
+    pub fn insert_entity(&self, observer: Weak<GameEntity>) -> Result<bool, Error> {
         let o = observer.upgrade().ok_or(Error::CharacterNotFound)?;
         let alredy_exists = self.with_entities(|c| c.contains_key(&o.id()));
         if alredy_exists {
             return Ok(false);
         }
         let oid = o.id();
-        let added = self
-            .with_entities_mut(|c| c.insert(oid, Arc::downgrade(&o)).is_none());
+        let added = self.with_entities_mut(|c| c.insert(oid, Arc::downgrade(&o)).is_none());
         if !added {
             return Ok(false);
         }
         match o.as_ref() {
             GameEntity::Character(c) => {
-                let me = self
-                    .character
-                    .load()
-                    .upgrade()
-                    .ok_or(Error::CharacterNotFound)?;
+                let me = self.character.load().upgrade().ok_or(Error::CharacterNotFound)?;
                 debug!(character = c.id(), "Added Character to Screen");
                 let oscreen = c.try_screen()?;
                 let myid = self.character_id()?;
-                let added = oscreen.with_entities_mut(|c| {
-                    c.insert(myid, Arc::downgrade(&me)).is_none()
-                });
+                let added = oscreen.with_entities_mut(|c| c.insert(myid, Arc::downgrade(&me)).is_none());
                 Ok(added)
             },
             GameEntity::Npc(o) => {
@@ -118,9 +108,7 @@ impl Screen {
     /// characters who are actively removing themselves out of the screen.
     #[tracing::instrument(skip(self), fields(me = self.owner.id()))]
     pub fn remove_entity(&self, observer: u32) -> Result<bool, Error> {
-        let Some(o) = self.with_entities_mut(|c| {
-            c.remove(&observer).and_then(|c| c.upgrade())
-        }) else {
+        let Some(o) = self.with_entities_mut(|c| c.remove(&observer).and_then(|c| c.upgrade())) else {
             return Ok(false);
         };
         match o.as_ref() {
@@ -128,8 +116,7 @@ impl Screen {
                 debug!(character = c.id(), "Removed Character from Screen");
                 let oscreen = c.try_screen()?;
                 let myid = self.character_id()?;
-                let removed =
-                    oscreen.with_entities_mut(|c| c.remove(&myid).is_some());
+                let removed = oscreen.with_entities_mut(|c| c.remove(&myid).is_some());
                 Ok(removed)
             },
             GameEntity::Npc(o) => {
@@ -150,13 +137,7 @@ impl Screen {
             return Ok(false);
         }
         self.owner
-            .send(MsgAction::new(
-                observer,
-                observer,
-                0,
-                0,
-                ActionType::LeaveMap,
-            ))
+            .send(MsgAction::new(observer, observer, 0, 0, ActionType::LeaveMap))
             .await?;
         tracing::trace!(%observer, "Deleted from Screen");
         Ok(true)
@@ -174,10 +155,7 @@ impl Screen {
             for o in iter {
                 match o.as_ref() {
                     GameEntity::Character(c) => {
-                        tracing::trace!(
-                            character = c.id(),
-                            "Found Character Observer"
-                        );
+                        tracing::trace!(character = c.id(), "Found Character Observer");
                         let Ok(screen) = c.try_screen() else {
                             continue;
                         };
@@ -202,10 +180,7 @@ impl Screen {
             let res = task?;
             match res {
                 Ok(observer) => {
-                    tracing::trace!(
-                        observer = observer,
-                        "Removed from Observer's Screen"
-                    );
+                    tracing::trace!(observer = observer, "Removed from Observer's Screen");
                 },
                 Err(e) => {
                     tracing::error!(error = ?e, "Failed to delete from screen");
@@ -225,15 +200,8 @@ impl Screen {
     /// spawns it to the owner's screen (if the object is within the owner's
     /// screen distance).
     #[tracing::instrument(skip(self, state), fields(me = self.owner.id()))]
-    pub async fn load_surroundings(
-        &self,
-        state: &crate::State,
-    ) -> Result<(), Error> {
-        let entity = self
-            .character
-            .load()
-            .upgrade()
-            .ok_or(Error::CharacterNotFound)?;
+    pub async fn load_surroundings(&self, state: &crate::State) -> Result<(), Error> {
+        let entity = self.character.load().upgrade().ok_or(Error::CharacterNotFound)?;
         let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let mymap = state.try_map(me.entity().map_id())?;
         let loc = me.entity().location();
@@ -255,15 +223,11 @@ impl Screen {
                         GameEntity::Character(_) if can_see(&o, &myself) => {
                             let o = o.clone();
                             let fut = async move {
-                                let added =
-                                    self.insert_entity(Arc::downgrade(&o))?;
+                                let added = self.insert_entity(Arc::downgrade(&o))?;
                                 if !added {
                                     return Ok(());
                                 }
-                                tracing::trace!(
-                                    character = o.id(),
-                                    "Loaded Into Screen"
-                                );
+                                tracing::trace!(character = o.id(), "Loaded Into Screen");
                                 me.exchange_spawn_packets(&o).await?;
                                 Result::<_, Error>::Ok(())
                             }
@@ -275,15 +239,11 @@ impl Screen {
                             let me = entity.clone();
                             // Spawn the npc to the owner's screen.
                             let fut = async move {
-                                let added =
-                                    self.insert_entity(Arc::downgrade(&o))?;
+                                let added = self.insert_entity(Arc::downgrade(&o))?;
                                 if !added {
                                     return Ok(());
                                 }
-                                tracing::trace!(
-                                    npc = o.id(),
-                                    "Loaded Into Screen"
-                                );
+                                tracing::trace!(npc = o.id(), "Loaded Into Screen");
                                 o.send_spawn(&me).await?;
                                 Result::<_, Error>::Ok(())
                             }
@@ -323,9 +283,7 @@ impl Screen {
     {
         let futures = FuturesUnordered::new();
         self.with_entities(|c| {
-            let iter = c
-                .values()
-                .filter_map(|v| v.upgrade().and_then(|o| o.owner()));
+            let iter = c.values().filter_map(|v| v.upgrade().and_then(|o| o.owner()));
             for o in iter {
                 let packet = packet.clone();
                 let fut = async move {
@@ -363,19 +321,11 @@ impl Screen {
     /// within the new screen distance, the method will attempt to remove it
     /// from the owner's screen.
     #[tracing::instrument(skip(self, state, packet), fields(me = self.owner.id(), packet_id = P::PACKET_ID))]
-    pub async fn send_movement<P>(
-        &self,
-        state: &crate::State,
-        packet: P,
-    ) -> Result<(), Error>
+    pub async fn send_movement<P>(&self, state: &crate::State, packet: P) -> Result<(), Error>
     where
         P: PacketEncode + PacketID + Clone + Send + Sync + 'static,
     {
-        let entity = self
-            .character
-            .load()
-            .upgrade()
-            .ok_or(Error::CharacterNotFound)?;
+        let entity = self.character.load().upgrade().ok_or(Error::CharacterNotFound)?;
         let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
         let mymap = state.try_map(me.entity().map_id())?;
         let loc = me.entity().location();
@@ -399,14 +349,10 @@ impl Screen {
                             let o = o.clone();
                             let oowner = c.owner();
                             let fut = async move {
-                                let added =
-                                    self.insert_entity(Arc::downgrade(&o))?;
+                                let added = self.insert_entity(Arc::downgrade(&o))?;
                                 // new, let's exchange spawn packets
                                 if added {
-                                    tracing::trace!(
-                                        observer = o.id(),
-                                        "Loaded Into Screen",
-                                    );
+                                    tracing::trace!(observer = o.id(), "Loaded Into Screen",);
                                     me.exchange_spawn_packets(&o).await?;
                                 } else {
                                     // observer is already there, send the
@@ -430,21 +376,12 @@ impl Screen {
                                 // Else, remove the observer and send the last
                                 // packet.
                                 if oscreen.remove_entity(me.id())? {
-                                    tracing::trace!(
-                                        observer = observer_id,
-                                        "UnLoaded Screen"
-                                    );
+                                    tracing::trace!(observer = observer_id, "UnLoaded Screen");
                                     // send the last packet.
-                                    oowner
-                                        .send(packet)
-                                        .await
-                                        .unwrap_or_default();
+                                    oowner.send(packet).await.unwrap_or_default();
                                 }
                                 if self.remove_entity(observer_id)? {
-                                    tracing::trace!(
-                                        observer = observer_id,
-                                        "Removed from Screen"
-                                    );
+                                    tracing::trace!(observer = observer_id, "Removed from Screen");
                                 }
                                 Result::<_, Error>::Ok(())
                             }
@@ -453,14 +390,10 @@ impl Screen {
                         },
                         GameEntity::Npc(_) if can_see_npc(&o, &myself) => {
                             let fut = async move {
-                                let added =
-                                    self.insert_entity(Arc::downgrade(&o))?;
+                                let added = self.insert_entity(Arc::downgrade(&o))?;
                                 // new, Send NPC spawn packet to the owner
                                 if added {
-                                    tracing::trace!(
-                                        npc = o.id(),
-                                        "Loaded Into Screen"
-                                    );
+                                    tracing::trace!(npc = o.id(), "Loaded Into Screen");
                                     o.send_spawn(&myself).await?;
                                 } else {
                                     // observer is already there

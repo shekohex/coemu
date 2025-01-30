@@ -1,7 +1,10 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use num_enum::IntoPrimitive;
 use serde::Serialize;
 use tq_network::PacketID;
 use tq_serde::String16;
+
 /// Rejection codes are sent to the client in offset 8 of this packet when the
 /// client has failed authentication with the account server. These codes define
 /// which error message will be displayed in the client.
@@ -25,7 +28,9 @@ pub enum RejectionCode {
 }
 
 impl RejectionCode {
-    pub fn packet(self) -> MsgConnectRejection { MsgConnectEx::from_code(self) }
+    pub fn packet(self) -> MsgConnectRejection {
+        MsgConnectEx::from_code(self)
+    }
 }
 
 #[derive(Debug, Serialize, PacketID)]

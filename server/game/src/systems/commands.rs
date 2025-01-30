@@ -4,28 +4,16 @@ use crate::{ActorState, Error};
 use argh::FromArgs;
 use tq_network::Actor;
 
-pub async fn parse_and_execute(
-    state: &crate::State,
-    actor: &Actor<ActorState>,
-    args: &[&str],
-) -> Result<(), Error> {
+pub async fn parse_and_execute(state: &crate::State, actor: &Actor<ActorState>, args: &[&str]) -> Result<(), Error> {
     let entity = actor.entity();
     let me = entity.as_character().ok_or(Error::CharacterNotFound)?;
     let c = match Command::from_args(&["commands"], args) {
         Ok(cmd) => cmd,
         Err(e) => {
-            let lines = e
-                .output
-                .lines()
-                .map(|e| e.to_owned())
-                .skip_while(|e| e.is_empty());
+            let lines = e.output.lines().map(|e| e.to_owned()).skip_while(|e| e.is_empty());
             for line in lines {
                 actor
-                    .send(MsgTalk::from_system(
-                        me.id(),
-                        TalkChannel::System,
-                        line,
-                    ))
+                    .send(MsgTalk::from_system(me.id(), TalkChannel::System, line))
                     .await?;
             }
             return Ok(());
@@ -54,11 +42,7 @@ pub async fn parse_and_execute(
                     .send(MsgTalk::from_system(
                         me.id(),
                         TalkChannel::System,
-                        format!(
-                            "Current Map: {:?} = {}",
-                            Maps::from(map_id),
-                            map_id
-                        ),
+                        format!("Current Map: {:?} = {}", Maps::from(map_id), map_id),
                     ))
                     .await?;
             }

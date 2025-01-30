@@ -1,7 +1,5 @@
 use crate::entities::{Entity, GameEntity};
-use crate::packets::{
-    ActionType, MsgAction, MsgMapInfo, MsgPlayer, MsgWeather,
-};
+use crate::packets::{ActionType, MsgAction, MsgMapInfo, MsgPlayer, MsgWeather};
 use crate::systems::Screen;
 use crate::utils::LoHi;
 use crate::Error;
@@ -45,51 +43,91 @@ impl Character {
     }
 
     #[inline]
-    pub fn owner(&self) -> ActorHandle { self.owner.clone() }
+    pub fn owner(&self) -> ActorHandle {
+        self.owner.clone()
+    }
 
     #[inline]
-    pub fn entity(&self) -> &Entity { &self.entity }
+    pub fn entity(&self) -> &Entity {
+        &self.entity
+    }
 
     #[inline]
-    pub fn id(&self) -> u32 { self.entity.id() }
+    pub fn id(&self) -> u32 {
+        self.entity.id()
+    }
 
-    pub fn elevation(&self) -> u16 { self.elevation.load(Ordering::Relaxed) }
+    pub fn elevation(&self) -> u16 {
+        self.elevation.load(Ordering::Relaxed)
+    }
 
     pub fn set_elevation(&self, value: u16) {
         self.elevation.store(value, Ordering::Relaxed);
     }
 
-    pub fn hair_style(&self) -> u16 { self.inner.hair_style as u16 }
+    pub fn hair_style(&self) -> u16 {
+        self.inner.hair_style as u16
+    }
 
-    pub fn avatar(&self) -> u16 { self.inner.avatar as u16 }
+    pub fn avatar(&self) -> u16 {
+        self.inner.avatar as u16
+    }
 
-    pub fn silver(&self) -> u64 { self.inner.silver as u64 }
+    pub fn silver(&self) -> u64 {
+        self.inner.silver as u64
+    }
 
-    pub fn cps(&self) -> u64 { self.inner.cps as u64 }
+    pub fn cps(&self) -> u64 {
+        self.inner.cps as u64
+    }
 
-    pub fn experience(&self) -> u64 { self.inner.experience as u64 }
+    pub fn experience(&self) -> u64 {
+        self.inner.experience as u64
+    }
 
-    pub fn strength(&self) -> u16 { self.inner.strength as u16 }
+    pub fn strength(&self) -> u16 {
+        self.inner.strength as u16
+    }
 
-    pub fn agility(&self) -> u16 { self.inner.agility as u16 }
+    pub fn agility(&self) -> u16 {
+        self.inner.agility as u16
+    }
 
-    pub fn vitality(&self) -> u16 { self.inner.vitality as u16 }
+    pub fn vitality(&self) -> u16 {
+        self.inner.vitality as u16
+    }
 
-    pub fn spirit(&self) -> u16 { self.inner.spirit as u16 }
+    pub fn spirit(&self) -> u16 {
+        self.inner.spirit as u16
+    }
 
-    pub fn attribute_points(&self) -> u16 { self.inner.attribute_points as u16 }
+    pub fn attribute_points(&self) -> u16 {
+        self.inner.attribute_points as u16
+    }
 
-    pub fn health_points(&self) -> u16 { self.inner.health_points as u16 }
+    pub fn health_points(&self) -> u16 {
+        self.inner.health_points as u16
+    }
 
-    pub fn mana_points(&self) -> u16 { self.inner.mana_points as u16 }
+    pub fn mana_points(&self) -> u16 {
+        self.inner.mana_points as u16
+    }
 
-    pub fn kill_points(&self) -> u16 { self.inner.kill_points as u16 }
+    pub fn kill_points(&self) -> u16 {
+        self.inner.kill_points as u16
+    }
 
-    pub fn current_class(&self) -> u8 { self.inner.current_class as u8 }
+    pub fn current_class(&self) -> u8 {
+        self.inner.current_class as u8
+    }
 
-    pub fn previous_class(&self) -> u8 { self.inner.previous_class as u8 }
+    pub fn previous_class(&self) -> u8 {
+        self.inner.previous_class as u8
+    }
 
-    pub fn rebirths(&self) -> u8 { self.inner.rebirths as u8 }
+    pub fn rebirths(&self) -> u8 {
+        self.inner.rebirths as u8
+    }
 
     pub async fn kick_back(&self) -> Result<(), Error> {
         let location = self.entity.location();
@@ -106,12 +144,7 @@ impl Character {
     }
 
     #[tracing::instrument(skip(self, state), fields(me = self.entity.id()))]
-    pub async fn teleport(
-        &self,
-        state: &crate::State,
-        map_id: u32,
-        (x, y): (u16, u16),
-    ) -> Result<(), Error> {
+    pub async fn teleport(&self, state: &crate::State, map_id: u32, (x, y): (u16, u16)) -> Result<(), Error> {
         let mut location = self.entity.location();
         let xy = u32::constract(y, x);
         let msg = MsgAction::new(
@@ -126,10 +159,7 @@ impl Character {
         let tile = new_map.tile(x, y).ok_or(Error::TileNotFound(x, y))?;
         // remove from old map
         if let Ok(old_map) = state.try_map(self.entity.map_id()) {
-            old_map.remove_entity_by_id_and_location(
-                self.id(),
-                self.entity().location(),
-            )?;
+            old_map.remove_entity_by_id_and_location(self.id(), self.entity().location())?;
             self.try_screen()?.remove_from_observers().await?;
         }
         location.x = x;
@@ -143,10 +173,7 @@ impl Character {
     }
 
     #[tracing::instrument(skip_all, fields(me = self.entity.id()))]
-    pub async fn exchange_spawn_packets<E: AsRef<GameEntity>>(
-        &self,
-        observer: &E,
-    ) -> Result<(), Error> {
+    pub async fn exchange_spawn_packets<E: AsRef<GameEntity>>(&self, observer: &E) -> Result<(), Error> {
         match observer.as_ref() {
             GameEntity::Character(c) => {
                 self.send_spawn(&c.owner()).await?;
@@ -195,10 +222,7 @@ impl Character {
     }
 
     #[tracing::instrument(skip(self, to), fields(me = self.entity.id()))]
-    pub(super) async fn send_spawn(
-        &self,
-        to: &ActorHandle,
-    ) -> Result<(), Error> {
+    pub(super) async fn send_spawn(&self, to: &ActorHandle) -> Result<(), Error> {
         let msg = MsgPlayer::from(self);
         to.send(msg).await?;
         tracing::trace!("Sent Spawn");

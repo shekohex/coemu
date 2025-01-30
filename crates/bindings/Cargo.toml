@@ -1,0 +1,20 @@
+[package]
+name = "tq-bindings"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+tq-network.workspace = true
+tracing-wasm.workspace = true
+tq-db = { workspace = true, default-features = false }
+rkyv = { workspace = true, default-features = false, features = ["alloc", "size_32"] }
+
+tracing = { workspace = true, default-features = false, optional = true }
+tracing-subscriber = { workspace = true, default-features = false, features = ["alloc"], optional = true }
+externref = { workspace = true, default-features = false, features = ["macro"] }
+getrandom = { workspace = true, default-features = false, features = ["custom"] }
+
+
+[features]
+default = ["std"]
+std = ["tq-network/std", "tracing-wasm/std", "dep:tracing", "dep:tracing-subscriber"]

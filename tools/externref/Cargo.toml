@@ -1,0 +1,8 @@
+[package]
+name = "externref-cli"
+version = "0.1.0"
+edition.workspace = true
+
+
+[dependencies]
+externref = { workspace = true, features = ["processor"] }

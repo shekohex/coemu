@@ -8,15 +8,9 @@ use crate::packets::MsgRegister;
 use crate::systems::Screen;
 use crate::ActorState;
 
-pub async fn with_test_env<'a, F>(
-    log_level: tracing::Level,
-    f: F,
-) -> Result<(), crate::Error>
+pub async fn with_test_env<'a, F>(log_level: tracing::Level, f: F) -> Result<(), crate::Error>
 where
-    F: FnOnce(
-        crate::State,
-        [Actor<ActorState>; 2],
-    ) -> BoxFuture<'a, Result<(), crate::Error>>,
+    F: FnOnce(crate::State, [Actor<ActorState>; 2]) -> BoxFuture<'a, Result<(), crate::Error>>,
 {
     let root_dir = std::process::Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
@@ -40,10 +34,7 @@ where
         .pretty()
         .with_target(true)
         .with_test_writer();
-    tracing_subscriber::registry()
-        .with(env_filter)
-        .with(logger)
-        .init();
+    tracing_subscriber::registry().with(env_filter).with(logger).init();
 
     let pool = SqlitePoolOptions::new()
         .max_connections(42)
@@ -56,17 +47,11 @@ where
         .await
         .expect("Failed to migrate database");
     let state = crate::State::with_pool(pool).await?;
-    let actors = [
-        make_test_actor(&state, 1).await?,
-        make_test_actor(&state, 2).await?,
-    ];
+    let actors = [make_test_actor(&state, 1).await?, make_test_actor(&state, 2).await?];
     f(state, actors).await
 }
 
-pub async fn make_test_actor(
-    state: &crate::State,
-    id: usize,
-) -> Result<Actor<ActorState>, crate::Error> {
+pub async fn make_test_actor(state: &crate::State, id: usize) -> Result<Actor<ActorState>, crate::Error> {
     let (tx, _rx) = tokio::sync::mpsc::channel(50);
     let actor = Actor::<ActorState>::new(tx);
     actor.set_id(id);
@@ -78,10 +63,9 @@ pub async fn make_test_actor(
         1,
     )?;
     inner_character.save(state.pool()).await?;
-    let inner_character =
-        tq_db::character::Character::from_account(state.pool(), id as _)
-            .await?
-            .expect("Failed to load character");
+    let inner_character = tq_db::character::Character::from_account(state.pool(), id as _)
+        .await?
+        .expect("Failed to load character");
     let character = Character::new(actor.handle(), inner_character);
     let screen = Screen::new(actor.handle());
     actor.update(character, screen);

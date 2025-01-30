@@ -3,6 +3,9 @@ use crate::TQSerdeError;
 use bytes::{BufMut, BytesMut};
 use serde::ser::{self, Serialize};
 
+#[cfg(not(feature = "std"))]
+use alloc::string::ToString;
+
 #[derive(Debug)]
 struct Serializer {
     output: BytesMut,
@@ -91,21 +94,19 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(())
     }
 
-    fn serialize_none(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 
-    fn serialize_some<T: Serialize + ?Sized>(
-        self,
-        value: &T,
-    ) -> Result<Self::Ok, Self::Error> {
+    fn serialize_some<T: Serialize + ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error> {
         value.serialize(self)
     }
 
-    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 
-    fn serialize_unit_struct(
-        self,
-        _: &'static str,
-    ) -> Result<Self::Ok, Self::Error> {
+    fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok, Self::Error> {
         self.serialize_unit()
     }
 
@@ -139,17 +140,11 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(())
     }
 
-    fn serialize_seq(
-        self,
-        _len: Option<usize>,
-    ) -> Result<Self::SerializeSeq, Self::Error> {
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         Ok(self)
     }
 
-    fn serialize_tuple(
-        self,
-        _: usize,
-    ) -> Result<Self::SerializeTuple, Self::Error> {
+    fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple, Self::Error> {
         Ok(self)
     }
 
@@ -171,18 +166,11 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Err(TQSerdeError::Unspported)
     }
 
-    fn serialize_map(
-        self,
-        _: Option<usize>,
-    ) -> Result<Self::SerializeMap, Self::Error> {
+    fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         Err(TQSerdeError::Unspported)
     }
 
-    fn serialize_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStruct, Self::Error> {
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct, Self::Error> {
         Ok(self)
     }
 
@@ -201,58 +189,52 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
 
-    fn serialize_element<T: Serialize + ?Sized>(
-        &mut self,
-        v: &T,
-    ) -> Result<(), Self::Error> {
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, v: &T) -> Result<(), Self::Error> {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 }
 
 impl<'a> ser::SerializeTuple for &'a mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
 
-    fn serialize_element<T: Serialize + ?Sized>(
-        &mut self,
-        v: &T,
-    ) -> Result<(), Self::Error> {
+    fn serialize_element<T: Serialize + ?Sized>(&mut self, v: &T) -> Result<(), Self::Error> {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 }
 
 impl<'a> ser::SerializeStruct for &'a mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
 
-    fn serialize_field<T: Serialize + ?Sized>(
-        &mut self,
-        _: &'static str,
-        v: &T,
-    ) -> Result<(), Self::Error> {
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, _: &'static str, v: &T) -> Result<(), Self::Error> {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 }
 
 impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
 
-    fn serialize_field<T: Serialize + ?Sized>(
-        &mut self,
-        _: &'static str,
-        v: &T,
-    ) -> Result<(), Self::Error> {
+    fn serialize_field<T: Serialize + ?Sized>(&mut self, _: &'static str, v: &T) -> Result<(), Self::Error> {
         v.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> { Ok(()) }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
 }
 
 /// Serialize `T` into `BytesMut`.
@@ -287,12 +269,10 @@ fn test_struct_ser() {
     };
     assert_eq!(
         vec![
-            0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67, 0x0, 0x0, 0x0, 0x0, 0x0,
-            0x0, 0x0, 0x0, 0x0, 0x31, 0x32, 0x33, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5a, 0x65, 0x75, 0x73, 0x0,
-            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x76,
-            0x61, 0x72, 0x5f, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x2, 0x0,
-            0x0, 0x0
+            0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x31, 0x32, 0x33,
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5a, 0x65, 0x75, 0x73, 0x0, 0x0, 0x0,
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x76, 0x61, 0x72, 0x5f, 0x73, 0x74, 0x72, 0x69, 0x6e,
+            0x67, 0x2, 0x0, 0x0, 0x0
         ],
         to_bytes(&test).unwrap().as_ref()
     );

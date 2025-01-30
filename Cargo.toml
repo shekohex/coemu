@@ -1,8 +1,15 @@
+[workspace.package]
+authors = ["Shady Khalifa <dev+coemu@shadykhalifa>"]
+edition = "2021"
+repository = "https://github.com/shekohex/coemu.git"
+license = "GPL-3.0-only"
+
 [workspace]
-package.edition = "2021"
 resolver = "2"
 members = [
   "crates/*",
+  # Game Packets
+  "packets/*",
   # Servers
   "server/*",
   # Utils
@@ -10,6 +17,7 @@ members = [
   # Cli Tools
   "tools/*",
 ]
+exclude = ["tools/benchbot"]
 
 [workspace.dependencies]
 # Local Dependencies
@@ -19,35 +27,56 @@ tq-serde = { path = "crates/serde" }
 tq-math = { path = "crates/math" }
 tq-crypto = { path = "crates/crypto" }
 tq-codec = { path = "crates/codec" }
-tq-db = { path = "crates/db" }
+tq-db = { path = "crates/db", default-features = false }
+tq-server = { path = "crates/server" }
+tq-bindings = { path = "crates/bindings" }
+tq-wasm-builder = { path = "crates/wasm-builder" }
+tracing-wasm = { path = "crates/tracing-wasm" }
 
 derive-packetid = { path = "macros/derive-packetid" }
 derive-packethandler = { path = "macros/derive-packethandler" }
+derive-packetprocessor = { path = "macros/derive-packetprocessor" }
 
 # Servers & Libs
 auth = { path = "server/auth" }
 game = { path = "server/game" }
 
+# Packets
+msg-account = { path = "packets/account" }
+msg-connect-ex = { path = "packets/connect-ex" }
+msg-connect = { path = "packets/connect" }
+msg-transfer = { path = "packets/transfer" }
+
 futures = { version = "0.3", default-features = false }
 thiserror = "1.0"
 anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-bytes = "1.5"
-async-trait = "0.1"
-tracing = "0.1"
+serde = { version = "1.0", default-features = false, features = ["alloc", "derive"] }
+bytes = { version = "1.5", default-features = false }
+async-trait = { version = "0.1", default-features = false }
+tracing = { version = "0.1", default-features = false }
+tracing-core = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
 dotenvy = "0.15"
-once_cell = "1.4"
-bitflags = "2.4"
+bitflags = { version = "2.4", default-features = false }
 argh = "0.1"
-tokio-stream = "0.1.8"
+tokio-stream = { version = "0.1.8", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false, features = [] }
 rand = "0.8"
+getrandom = { version = "0.2", default-features = false }
 arc-swap = { version = "1.6", features = ["weak"] }
-atomic = "0.6"
-bytemuck = { version = "1.13", features = ["derive"] }
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-num_enum = { version = "0.7.2", default-features = false }
+atomic = { version = "0.6", default-features = false }
+bytemuck = { version = "1.13", default-features = false, features = ["derive"] }
+chrono = { version = "0.4", default-features = false, features = [] }
+num_enum = { version = "0.7", default-features = false }
+rkyv = { version = "0.7", default-features = false }
 bcrypt = "0.15"
+
+# WASM deps
+externref = { version = "0.2.0", default-features = false }
+
+[workspace.dependencies.wasmtime]
+version = "17.0.0"
+default-features = false
 
 [workspace.dependencies.tokio]
 version = "1.21.2"

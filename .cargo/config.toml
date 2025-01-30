@@ -1,7 +1,8 @@
 [alias]
-auth = "run --bin auth-server"
+auth = "run --bin auth-server --features=server"
 game = "run --bin game-server"
 hash-pwd = "run --bin hash-pwd"
+externref = "run --bin externref-cli"
 
 [target.aarch64-apple-darwin]
 linker = "clang"

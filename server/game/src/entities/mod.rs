@@ -20,11 +20,15 @@ pub enum GameEntity {
 }
 
 impl From<Character> for GameEntity {
-    fn from(v: Character) -> Self { Self::Character(v) }
+    fn from(v: Character) -> Self {
+        Self::Character(v)
+    }
 }
 
 impl From<Npc> for GameEntity {
-    fn from(v: Npc) -> Self { Self::Npc(v) }
+    fn from(v: Npc) -> Self {
+        Self::Npc(v)
+    }
 }
 
 impl GameEntity {
@@ -56,12 +60,8 @@ impl GameEntity {
     /// This method sends the spawn packet to another entity
     pub async fn send_spawn(&self, to: &Self) -> Result<(), Error> {
         match (self, to) {
-            (Self::Character(from), Self::Character(to)) => {
-                from.send_spawn(&to.owner()).await
-            },
-            (Self::Npc(from), Self::Character(to)) => {
-                from.send_spawn(&to.owner()).await
-            },
+            (Self::Character(from), Self::Character(to)) => from.send_spawn(&to.owner()).await,
+            (Self::Npc(from), Self::Character(to)) => from.send_spawn(&to.owner()).await,
             _ => todo!("send_spawn for non-character entities"),
         }
     }
@@ -70,7 +70,9 @@ impl GameEntity {
     ///
     /// [`Character`]: GameEntity::Character
     #[must_use]
-    pub fn is_character(&self) -> bool { matches!(self, Self::Character(..)) }
+    pub fn is_character(&self) -> bool {
+        matches!(self, Self::Character(..))
+    }
 
     pub fn as_character(&self) -> Option<&Character> {
         if let Self::Character(v) = self {
@@ -84,7 +86,9 @@ impl GameEntity {
     ///
     /// [`Npc`]: GameEntity::Npc
     #[must_use]
-    pub fn is_npc(&self) -> bool { matches!(self, Self::Npc(..)) }
+    pub fn is_npc(&self) -> bool {
+        matches!(self, Self::Npc(..))
+    }
 
     pub fn as_npc(&self) -> Option<&Npc> {
         if let Self::Npc(v) = self {
