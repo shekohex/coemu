@@ -62,4 +62,6 @@ jobs:
         run: cargo build
 
       - name: Run cargo test
+        env:
+          DATABASE_URL: file::memory:?cache=shared
         run: cargo test
