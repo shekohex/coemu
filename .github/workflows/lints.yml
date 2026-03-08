@@ -25,11 +25,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install nightly toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
           profile: minimal
-          toolchain: nightly
-          override: true
           components: rustfmt, clippy
 
       - name: Rust Cache
@@ -41,15 +39,9 @@ jobs:
         uses: rui314/setup-mold@v1
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
         env:
           SQLX_OFFLINE: true
-        with:
-          command: clippy
-          args: -- -D warnings
+        run: cargo clippy -- -D warnings
