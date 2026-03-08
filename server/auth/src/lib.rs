@@ -157,6 +157,7 @@ mod tests {
         let msg_account = Module::from_file(&engine, msg_account::WASM_BINARY.unwrap()).unwrap();
 
         std::env::set_var("DATABASE_URL", "sqlite::memory:");
+        std::env::set_var("DATA_LOCATION", ".");
         let state = State::init().await.unwrap();
 
         // Run database migrations
