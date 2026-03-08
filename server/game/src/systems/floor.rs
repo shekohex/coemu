@@ -106,7 +106,11 @@ impl Floor {
                 let mut fallback = None;
                 let mut entries = tokio::fs::read_dir(&maps_dir).await?;
                 while let Some(entry) = entries.next_entry().await? {
-                    if entry.file_name().to_string_lossy().eq_ignore_ascii_case(&p.to_string_lossy()) {
+                    if entry
+                        .file_name()
+                        .to_string_lossy()
+                        .eq_ignore_ascii_case(&p.to_string_lossy())
+                    {
                         fallback = Some(entry.path());
                         break;
                     }
