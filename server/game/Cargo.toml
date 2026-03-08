@@ -20,7 +20,7 @@ bytes.workspace = true
 tq-network = { workspace = true, features = ["std"] }
 tq-serde = { workspace = true, features = ["std"] }
 tq-math.workspace = true
-tq-db.workspace = true
+tq-db = { workspace = true, features = ["sqlx"] }
 tq-server.workspace = true
 primitives.workspace = true
 async-trait.workspace = true

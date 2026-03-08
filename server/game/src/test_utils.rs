@@ -34,7 +34,7 @@ where
         .pretty()
         .with_target(true)
         .with_test_writer();
-    tracing_subscriber::registry().with(env_filter).with(logger).init();
+    let _ = tracing_subscriber::registry().with(env_filter).with(logger).try_init();
 
     let pool = SqlitePoolOptions::new()
         .max_connections(42)
