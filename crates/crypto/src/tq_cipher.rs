@@ -109,7 +109,7 @@ impl TQCipher {
         let mut x = counter.fetch_add(src.len() as u16, Ordering::SeqCst);
         (0..src.len()).for_each(|i| {
             src[i] ^= 0xAB;
-            src[i] = src[i] >> 4 | src[i] << 4;
+            src[i] = src[i].rotate_left(4);
             src[i] ^= key[(x & 0xff) as usize];
             src[i] ^= key[((x >> 8) + 0x100) as usize];
             x = x.wrapping_add(1);

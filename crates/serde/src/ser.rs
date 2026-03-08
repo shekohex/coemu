@@ -11,7 +11,7 @@ struct Serializer {
     output: BytesMut,
 }
 
-impl<'a> ser::Serializer for &'a mut Serializer {
+impl ser::Serializer for &mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
     type SerializeMap = ser::Impossible<(), Self::Error>;
@@ -127,16 +127,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         value.serialize(self)
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T: Serialize + ?Sized>(
         self,
         _name: &'static str,
         _variant_index: u32,
         _variant: &'static str,
         _value: &T,
-    ) -> Result<Self::Ok, Self::Error>
-    where
-        T: Serialize,
-    {
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
@@ -185,7 +182,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeSeq for &'a mut Serializer {
+impl ser::SerializeSeq for &mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
 
@@ -198,7 +195,7 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeTuple for &'a mut Serializer {
+impl ser::SerializeTuple for &mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
 
@@ -211,7 +208,7 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeStruct for &'a mut Serializer {
+impl ser::SerializeStruct for &mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
 
@@ -224,7 +221,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     }
 }
 
-impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
+impl ser::SerializeStructVariant for &mut Serializer {
     type Error = TQSerdeError;
     type Ok = ();
 

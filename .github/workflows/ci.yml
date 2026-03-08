@@ -29,11 +29,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install nightly toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
           profile: minimal
-          toolchain: nightly
-          override: true
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -59,13 +57,11 @@ jobs:
         run: bash ./scripts/fetch-test-fixtures.bash
 
       - name: Run cargo build
-        uses: actions-rs/cargo@v1
         env:
           DATABASE_URL: file::memory:?cache=shared
-        with:
-          command: build
+        run: cargo build
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        env:
+          DATABASE_URL: file::memory:?cache=shared
+        run: cargo test

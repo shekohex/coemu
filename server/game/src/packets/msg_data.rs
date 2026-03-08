@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::state::State;
 use crate::{ActorState, Error};
-use chrono::{Datelike, NaiveDateTime, Timelike};
+use chrono::{Datelike, Timelike};
 use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
 use tq_network::{Actor, PacketID, PacketProcess};
@@ -37,8 +37,7 @@ impl MsgData {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time before Unix epoch");
-        let naive = NaiveDateTime::from_timestamp_opt(now.as_secs() as i64, now.subsec_nanos()).unwrap();
-        let now = chrono::TimeZone::from_utc_datetime(&chrono::Utc, &naive);
+        let now = chrono::DateTime::<chrono::Utc>::from_timestamp(now.as_secs() as i64, now.subsec_nanos()).unwrap();
         Self {
             action: DataAction::SetServerTime.into(),
             year: now.year() - 1900,

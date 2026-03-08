@@ -104,7 +104,7 @@ impl crate::Cipher for TQRC5 {
     fn decrypt(&self, data: &mut [u8]) {
         // Pad the buffer
         let mut src_len = data.len() / 8;
-        if data.len() % 8 > 0 {
+        if !data.len().is_multiple_of(8) {
             src_len += 1;
         }
 
@@ -134,7 +134,7 @@ impl crate::Cipher for TQRC5 {
 
     fn encrypt(&self, data: &mut [u8]) {
         let mut src_len = data.len() / 8;
-        if data.len() % 8 > 0 {
+        if !data.len().is_multiple_of(8) {
             src_len += 1;
         }
 
@@ -220,6 +220,6 @@ mod tests {
         let original = buf;
         rc5.encrypt(&mut buf);
         rc5.decrypt(&mut buf);
-        assert_eq!(buf, origional);
+        assert_eq!(buf, original);
     }
 }

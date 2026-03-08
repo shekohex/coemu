@@ -119,7 +119,7 @@ impl super::Cipher for CQCipher {
         (0..data.len()).for_each(|i| {
             data[i] ^= key1[((x >> 8) + 0x100) as usize];
             data[i] ^= key1[(x & 0xff) as usize];
-            data[i] = data[i] >> 4 | data[i] << 4;
+            data[i] = data[i].rotate_left(4);
             data[i] ^= 0xAB;
             x = x.wrapping_add(1);
         });
@@ -143,7 +143,7 @@ impl super::Cipher for CQCipher {
                     data[i] ^= key2[(x & 0xff) as usize];
                 },
             }
-            data[i] = data[i] >> 4 | data[i] << 4;
+            data[i] = data[i].rotate_left(4);
             data[i] ^= 0xAB;
             x = x.wrapping_add(1);
         });

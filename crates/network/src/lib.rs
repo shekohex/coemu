@@ -103,7 +103,7 @@ impl PacketEncode for (u16, Bytes) {
     }
 }
 
-impl<'a> PacketEncode for (u16, &'a [u8]) {
+impl PacketEncode for (u16, &[u8]) {
     type Error = Error;
     type Packet = ();
 

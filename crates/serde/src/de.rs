@@ -67,7 +67,7 @@ where
     T: Deserialize<'a>,
 {
     let mut deserializer = Deserializer::from_bytes(s);
-    T::deserialize(&mut deserializer).map_err(Into::into)
+    T::deserialize(&mut deserializer)
 }
 
 macro_rules! impl_nums {
@@ -86,7 +86,7 @@ macro_rules! impl_nums {
     };
 }
 
-impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
+impl<'de> de::Deserializer<'de> for &mut Deserializer<'de> {
     type Error = TQSerdeError;
 
     impl_nums!(u8, deserialize_u8, visit_u8, read_u8);

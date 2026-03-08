@@ -98,8 +98,26 @@ impl Floor {
             trace!("we didn't found the map at {}", map_path.display());
             let mut p = self.path.clone();
             p.set_extension("DMap");
-            let orignal_path = data_path.join("GameMaps").join("map").join(p);
-            self.convert_and_load(orignal_path).await?;
+            let maps_dir = data_path.join("GameMaps").join("map");
+            let original_path = maps_dir.join(&p);
+            let original_path = if let Ok(true) = original_path.try_exists() {
+                original_path
+            } else {
+                let mut fallback = None;
+                let mut entries = tokio::fs::read_dir(&maps_dir).await?;
+                while let Some(entry) = entries.next_entry().await? {
+                    if entry
+                        .file_name()
+                        .to_string_lossy()
+                        .eq_ignore_ascii_case(&p.to_string_lossy())
+                    {
+                        fallback = Some(entry.path());
+                        break;
+                    }
+                }
+                fallback.unwrap_or(original_path)
+            };
+            self.convert_and_load(original_path).await?;
         }
         Ok(())
     }

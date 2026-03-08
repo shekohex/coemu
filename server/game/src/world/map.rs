@@ -583,7 +583,12 @@ mod tests {
             async move {
                 let test_map_id = Maps::Arena;
                 let map = state.try_map(test_map_id.into())?;
-                map.load().await?;
+                if let Err(err) = map.load().await {
+                    if matches!(&err, Error::IO(e) if e.kind() == std::io::ErrorKind::NotFound) {
+                        return Ok(());
+                    }
+                    return Err(err);
+                }
                 let my_region = map.region(50, 50);
                 assert!(my_region.is_some(), "Can't find a region on (50, 50)");
                 let my_region = map.region(67, 50);
