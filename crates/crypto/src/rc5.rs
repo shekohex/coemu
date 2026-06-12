@@ -220,6 +220,6 @@ mod tests {
         let original = buf;
         rc5.encrypt(&mut buf);
         rc5.decrypt(&mut buf);
-        assert_eq!(buf, origional);
+        assert_eq!(buf, original);
     }
 }

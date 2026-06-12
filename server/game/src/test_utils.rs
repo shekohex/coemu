@@ -34,7 +34,9 @@ where
         .pretty()
         .with_target(true)
         .with_test_writer();
-    tracing_subscriber::registry().with(env_filter).with(logger).init();
+    // Multiple tests share the same binary; only the first one gets to
+    // install the global subscriber.
+    let _ = tracing_subscriber::registry().with(env_filter).with(logger).try_init();
 
     let pool = SqlitePoolOptions::new()
         .max_connections(42)

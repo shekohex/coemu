@@ -70,24 +70,10 @@ impl PacketProcess for MsgItem {
         let action = self.action_type.into();
         match action {
             ItemActionType::Ping => {
-                // a bit hacky, just testing it out.
-                // what if we missed with the client timestamp?
-                // does this yield a negative value? let's find out.
-                // lets add 30ms from the client timestamp, so when
-                // the client receives the packet, it can calculate
-                // the round trip time.
-                let msg = MsgItem {
-                    character_id: self.character_id,
-                    param0: self.param0,
-                    action_type: self.action_type,
-                    client_timestamp: self.client_timestamp + 30,
-                    param1: self.param1,
-                };
-                // LMFAO, this is so bad. it actually made the ping appear
-                // negative. I'm not sure if this is a bug in the client
-                // or if it's a bug in the server. I'm going to remove this
-                // later, but I'm going to leave it here for now.
-                actor.send(msg).await?;
+                // Echo the packet back unmodified; the client computes the
+                // displayed round-trip time from its own timestamp, so any
+                // server-side adjustment only skews the result.
+                actor.send(self.clone()).await?;
             },
             _ => {
                 actor.send(self.clone()).await?;
@@ -107,5 +93,179 @@ impl PacketProcess for MsgItem {
             },
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use futures::FutureExt;
+    use tq_network::{Message, PacketDecode};
+
+    use super::*;
+    use crate::test_utils::*;
+
+    #[tokio::test]
+    async fn ping_echoes_client_timestamp_unmodified() -> Result<(), crate::Error> {
+        with_test_env(tracing::Level::DEBUG, |state, _actors| {
+            async move {
+                let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+                let actor = Actor::<ActorState>::new(tx);
+                let msg = MsgItem {
+                    character_id: 1,
+                    param0: 0,
+                    action_type: ItemActionType::Ping.into(),
+                    client_timestamp: 0xDEAD_BEEF,
+                    param1: 0,
+                };
+                msg.process(&state, &actor).await?;
+                let echoed = match rx.try_recv() {
+                    Ok(Message::Packet(id, bytes)) => {
+                        assert_eq!(id, MsgItem::PACKET_ID);
+                        MsgItem::decode(&bytes)?
+                    },
+                    other => panic!("expected an echoed MsgItem, got {other:?}"),
+                };
+                assert_eq!(echoed.client_timestamp, msg.client_timestamp);
+                assert_eq!(echoed.character_id, msg.character_id);
+                assert_eq!(echoed.action_type, msg.action_type);
+                Ok(())
+            }
+            .boxed()
+        })
+        .await
+    }
+
+    /// QA (SOC-7): boundary timestamps must round-trip bit-exact. The old
+    /// `client_timestamp + 30` fudge would overflow-panic on `u32::MAX` in
+    /// debug builds and skew every other value.
+    #[tokio::test]
+    async fn ping_echoes_boundary_timestamps_unmodified() -> Result<(), crate::Error> {
+        with_test_env(tracing::Level::DEBUG, |state, _actors| {
+            async move {
+                for timestamp in [0u32, 1, 29, 30, u32::MAX - 30, u32::MAX] {
+                    let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+                    let actor = Actor::<ActorState>::new(tx);
+                    let msg = MsgItem {
+                        character_id: 1,
+                        param0: 0,
+                        action_type: ItemActionType::Ping.into(),
+                        client_timestamp: timestamp,
+                        param1: 0,
+                    };
+                    msg.process(&state, &actor).await?;
+                    let echoed = match rx.try_recv() {
+                        Ok(Message::Packet(id, bytes)) => {
+                            assert_eq!(id, MsgItem::PACKET_ID);
+                            MsgItem::decode(&bytes)?
+                        },
+                        other => panic!("expected an echoed MsgItem, got {other:?}"),
+                    };
+                    assert_eq!(echoed.client_timestamp, timestamp, "timestamp {timestamp} was modified");
+                }
+                Ok(())
+            }
+            .boxed()
+        })
+        .await
+    }
+
+    /// QA (SOC-7): the echo must carry the full 5017 field set (20-byte
+    /// body: ID, Data, Action, SystemTime, Amount) verbatim, and a ping
+    /// must produce exactly one outbound packet — no diagnostic chatter.
+    #[tokio::test]
+    async fn ping_echoes_full_field_set_and_nothing_else() -> Result<(), crate::Error> {
+        with_test_env(tracing::Level::DEBUG, |state, _actors| {
+            async move {
+                let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+                let actor = Actor::<ActorState>::new(tx);
+                let msg = MsgItem {
+                    character_id: 0xAABB_CCDD,
+                    param0: 0x1122_3344,
+                    action_type: ItemActionType::Ping.into(),
+                    client_timestamp: 0x5566_7788,
+                    param1: 0x99AA_BBCC,
+                };
+                msg.process(&state, &actor).await?;
+                let echoed = match rx.try_recv() {
+                    Ok(Message::Packet(id, bytes)) => {
+                        assert_eq!(id, MsgItem::PACKET_ID, "echo must be packet 1009");
+                        assert_eq!(bytes.len(), 20, "5017 MsgItem body is five u32 fields");
+                        MsgItem::decode(&bytes)?
+                    },
+                    other => panic!("expected an echoed MsgItem, got {other:?}"),
+                };
+                assert_eq!(echoed.character_id, msg.character_id);
+                assert_eq!(echoed.param0, msg.param0);
+                assert_eq!(echoed.action_type, msg.action_type);
+                assert_eq!(echoed.client_timestamp, msg.client_timestamp);
+                assert_eq!(echoed.param1, msg.param1);
+                assert!(
+                    rx.try_recv().is_err(),
+                    "ping must not produce extra packets (e.g. the missing-action diagnostic)"
+                );
+                Ok(())
+            }
+            .boxed()
+        })
+        .await
+    }
+
+    /// QA (SOC-7 regression guard): a hostile/unknown action id must still
+    /// take the missing-action arm — echo plus a `MsgTalk` (1004) service
+    /// diagnostic — and must not be misrouted into the ping echo.
+    #[tokio::test]
+    async fn unknown_action_still_sends_missing_action_diagnostic() -> Result<(), crate::Error> {
+        with_test_env(tracing::Level::DEBUG, |state, _actors| {
+            async move {
+                for hostile_action in [0u32, 7, 30, 0xDEAD_BEEF, u32::MAX] {
+                    let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+                    let actor = Actor::<ActorState>::new(tx);
+                    let msg = MsgItem {
+                        character_id: 1,
+                        param0: 0,
+                        action_type: hostile_action,
+                        client_timestamp: 0,
+                        param1: 0,
+                    };
+                    msg.process(&state, &actor).await?;
+                    match rx.try_recv() {
+                        Ok(Message::Packet(id, _)) => {
+                            assert_eq!(id, MsgItem::PACKET_ID, "first reply for action {hostile_action} must be the echo")
+                        },
+                        other => panic!("expected an echoed MsgItem for action {hostile_action}, got {other:?}"),
+                    }
+                    match rx.try_recv() {
+                        Ok(Message::Packet(id, _)) => assert_eq!(
+                            id,
+                            MsgTalk::PACKET_ID,
+                            "action {hostile_action} must produce the missing-action MsgTalk diagnostic"
+                        ),
+                        other => {
+                            panic!("expected a MsgTalk diagnostic for action {hostile_action}, got {other:?}")
+                        },
+                    }
+                }
+                Ok(())
+            }
+            .boxed()
+        })
+        .await
+    }
+
+    /// QA (SOC-7 hostile input): 5017 MsgItem requests legitimately arrive
+    /// in multiple sizes — a truncated ping body must fail decoding with a
+    /// clean error, never a panic.
+    #[test]
+    fn truncated_msg_item_decode_errors_cleanly() {
+        // Full body is 20 bytes; try every shorter length, including the
+        // 4267-era 16-byte layout without the trailing Amount field.
+        for len in 0..20usize {
+            let bytes = bytes::Bytes::from(vec![0u8; len]);
+            let res = MsgItem::decode(&bytes);
+            assert!(res.is_err(), "decoding a {len}-byte MsgItem body must error, got {res:?}");
+        }
+        // Exactly 20 bytes must decode.
+        let bytes = bytes::Bytes::from(vec![0u8; 20]);
+        assert!(MsgItem::decode(&bytes).is_ok());
     }
 }
